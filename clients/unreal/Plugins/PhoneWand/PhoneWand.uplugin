@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 11,
-	"VersionName": "0.5.1",
+	"Version": 12,
+	"VersionName": "0.6.0",
 	"FriendlyName": "Phone Wand",
 	"Description": "Turns phones into pointers for a shared screen. Connects to the Phone Wand relay and gives Blueprint and C++ every player's pose, screen position and buttons.",
 	"Category": "Input",

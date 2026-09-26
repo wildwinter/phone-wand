@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-26
+
 ### Added
 
 - **Flicks**: `flick-up`, `flick-down`, `flick-left` and `flick-right`, for turning the phone fast,
