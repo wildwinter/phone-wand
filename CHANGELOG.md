@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-26
+
 ### Fixed
 
 - macOS could refuse to open the downloaded relay, warning that it may harm the Mac. The macOS relay
