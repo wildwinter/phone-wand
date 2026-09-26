@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.7",
+	"Category": "Samples",
+	"Description": "Phone Wand demo: every phone draws a coloured cursor on the screen. Finds the Phone Wand plugin in the sibling folder (AdditionalPluginDirectories), so the release zip works as unpacked.",
+	"Modules": [
+		{
+			"Name": "PhoneWandDemo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "PhoneWand",
+			"Enabled": true
+		}
+	],
+	"AdditionalPluginDirectories": [
+		".."
+	]
+}

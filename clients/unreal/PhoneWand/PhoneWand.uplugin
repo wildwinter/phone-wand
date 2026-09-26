@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Phone Wand",
+	"Description": "Turns phones into pointers for a shared screen. Connects to the Phone Wand relay and gives Blueprint and C++ every player's pose, screen position and buttons.",
+	"Category": "Input",
+	"CreatedBy": "Ian Thomas",
+	"CreatedByURL": "https://storytools.se",
+	"DocsURL": "https://github.com/wildwinter/phone-wand",
+	"MarketplaceURL": "",
+	"SupportURL": "https://github.com/wildwinter/phone-wand/issues",
+	"CanContainContent": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "PhoneWand",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

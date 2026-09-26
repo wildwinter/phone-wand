@@ -27,11 +27,14 @@ export interface ServerOptions {
  * Web pages carry an Origin header; native apps usually do not. Only let pages from this computer
  * (or origins the user allowed) connect as apps, so a random website open in a browser cannot.
  */
-export function originAllowed(origin: string | null, allowed: string[]): boolean {
+export function originAllowed(origin: string | null, allowed: string[], requestHost = ""): boolean {
   if (!origin || origin === "null") return true;
   if (allowed.includes("*") || allowed.includes(origin)) return true;
   try {
     const host = new URL(origin).hostname;
+    // Some native WebSocket clients (Unreal's among them) send an Origin naming the host they
+    // connected to. A page from the relay's own address is local too.
+    if (requestHost && host === requestHost.replace(/:\d+$/, "")) return true;
     return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".localhost");
   } catch {
     return false;
@@ -129,7 +132,7 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
         const ip = server.requestIP(req)?.address ?? "";
         const local = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
         if (!local) return new Response("Not found", { status: 404 });
-        if (!originAllowed(req.headers.get("origin"), opts.allowOrigins)) {
+        if (!originAllowed(req.headers.get("origin"), opts.allowOrigins, req.headers.get("host") ?? "")) {
           console.warn(`Refused an app connection from a web page at ${req.headers.get("origin")}. Use --allow-origin to permit it.`);
           return new Response("Origin not allowed. Start the relay with --allow-origin to permit it.", { status: 403 });
         }
@@ -249,7 +252,7 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
             headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
           });
         case "/app":
-          if (!originAllowed(req.headers.get("origin"), opts.allowOrigins)) {
+          if (!originAllowed(req.headers.get("origin"), opts.allowOrigins, req.headers.get("host") ?? "")) {
             console.warn(`Refused an app connection from a web page at ${req.headers.get("origin")}. Use --allow-origin to permit it.`);
             return new Response("Origin not allowed. Start the relay with --allow-origin to permit it.", { status: 403 });
           }

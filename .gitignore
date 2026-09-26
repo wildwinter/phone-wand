@@ -38,6 +38,8 @@ clients/unreal/**/Binaries/
 clients/unreal/**/Intermediate/
 clients/unreal/**/DerivedDataCache/
 clients/unreal/**/Saved/
+clients/unreal/PhoneWandDemo/Build/
+clients/unreal/PhoneWandDemo/Config/DefaultInput.ini
 clients/unreal/**/.vs/
 clients/unreal/**/.vscode/
 clients/unreal/**/.idea/

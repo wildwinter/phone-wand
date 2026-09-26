@@ -15,3 +15,8 @@ test("other web origins need --allow-origin", () => {
   expect(originAllowed("https://example.com", ["*"])).toBe(true);
   expect(originAllowed("https://localhost.example.com", [])).toBe(false);
 });
+
+test("an origin naming the host the client connected to is allowed", () => {
+  expect(originAllowed("http://192.168.1.20", [], "192.168.1.20:8480")).toBe(true);
+  expect(originAllowed("http://192.168.1.99", [], "192.168.1.20:8480")).toBe(false);
+});
