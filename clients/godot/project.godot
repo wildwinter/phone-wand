@@ -1,0 +1,30 @@
+; Small project for the Phone Wand Godot addon: runs the demo and the tests.
+; Open it in Godot 4.7 (the addon itself supports Godot 4.4 and newer).
+
+config_version=5
+
+[application]
+
+config/name="Phone Wand (Godot client)"
+config/description="Demo and tests for the Phone Wand Godot addon."
+config/version="0.1.0"
+run/main_scene="res://addons/phone_wand/demo/cursors.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+PhoneWand="*res://addons/phone_wand/phone_wand_client.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/phone_wand/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
