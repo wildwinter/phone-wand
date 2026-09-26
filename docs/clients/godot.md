@@ -235,8 +235,8 @@ phones.
 
 The addon uses `WebSocketPeer` and `HTTPRequest`, which Godot implements with the browser's own
 WebSocket and fetch in web exports, and it does not need threads, so the "no threads" web export
-works. Where it gets harder is the browser's security rules, because the relay's app port is plain
-`ws://` (not `wss://`) on `127.0.0.1`.
+works. Where it gets harder is the browser's security rules, because the relay's main app port is
+plain `ws://` on `127.0.0.1`.
 
 **What works reliably:** serve the exported game from the same computer as the relay, over plain
 HTTP from `localhost` or `127.0.0.1`. Godot's **Remote Debug > Run in Browser** does exactly this
@@ -258,8 +258,11 @@ computer, there is no mixed content, and the relay accepts the connection.
   `phone-wand --allow-origin https://example.itch.io`. Only allow origins you trust: any page from
   that origin, open in a browser on this computer, could then read the players' input and send
   prompts to their phones.
-- The relay does not offer `wss://` for apps, so you cannot make the connection secure to avoid
-  mixed content.
+- To avoid mixed content, connect securely to `wss://127.0.0.1:8443/app` (the relay's phone port,
+  which answers app connections only from its own computer), for example with
+  `?relay=wss://127.0.0.1:8443/app`. The browser must trust the relay's certificate: open
+  `https://127.0.0.1:8443/` once and accept the warning, or install `~/.phone-wand/ca.crt.pem` on
+  the computer.
 
 **A page on a different computer from the relay** needs the relay started with
 `--app-host 0.0.0.0` (so other machines can connect), `--allow-origin` for the page's origin, the

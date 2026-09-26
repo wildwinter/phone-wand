@@ -58,6 +58,7 @@ Run `phone-wand --help` for this list.
 | `http://127.0.0.1:8480/qr.svg` | The same as SVG. |
 | `http://127.0.0.1:8480/status.json` | Current players and settings. |
 | `http://127.0.0.1:8480/phone-wand.js` | The JavaScript client, for a `<script>` tag. |
+| `wss://127.0.0.1:8443/app` | The app WebSocket over TLS, on the phone port, for web pages served over HTTPS. Only answers connections from this computer. |
 
 ## Which apps may connect
 

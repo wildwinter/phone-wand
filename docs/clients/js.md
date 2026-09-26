@@ -119,8 +119,16 @@ When the relay goes away, every player gets a `leave`, then `disconnected` fires
 
 A page served from an `https://` address may not be allowed to connect to `ws://127.0.0.1`, because
 browsers block "mixed content". Chrome and Firefox treat `127.0.0.1` and `localhost` as secure and
-allow it; Safari may not. Serve your page from `http://localhost` during development, or open it from
-a file, if you hit this.
+allow it; Safari may not. Either serve your page from `http://localhost`, or connect securely:
+
+```js
+const wand = new PhoneWand({ url: "wss://127.0.0.1:8443/app" });
+```
+
+That endpoint uses the relay's own certificate, so the browser must trust it: open
+`https://127.0.0.1:8443/` once in that browser and accept the warning, or install the relay's
+certificate (`~/.phone-wand/ca.crt.pem`) on the computer. A page from another site also needs the
+relay started with `--allow-origin` (see [the relay](../relay.md#which-apps-may-connect)).
 
 ## Examples
 

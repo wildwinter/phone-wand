@@ -13,7 +13,10 @@ change is listed in the [changelog](../CHANGELOG.md).
 phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localhost--> apps
 ```
 
-- Apps connect to `ws://127.0.0.1:8480/app` (the port is configurable with `--app-port`).
+- Apps connect to `ws://127.0.0.1:8480/app` (the port is configurable with `--app-port`). Web
+  builds served over HTTPS, which browsers may not allow to open a plain `ws://` connection, can use
+  `wss://127.0.0.1:8443/app` instead: the same endpoint on the phone port, only reachable from the
+  relay's own computer.
 - Every message is one JSON object in one WebSocket text frame, with a `type` field.
 - Unknown message types and unknown fields must be ignored, so newer relays can add information
   without breaking older clients.

@@ -123,6 +123,19 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
         return new Response(PHONE_HTML, {
           headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
         });
+      case "/app": {
+        // A secure app endpoint, for web builds served over HTTPS that cannot open a plain ws://
+        // connection. Only from this computer: phones and other machines never get it.
+        const ip = server.requestIP(req)?.address ?? "";
+        const local = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+        if (!local) return new Response("Not found", { status: 404 });
+        if (!originAllowed(req.headers.get("origin"), opts.allowOrigins)) {
+          console.warn(`Refused an app connection from a web page at ${req.headers.get("origin")}. Use --allow-origin to permit it.`);
+          return new Response("Origin not allowed. Start the relay with --allow-origin to permit it.", { status: 403 });
+        }
+        if (server.upgrade(req, { data: { kind: "app" } })) return undefined;
+        return new Response("WebSocket expected", { status: 400 });
+      }
       case "/phone":
         if (server.upgrade(req, { data: { kind: "phone" } })) return undefined;
         return new Response("WebSocket expected", { status: 400 });
