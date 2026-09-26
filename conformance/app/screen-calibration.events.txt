@@ -12,15 +12,15 @@ pose p1 seq=7 screen=yes
 pose p1 seq=8 screen=yes
 calibrating p1 top-left
 calibrating p1 bottom-right
-calibrating p1 cancelled
+calibrating p1 top-left
 calibrating p1 top-left
 calibrating p1 bottom-right
-pose p1 seq=9 screen=yes
-pose p1 seq=10 screen=yes
-pose p1 seq=11 screen=yes
-pose p1 seq=12 screen=yes
-pose p1 seq=13 screen=yes
-pose p1 seq=14 screen=yes
+pose p1 seq=9 screen=no
+pose p1 seq=10 screen=no
+pose p1 seq=11 screen=no
+pose p1 seq=12 screen=no
+pose p1 seq=13 screen=no
+pose p1 seq=14 screen=no
 calibrated p1 screen
 player p1 state=active calibration=screen name=Bea colour=#ff4d6d transport=ws
 pose p1 seq=15 screen=yes

@@ -20,7 +20,8 @@ through the internet, adding lag and a dependency. They aren't supported.
 
 ### Accept the warning
 
-The first time a phone opens the page, the browser says the connection isn't private.
+The QR code first opens a welcome page that tells players a warning is coming and which buttons to
+tap, so they aren't alarmed by it. Then the browser says the connection isn't private:
 
 - **Safari (iPhone, iPad):** tap **Show Details**, then **visit this website**, then **Visit Website**.
 - **Chrome (Android):** tap **Advanced**, then **Proceed to ... (unsafe)**.

@@ -26,6 +26,9 @@ Phones:
   --max-players <n>     Player slots (default 4)
   --key <text>          Join key carried by the QR code (default: a saved random key)
   --no-key              Let any phone on the network join without the QR code
+  --landing-port <n>    Port for the welcome page the QR code opens, which explains the certificate
+                        warning before the phone shows it (default 8080)
+  --no-landing          QR code goes straight to the secure page (the default with --tls-cert)
   --http-port <n>       Also serve phones over plain HTTP on this port (Android over USB, development)
 
 Certificates:
@@ -86,6 +89,8 @@ async function main() {
         key: { type: "string" },
         "no-key": { type: "boolean" },
         "http-port": { type: "string" },
+        "landing-port": { type: "string" },
+        "no-landing": { type: "boolean" },
         "tls-cert": { type: "string" },
         "tls-key": { type: "string" },
         "app-port": { type: "string" },
@@ -131,7 +136,12 @@ async function main() {
 
   const lan = lanAddresses();
   const host = values.host ?? lan[0]?.address ?? "localhost";
-  const joinUrl = `https://${host}${phonePort === 443 ? "" : `:${phonePort}`}/${key ? `?k=${encodeURIComponent(key)}` : ""}`;
+  const query = key ? `?k=${encodeURIComponent(key)}` : "";
+  const secureUrl = `https://${host}${phonePort === 443 ? "" : `:${phonePort}`}/${query}`;
+  const landingPort = values["no-landing"] || (values["tls-cert"] && !values["landing-port"])
+    ? 0
+    : int(values["landing-port"], "--landing-port", 8080);
+  const landingUrl = `http://${host}${landingPort === 80 ? "" : `:${landingPort}`}/${query}`;
   const dashboardUrl = `http://${appHost === "0.0.0.0" ? "127.0.0.1" : appHost}:${appPort}/`;
 
   if (!!values["tls-cert"] !== !!values["tls-key"]) fail("--tls-cert and --tls-key go together");
@@ -141,7 +151,7 @@ async function main() {
 
   const recorder = values.record ? new Recorder(values.record) : null;
   const session = new Session({
-    maxPlayers, key, joinUrl, version: VERSION,
+    maxPlayers, key, joinUrl: secureUrl, version: VERSION,
     qrUrl: `${dashboardUrl}qr.png`,
     log,
     onPhoneMessage: recorder ? (link, msg, t) => recorder.write({ t, link, msg }) : undefined,
@@ -154,13 +164,16 @@ async function main() {
   let servers;
   try {
     servers = startServers(session, {
-      phonePort, appPort, appHost, httpPort, tls, joinUrl,
+      phonePort, appPort, appHost, httpPort, landingPort, tls,
       allowOrigins: (values["allow-origin"] ?? []).flatMap((o) => o.split(",")).map((o) => o.trim().replace(/\/$/, "")),
     });
   } catch (e) {
     const msg = (e as Error).message;
     fail(/in use|EADDRINUSE/i.test(msg) ? `a port is already in use (${msg}). Is another relay running?` : msg);
   }
+
+  if (servers.landing) session.options.joinUrl = landingUrl;
+  const joinUrl = session.options.joinUrl;
 
   const tick = setInterval(() => session.tick(), 100);
   const second = setInterval(() => session.second(), 1000);
@@ -169,6 +182,7 @@ async function main() {
     console.log(`\nphone-wand ${VERSION}\n`);
     console.log((await QRCode.toString(joinUrl, { type: "terminal", small: true })).trimEnd());
     console.log(`\n  Phones join at:  ${joinUrl}`);
+    if (joinUrl !== secureUrl) console.log(`  Secure page:     ${secureUrl}`);
     if (httpPort) console.log(`  Plain HTTP:      http://${host}:${httpPort}/${key ? `?k=${key}` : ""}`);
     console.log(`  Dashboard:       ${dashboardUrl}`);
     console.log(`  Apps connect to: ws://${appHost === "0.0.0.0" ? "127.0.0.1" : appHost}:${appPort}/app`);

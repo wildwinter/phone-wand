@@ -30,8 +30,9 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
    [latest release](https://github.com/wildwinter/phone-wand/releases/latest) and unzip it.
 2. Run `phone-wand` (on macOS and Linux, `./phone-wand` in a terminal; on Windows, double-click
    `phone-wand.exe`). It prints a QR code and opens the dashboard in your browser.
-3. Scan the QR code with a phone on the same Wi-Fi. Accept the certificate warning (see
-   [Phones and certificates](docs/phones.md) to get rid of it), then tap **Tap to start**.
+3. Scan the QR code with a phone on the same Wi-Fi. A welcome page explains the certificate warning
+   that follows and which buttons to tap (see [Phones and certificates](docs/phones.md) to get rid
+   of it for good). Then tap **Tap to start**.
 4. Point the top of the phone at the middle of the screen and press **Recentre**. Your cursor
    appears on the dashboard's test screen.
 5. For accurate cursors, press **F** on the dashboard for full screen, then press **Calibrate

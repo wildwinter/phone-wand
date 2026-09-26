@@ -15,6 +15,11 @@ the protocol.
 - The phone page: tap to start, motion permission on iPhone, `RelativeOrientationSensor` where
   available and device orientation events otherwise, Primary and Secondary buttons, Recentre, two-corner
   screen calibration, prompts, vibration on Android, and a screen wake lock.
+- A welcome page, opened by the QR code over plain HTTP, that explains the certificate warning
+  before the phone shows it and says which buttons to tap on that browser. Phones that already
+  trust the relay skip it.
+- While a player does screen calibration, their cursor is hidden (poses have no screen position),
+  and the phone says clearly to aim at the physical corners.
 - An HTTP fallback (POST up, Server-Sent Events down) for browsers that refuse a secure WebSocket to
   a self-signed server.
 - Calibration and cursor maths in the relay: Recentre sets forward, two-corner calibration maps a flat

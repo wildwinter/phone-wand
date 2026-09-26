@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<title>Phone Wand</title>
+<style>
+  :root { --bg: #111318; --panel: #1c2028; --line: #2c323d; --text: #f2f4f8; --muted: #9aa3b2; --accent: #2ec4ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 32px; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font-size: 26px; margin: 0; display: flex; align-items: center; gap: 12px; }
+  .dot { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 16px var(--accent); }
+  p { margin: 0; }
+  .muted { color: var(--muted); font-size: 15px; }
+  .steps { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+  .steps h2 { font-size: 15px; margin: 0 0 8px; color: var(--muted); font-weight: 600; }
+  .steps ol { margin: 0; padding-left: 22px; }
+  .steps li { margin: 6px 0; }
+  .tap { font-weight: 700; background: var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .go { display: block; text-align: center; text-decoration: none; background: var(--accent); color: #0b0d12; font-size: 21px; font-weight: 700; padding: 20px; border-radius: 18px; }
+  #checking { color: var(--muted); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1><span class="dot"></span> Phone Wand</h1>
+  <p id="checking">Connecting...</p>
+
+  <div id="explain" class="hidden">
+    <p><strong>One step before you play.</strong></p>
+    <p style="margin-top:10px">Your phone is about to show a warning that the connection is not private.
+      That's expected: the game runs on a computer here on this network, not on the internet, so
+      it can't have a certificate from a public authority. Your movements go straight to that
+      computer and nowhere else.</p>
+  </div>
+
+  <div id="steps" class="steps hidden">
+    <h2 id="steps-title">On the next screen</h2>
+    <ol id="steps-list"></ol>
+  </div>
+
+  <a id="go" class="go hidden" href="#">Continue</a>
+
+  <p id="once" class="muted hidden">Your phone should remember this, so you won't usually see it again.</p>
+</main>
+<script>
+  // The QR code opens this plain-HTTP page first. If the phone already trusts the relay's
+  // certificate it goes straight on; otherwise it explains the warning before the phone shows it.
+  var port = "__PHONE_PORT__";
+  var target = "https://" + location.hostname + (port === "443" ? "" : ":" + port) + "/" + location.search;
+  document.getElementById("go").href = target;
+
+  var ua = navigator.userAgent;
+  var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var steps;
+  if (/CriOS|Chrome|Android/.test(ua) && !/FxiOS|Firefox|EdgiOS|Edg\//.test(ua)) {
+    steps = ["Tap <span class='tap'>Advanced</span>", "Tap <span class='tap'>Proceed to " + location.hostname + " (unsafe)</span>"];
+  } else if (/FxiOS|Firefox/.test(ua)) {
+    steps = ["Tap <span class='tap'>Advanced</span>", "Tap <span class='tap'>Accept the Risk and Continue</span>"];
+  } else if (/EdgiOS|Edg\//.test(ua)) {
+    steps = ["Tap <span class='tap'>Advanced</span>", "Tap <span class='tap'>Continue to " + location.hostname + " (unsafe)</span>"];
+  } else if (ios) {
+    steps = ["Tap <span class='tap'>Show Details</span>", "Tap <span class='tap'>visit this website</span>", "Tap <span class='tap'>Visit Website</span> to confirm"];
+  } else {
+    steps = ["Choose the option to see more details, often called <span class='tap'>Advanced</span>", "Choose to continue to " + location.hostname];
+  }
+  document.getElementById("steps-list").innerHTML = steps.map(function (s) { return "<li>" + s + "</li>"; }).join("");
+
+  function explain() {
+    ["explain", "steps", "go", "once"].forEach(function (id) { document.getElementById(id).classList.remove("hidden"); });
+    document.getElementById("checking").classList.add("hidden");
+  }
+
+  // Does this phone already trust the relay? A no-cors request succeeds only if the secure
+  // connection works without a warning.
+  var done = false;
+  var timer = setTimeout(function () { if (!done) { done = true; explain(); } }, 2500);
+  fetch("https://" + location.hostname + ":" + port + "/ping", { mode: "no-cors", cache: "no-store" })
+    .then(function () { if (!done) { done = true; clearTimeout(timer); location.replace(target); } })
+    .catch(function () { if (!done) { done = true; clearTimeout(timer); explain(); } });
+</script>
+</body>
+</html>

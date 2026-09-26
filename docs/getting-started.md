@@ -33,9 +33,9 @@ in a `.phone-wand` folder in your home folder.
 The phone must be on the **same network** as the relay's computer.
 
 1. Scan the QR code, on the dashboard or in the terminal, with the phone's camera.
-2. The first time, the browser warns that the connection isn't private, because the relay makes its
-   own certificate. Continue anyway (Safari: **Show Details**, then **visit this website**; Chrome:
-   **Advanced**, then **Proceed**). [Phones and certificates](phones.md) explains how to stop the
+2. The first time, a welcome page explains that the browser is about to warn that the connection
+   isn't private (because the relay makes its own certificate), and which buttons to tap. Tap
+   **Continue** and follow it. [Phones and certificates](phones.md) explains how to stop the
    warning for good.
 3. Type a name if you like and tap **Tap to start**. On iPhone, allow motion access when asked.
 4. Hold the phone like a torch, screen up, and point its top edge at the middle of the screen. Press

@@ -23,6 +23,7 @@ export interface SessionOptions {
   maxPlayers: number;
   /** Required join key, or "" to let anyone join. */
   key: string;
+  /** The address the QR code carries. Settable, since it depends on which servers started. */
   joinUrl: string;
   qrUrl: string;
   version: string;
@@ -62,6 +63,8 @@ class Player {
   lastPoseAt = 0;
   disconnectedAt = 0;
   paused = false;
+  /** Doing two-corner calibration: the cursor is hidden so it does not distract. */
+  calibratingScreen = false;
   buttons = new Set<ButtonName>();
   smoothers = new Map<App, PoseSmoother>();
   // stats, reset every second
@@ -229,10 +232,12 @@ export class Session {
         break;
       case "calibrate-start":
         p.calibration.cancelCorners();
+        p.calibratingScreen = true;
         this.broadcast({ type: "calibrating", id: p.id, step: "top-left" });
         break;
       case "calibrate-cancel":
         p.calibration.cancelCorners();
+        p.calibratingScreen = false;
         this.broadcast({ type: "calibrating", id: p.id, step: "cancelled" });
         break;
       case "corner":
@@ -245,8 +250,9 @@ export class Session {
           if (p.calibration.cornerBottomRight(msg.q)) {
             this.calibrated(p);
           } else {
+            // The phone asks the player to start again from the first corner.
             p.link.send({ type: "calibration", calibration: p.calibration.kind, step: "failed", ok: false });
-            this.broadcast({ type: "calibrating", id: p.id, step: "cancelled" });
+            this.broadcast({ type: "calibrating", id: p.id, step: "top-left" });
           }
         }
         break;
@@ -303,6 +309,7 @@ export class Session {
     p.disconnectedAt = 0;
     p.lastSeq = -1;
     p.paused = false;
+    p.calibratingScreen = false;
     p.state = "waiting";
     if (typeof msg.name === "string" && cleanName(msg.name)) p.name = cleanName(msg.name);
     p.platform = ["iOS", "Android"].includes(msg.platform) ? msg.platform : "other";
@@ -329,6 +336,8 @@ export class Session {
     p.disconnectedAt = this.now();
     this.releaseButtons(p);
     p.calibration.cancelCorners();
+    if (p.calibratingScreen) this.broadcast({ type: "calibrating", id: p.id, step: "cancelled" });
+    p.calibratingScreen = false;
     this.options.log?.(`lost  ${p.id} (holding slot ${p.slot + 1} for ${Math.round(this.grace / 1000)} s)`);
     this.setState(p, "paused");
   }
@@ -351,11 +360,13 @@ export class Session {
       let s = p.smoothers.get(app);
       if (!s) p.smoothers.set(app, (s = new PoseSmoother(app.smoothing)));
       const d = derivePose(s.smooth(calibrated, stamp), p.calibration.screen);
+      if (p.calibratingScreen) d.screen = null;
       app.link.send({ type: "pose", id: p.id, seq, t, ...d });
     }
   }
 
   private calibrated(p: Player): void {
+    p.calibratingScreen = false;
     for (const s of p.smoothers.values()) s.reset(); // jump straight to the new frame
     const kind = p.calibration.kind;
     this.options.log?.(`calib ${p.id} ${kind}`);

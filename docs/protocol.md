@@ -65,7 +65,8 @@ turns clockwise as seen from behind (right edge down). The ray direction is
 
 `screen` is `[x, y]` in normalised screen space: `[0, 0]` is the top-left corner and `[1, 1]` the
 bottom-right. Values outside 0..1 mean the player is pointing off the screen. `screen` is `null`
-when the phone points more than about 87 degrees away from forward.
+when the phone points more than about 87 degrees away from forward, and while the player is doing
+two-corner screen calibration (so apps hide the cursor, which would otherwise distract them).
 
 Before a player calibrates a screen, the relay uses a default virtual screen 40 degrees wide and
 22.5 degrees high (16:9) centred on forward, so Recentre alone gives a usable cursor.
@@ -101,11 +102,12 @@ Sent once, immediately after connecting.
 
 ```json
 { "type": "hello", "protocol": 0, "relay": "0.1.0",
-  "joinUrl": "https://192.168.1.20:8443/?k=7f3a", "qrUrl": "http://127.0.0.1:8480/qr.png",
+  "joinUrl": "http://192.168.1.20:8080/?k=7f3a", "qrUrl": "http://127.0.0.1:8480/qr.png",
   "maxPlayers": 4, "players": [ { "id": "p1", ... } ] }
 ```
 
-`qrUrl` serves a PNG (append `?size=512` for a size in pixels) that engines can load as a texture.
+`joinUrl` is the address the QR code carries: normally the relay's welcome page, which explains the
+certificate warning and then continues to the secure phone page. `qrUrl` serves a PNG (append `?size=512` for a size in pixels) that engines can load as a texture.
 `/qr.svg` also works.
 
 ### `join`
@@ -155,7 +157,8 @@ Buttons in version 0: `primary` and `secondary`. Every `down` is followed by an 
 `{ "type": "calibrating", "id": "p1", "step": "top-left" }`
 
 The player has started screen calibration and is being asked to point at a corner. `step` is
-`top-left` or `bottom-right`, or `cancelled`. Apps may draw corner markers to help.
+`top-left` or `bottom-right`, or `cancelled`. A failed attempt starts again at `top-left`. Apps may
+draw corner markers to help. Until `calibrated` or `cancelled`, the player's poses have no `screen`.
 
 ### `calibrated`
 

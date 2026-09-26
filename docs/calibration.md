@@ -42,6 +42,9 @@ player points:
 2. On the phone, press **Calibrate screen** (or have your app send `calibrate` in `screen` mode).
 3. Point at the top-left corner and tap anywhere on the phone. Then the bottom-right corner, and tap.
 
+While the player calibrates, the relay stops sending their screen position, so apps hide their
+cursor: players aim at the physical corners, not at a cursor. The ray is still sent.
+
 The relay works out the screen's size and position from those two directions, so it handles any
 screen size at any distance. Apps get a `calibrating` message at each step, and can draw markers
 in the corners to help.

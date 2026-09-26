@@ -21,6 +21,8 @@ Run `phone-wand --help` for this list.
 | `--max-players <n>` | 4 | Player slots. |
 | `--key <text>` | a saved random key | Join key carried in the QR code. Phones without it are turned away. |
 | `--no-key` | | Let any phone on the network join without the QR code. |
+| `--landing-port <n>` | 8080 | Port for the welcome page the QR code opens (see below). |
+| `--no-landing` | | Point the QR code straight at the secure page. This is the default with `--tls-cert`. |
 | `--http-port <n>` | off | Also serve phones over plain HTTP on this port (see [Phones](phones.md#android-over-usb)). |
 | `--tls-cert <file>` | | Use this PEM certificate instead of the relay's own. |
 | `--tls-key <file>` | | The private key for `--tls-cert`. |
@@ -67,6 +69,17 @@ only when they come from this computer (`localhost`, `127.0.0.1`, or a local fil
 open in a browser can't read your players or send them messages. To let a page served from somewhere
 else connect, for example a web build hosted online, start the relay with
 `--allow-origin https://that.site`. The relay prints a line whenever it refuses a page.
+
+## The welcome page
+
+Phones warn about the relay's own certificate the first time they open the secure page, and the
+warning looks alarming. So the QR code opens a plain-HTTP welcome page first (port 8080), which has
+no warning. It checks whether the phone already trusts the relay: if so, it goes straight on;
+otherwise it explains that a warning is coming, why it's safe, and exactly which buttons to tap on
+that phone's browser, with a **Continue** button.
+
+If port 8080 is taken, the relay says so and the QR code points straight at the secure page. Pick
+another port with `--landing-port`, or turn the page off with `--no-landing`.
 
 ## Join keys
 

@@ -482,8 +482,10 @@ function startCalibration(): void {
 function renderCalibration(): void {
   const br = calibStep === "bottom-right";
   $("corner-mark").classList.toggle("br", br);
-  $("calib-title").textContent = br ? "Now the bottom-right corner" : "Point at the top-left corner";
-  $("calib-sub").textContent = "of the screen, hold steady, then tap anywhere.";
+  $("calib-title").textContent = br ? "Now aim at the bottom-right corner" : "Aim at the top-left corner";
+  $("calib-sub").textContent = br
+    ? "Point the top of your phone at the bottom-right corner of the screen itself, hold still, and tap anywhere here."
+    : "Point the top of your phone at the top-left corner of the screen itself, hold still, and tap anywhere here. Your cursor is hidden while you do this.";
 }
 
 function endCalibration(): void {
@@ -514,7 +516,7 @@ function onCalibration(msg: Extract<RelayToPhone, { type: "calibration" }>): voi
   } else if (msg.step === "failed") {
     calibStep = "top-left";
     renderCalibration();
-    $("calib-sub").textContent = "That did not look like a screen. Start again from the top-left corner.";
+    $("calib-sub").textContent = "That didn't look like a screen. Start again: point the top of your phone at the top-left corner of the screen itself, and tap.";
   }
 }
 

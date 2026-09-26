@@ -41,6 +41,7 @@ export async function buildAssets(): Promise<void> {
       `export const PHONE_HTML = ${JSON.stringify(page("packages/phone/src", phone))};`,
       `export const DASHBOARD_HTML = ${JSON.stringify(page("packages/dashboard/src", dashboard))};`,
       `export const CLIENT_JS = ${JSON.stringify(client)};`,
+      `export const LANDING_HTML = ${JSON.stringify(readFileSync(join(root, "packages/phone/src/landing.html"), "utf8"))};`,
       "",
     ].join("\n"),
   );

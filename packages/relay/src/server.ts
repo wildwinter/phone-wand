@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 import type { AppToRelay, PhoneToRelay, RelayToApp, RelayToPhone } from "@phone-wand/core";
 import { type PhoneConnection, type PhoneLink, Session } from "./session.js";
 import type { TlsMaterial } from "./certs.js";
-import { CLIENT_JS, DASHBOARD_HTML, PHONE_HTML } from "./generated/assets.js";
+import { CLIENT_JS, DASHBOARD_HTML, LANDING_HTML, PHONE_HTML } from "./generated/assets.js";
 
 type WsData =
   | { kind: "phone"; conn?: PhoneConnection }
@@ -17,8 +17,8 @@ export interface ServerOptions {
   appPort: number;
   appHost: string;
   httpPort: number; // plain HTTP for phones; 0 = off
+  landingPort: number; // plain HTTP welcome page the QR code opens; 0 = off
   tls: TlsMaterial;
-  joinUrl: string;
   /** Extra web origins allowed to connect to /app, or "*" for any. */
   allowOrigins: string[];
 }
@@ -43,6 +43,8 @@ export function originAllowed(origin: string | null, allowed: string[], requestH
 
 export interface RunningServers {
   stop(): void;
+  /** Whether the welcome page is being served (its port may have been taken). */
+  landing: boolean;
 }
 
 function parse<T>(raw: string | Buffer): T | null {
@@ -180,6 +182,9 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
           },
         });
       }
+      case "/ping":
+        // Lets the welcome page check whether this phone already trusts the certificate.
+        return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
       case "/ca.crt":
         if (!opts.tls.caDer) return new Response("Not using the local certificate authority", { status: 404 });
         return new Response(opts.tls.caDer as Uint8Array<ArrayBuffer>, {
@@ -237,6 +242,31 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
     ? Bun.serve<WsData>({ port: opts.httpPort, hostname: "0.0.0.0", idleTimeout: 30, fetch: phoneFetch, websocket })
     : null;
 
+  // ------------------------------------------------------------ welcome page
+
+  // The QR code opens this plain-HTTP page, which shows no warning. It explains the certificate
+  // warning before the phone shows it, or goes straight on if the phone already trusts the relay.
+  let landingServer: ReturnType<typeof Bun.serve> | null = null;
+  if (opts.landingPort) {
+    const landing = LANDING_HTML.replace("__PHONE_PORT__", String(opts.phonePort));
+    try {
+      landingServer = Bun.serve({
+        port: opts.landingPort,
+        hostname: "0.0.0.0",
+        fetch(req) {
+          const url = new URL(req.url);
+          if (url.pathname === "/" || url.pathname === "/index.html") {
+            return new Response(landing, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+          }
+          if (url.pathname === "/ca.crt") return phoneFetch(req, phoneServer as never) as Promise<Response>;
+          return new Response("Not found", { status: 404 });
+        },
+      });
+    } catch (e) {
+      console.warn(`Could not serve the welcome page on port ${opts.landingPort} (${(e as Error).message}); the QR code goes straight to the secure page.`);
+    }
+  }
+
   // ------------------------------------------------------------ app routes
 
   const appServer = Bun.serve<WsData>({
@@ -264,13 +294,13 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
           });
         case "/qr.png": {
           const size = Math.min(2048, Math.max(64, Number(url.searchParams.get("size")) || 400));
-          const png = await QRCode.toBuffer(opts.joinUrl, { type: "png", width: size, margin: 2 });
+          const png = await QRCode.toBuffer(session.options.joinUrl, { type: "png", width: size, margin: 2 });
           return new Response(new Uint8Array(png), {
             headers: { "content-type": "image/png", "access-control-allow-origin": "*", "cache-control": "no-store" },
           });
         }
         case "/qr.svg": {
-          const svg = await QRCode.toString(opts.joinUrl, { type: "svg", margin: 2 });
+          const svg = await QRCode.toString(session.options.joinUrl, { type: "svg", margin: 2 });
           return new Response(svg, {
             headers: { "content-type": "image/svg+xml", "access-control-allow-origin": "*", "cache-control": "no-store" },
           });
@@ -287,10 +317,12 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
   });
 
   return {
+    landing: landingServer !== null,
     stop() {
       clearInterval(sweep);
       phoneServer.stop(true);
       plainPhoneServer?.stop(true);
+      landingServer?.stop(true);
       appServer.stop(true);
     },
   };
