@@ -1,0 +1,36 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Hal",
+      "colour": "#ff4d6d",
+      "label": "",
+      "state": "active",
+      "calibration": "ray",
+      "transport": "ws",
+      "buttons": [],
+      "pose": {
+        "seq": 29,
+        "yaw": 68.259,
+        "pitch": -28.822,
+        "roll": -34.76,
+        "q": [
+          0.35893,
+          0.45706,
+          0.10622,
+          0.80684
+        ],
+        "dir": [
+          0.8138,
+          -0.48209,
+          0.32453
+        ],
+        "screen": [
+          3.94479,
+          4.12788
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111318">
+<title>Phone Wand</title>
+<style>/*STYLE*/</style>
+</head>
+<body>
+<main id="start" class="screen">
+  <div class="brand"><span class="dot" id="start-dot"></span> Phone Wand</div>
+  <p class="status" id="start-status">Connecting...</p>
+  <label class="field">Your name
+    <input id="name" maxlength="24" autocomplete="nickname" autocapitalize="words" enterkeyhint="done" placeholder="Player">
+  </label>
+  <button id="start-button" class="big" disabled>Tap to start</button>
+  <p class="hint" id="start-hint">Hold your phone like a torch, screen up, and point the top edge at the screen.</p>
+  <details class="help">
+    <summary>Seeing a security warning?</summary>
+    <p>The relay uses its own certificate. Accepting the warning once is fine.
+    To stop it appearing, install the relay's certificate: <a href="/ca.crt">download it here</a>, then on iPhone
+    open Settings, General, VPN &amp; Device Management to install it, and
+    Settings, General, About, Certificate Trust Settings to turn on full trust.</p>
+  </details>
+</main>
+
+<main id="play" class="screen hidden">
+  <header class="bar">
+    <span class="slot" id="slot">1</span>
+    <span class="who"><span id="player-name">Player</span><span class="label" id="player-label"></span></span>
+    <span class="net" id="net"><span class="led"></span><span id="net-text"></span></span>
+  </header>
+  <button id="primary" class="pad">
+    <span class="pad-ring"></span>
+    <span class="pad-text">Primary</span>
+  </button>
+  <div class="row">
+    <button id="secondary" class="small">Secondary</button>
+    <button id="recentre" class="small">Recentre</button>
+    <button id="calibrate" class="small">Calibrate screen</button>
+  </div>
+</main>
+
+<div id="calib" class="overlay hidden">
+  <div class="calib-box">
+    <div class="corner-art"><span id="corner-mark"></span></div>
+    <p class="calib-title" id="calib-title">Point at the top-left corner</p>
+    <p class="calib-sub" id="calib-sub">of the screen, hold steady, then tap anywhere.</p>
+  </div>
+  <button id="calib-cancel" class="small ghost">Cancel</button>
+</div>
+
+<div id="prompt" class="prompt hidden"></div>
+
+<div id="message" class="overlay hidden">
+  <div class="message-box">
+    <p class="message-title" id="message-title"></p>
+    <p class="message-text" id="message-text"></p>
+    <button id="message-button" class="small hidden">Try again</button>
+  </div>
+</div>
+
+<script>/*SCRIPT*/</script>
+</body>
+</html>

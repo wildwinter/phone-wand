@@ -1,0 +1,25 @@
+connected protocol=0 max=4
+join p1 slot=0 name=Gus colour=#ff4d6d
+player p1 state=active calibration=none name=Gus colour=#ff4d6d transport=ws
+pose p1 seq=0 screen=yes
+pose p1 seq=1 screen=yes
+pose p1 seq=2 screen=yes
+pose p1 seq=3 screen=yes
+pose p1 seq=4 screen=yes
+pose p1 seq=5 screen=yes
+player p1 state=active calibration=none name=Gus colour=#00c2ff transport=ws
+player p1 state=active calibration=none name=Gus colour=#00c2ff transport=ws
+pose p1 seq=6 screen=yes
+pose p1 seq=7 screen=yes
+pose p1 seq=8 screen=yes
+pose p1 seq=9 screen=yes
+pose p1 seq=10 screen=yes
+pose p1 seq=11 screen=yes
+player p1 state=paused calibration=none name=Gus colour=#00c2ff transport=ws
+player p1 state=active calibration=none name=Gus colour=#00c2ff transport=ws
+pose p1 seq=12 screen=yes
+pose p1 seq=13 screen=yes
+pose p1 seq=14 screen=yes
+pose p1 seq=15 screen=yes
+pose p1 seq=16 screen=yes
+pose p1 seq=17 screen=yes

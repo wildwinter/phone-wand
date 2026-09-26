@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone Wand</title>
+<style>/*STYLE*/</style>
+</head>
+<body>
+<aside id="side">
+  <header class="head">
+    <h1>Phone Wand</h1>
+    <span id="relay" class="pill off">connecting</span>
+  </header>
+
+  <section class="join">
+    <img id="qr" alt="QR code to join">
+    <div>
+      <p class="join-title">Scan to join</p>
+      <a id="join-url" class="mono" target="_blank" rel="noopener"></a>
+      <p class="muted small-text"><span id="count">0</span> of <span id="max">0</span> players</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Players</h2>
+    <div id="players"></div>
+    <p id="no-players" class="muted">No phones yet. Scan the code with a phone on the same Wi-Fi.</p>
+  </section>
+
+  <section>
+    <h2>Everyone</h2>
+    <div class="actions">
+      <button id="all-screen">Calibrate screen</button>
+      <button id="all-ray">Ask to recentre</button>
+      <button id="all-buzz">Buzz</button>
+    </div>
+    <form id="prompt-form" class="prompt-form">
+      <input id="prompt-text" placeholder="Show text on every phone" maxlength="200">
+      <button>Send</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Smoothing</h2>
+    <label class="slider">Steadiness when still <span id="mc-v"></span>
+      <input id="mc" type="range" min="0.05" max="5" step="0.05" value="1">
+    </label>
+    <label class="slider">Speed when moving <span id="beta-v"></span>
+      <input id="beta" type="range" min="0" max="30" step="0.5" value="5">
+    </label>
+    <label class="check"><input id="raw" type="checkbox"> No smoothing</label>
+  </section>
+
+  <footer class="muted small-text">
+    Press <kbd>F</kbd> or the button below for a full-screen test screen.
+    Calibrate against the full-screen view for accurate cursors.
+  </footer>
+</aside>
+
+<main id="stage">
+  <canvas id="canvas"></canvas>
+  <div id="stage-qr" class="stage-qr"><img id="qr2" alt=""></div>
+  <button id="fullscreen" class="fs">Full screen</button>
+</main>
+
+<script>/*SCRIPT*/</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "phone-wand",
+  "version": "0.1.0",
+  "description": "JavaScript and TypeScript client for Phone Wand: phones as shared pointers for a screen.",
+  "license": "MIT",
+  "author": "Ian Thomas (storytools.se)",
+  "homepage": "https://github.com/wildwinter/phone-wand",
+  "repository": { "type": "git", "url": "git+https://github.com/wildwinter/phone-wand.git", "directory": "packages/client-js" },
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "keywords": ["phone", "pointer", "gyroscope", "multiplayer", "controller", "installation", "websocket"]
+}

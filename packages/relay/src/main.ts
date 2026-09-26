@@ -1,0 +1,195 @@
+#!/usr/bin/env bun
+// phone-wand relay: command-line entry point.
+
+import { parseArgs } from "node:util";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import { spawn } from "node:child_process";
+import QRCode from "qrcode";
+import pkg from "../package.json" with { type: "json" };
+import { Session } from "./session.js";
+import { startServers } from "./server.js";
+import { fileTls, localTls } from "./certs.js";
+import { certificateNames, lanAddresses } from "./network.js";
+import { Recorder, readRecording, replay, simulate } from "./virtual.js";
+
+const VERSION: string = pkg.version;
+
+const HELP = `phone-wand ${VERSION}: turn phones into shared pointers for a screen.
+
+Usage: phone-wand [options]
+
+Phones:
+  --port <n>            HTTPS port phones connect to (default 8443)
+  --host <name>         Address or name to put in the QR code (default: this machine's LAN IP)
+  --max-players <n>     Player slots (default 4)
+  --key <text>          Join key carried by the QR code (default: a saved random key)
+  --no-key              Let any phone on the network join without the QR code
+  --http-port <n>       Also serve phones over plain HTTP on this port (Android over USB, development)
+
+Certificates:
+  --tls-cert <file>     Use this certificate (PEM) instead of the relay's own local CA
+  --tls-key <file>      Private key (PEM) for --tls-cert
+
+Apps:
+  --app-port <n>        Port apps and the dashboard connect to (default 8480)
+  --app-host <addr>     Address apps connect on (default 127.0.0.1; 0.0.0.0 allows other machines)
+
+Testing:
+  --simulate <n>        Add n simulated players that move and click on their own
+  --record <file>       Record every phone message to a .jsonl file
+  --replay <file>       Replay a recording as virtual phones
+  --loop                With --replay, repeat forever
+
+Other:
+  --data-dir <dir>      Where certificates and settings live (default ~/.phone-wand)
+  --no-open             Do not open the dashboard in a browser
+  --quiet               Only print errors
+  -v, --version         Print the version
+  -h, --help            Show this help
+
+Docs: https://github.com/wildwinter/phone-wand`;
+
+function fail(message: string): never {
+  console.error(`phone-wand: ${message}`);
+  process.exit(1);
+}
+
+function int(value: string | undefined, name: string, fallback: number): number {
+  if (value === undefined) return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 65535) fail(`${name} must be a whole number`);
+  return n;
+}
+
+function openBrowser(url: string): void {
+  const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+  try {
+    spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
+  } catch {
+    // no browser; the URL is printed anyway
+  }
+}
+
+async function main() {
+  let values;
+  try {
+    ({ values } = parseArgs({
+      options: {
+        port: { type: "string" },
+        host: { type: "string" },
+        "max-players": { type: "string" },
+        key: { type: "string" },
+        "no-key": { type: "boolean" },
+        "http-port": { type: "string" },
+        "tls-cert": { type: "string" },
+        "tls-key": { type: "string" },
+        "app-port": { type: "string" },
+        "app-host": { type: "string" },
+        simulate: { type: "string" },
+        record: { type: "string" },
+        replay: { type: "string" },
+        loop: { type: "boolean" },
+        "data-dir": { type: "string" },
+        "no-open": { type: "boolean" },
+        quiet: { type: "boolean" },
+        version: { type: "boolean", short: "v" },
+        help: { type: "boolean", short: "h" },
+      },
+      strict: true,
+    }));
+  } catch (e) {
+    fail(`${(e as Error).message}\nRun phone-wand --help for the options.`);
+  }
+  if (values.help) return console.log(HELP);
+  if (values.version) return console.log(VERSION);
+
+  const quiet = !!values.quiet;
+  const log = (line: string) => quiet || console.log(line);
+  const phonePort = int(values.port, "--port", 8443);
+  const appPort = int(values["app-port"], "--app-port", 8480);
+  const httpPort = int(values["http-port"], "--http-port", 0);
+  const maxPlayers = int(values["max-players"], "--max-players", 4);
+  if (maxPlayers < 1) fail("--max-players must be at least 1");
+  const appHost = values["app-host"] ?? "127.0.0.1";
+  const dataDir = resolve(values["data-dir"] ?? join(homedir(), ".phone-wand"));
+  mkdirSync(dataDir, { recursive: true });
+
+  // The join key survives restarts, so phones (and printed QR codes) keep working.
+  const settingsPath = join(dataDir, "settings.json");
+  const settings: { key?: string } = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf8")) : {};
+  if (!settings.key) {
+    settings.key = Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, "0")).join("");
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  }
+  const key = values["no-key"] ? "" : (values.key ?? settings.key);
+
+  const lan = lanAddresses();
+  const host = values.host ?? lan[0]?.address ?? "localhost";
+  const joinUrl = `https://${host}${phonePort === 443 ? "" : `:${phonePort}`}/${key ? `?k=${encodeURIComponent(key)}` : ""}`;
+  const dashboardUrl = `http://${appHost === "0.0.0.0" ? "127.0.0.1" : appHost}:${appPort}/`;
+
+  if (!!values["tls-cert"] !== !!values["tls-key"]) fail("--tls-cert and --tls-key go together");
+  const tls = values["tls-cert"]
+    ? fileTls(values["tls-cert"], values["tls-key"]!)
+    : await localTls(dataDir, certificateNames(host));
+
+  const recorder = values.record ? new Recorder(values.record) : null;
+  const session = new Session({
+    maxPlayers, key, joinUrl, version: VERSION,
+    qrUrl: `${dashboardUrl}qr.png`,
+    log,
+    onPhoneMessage: recorder ? (link, msg, t) => recorder.write({ t, link, msg }) : undefined,
+    onPhoneLink: recorder
+      ? (link, event, transport, t) =>
+          recorder.write(event === "open" ? { t, link, open: transport } : { t, link, close: true as const })
+      : undefined,
+  });
+
+  let servers;
+  try {
+    servers = startServers(session, { phonePort, appPort, appHost, httpPort, tls, joinUrl });
+  } catch (e) {
+    const msg = (e as Error).message;
+    fail(/in use|EADDRINUSE/i.test(msg) ? `a port is already in use (${msg}). Is another relay running?` : msg);
+  }
+
+  const tick = setInterval(() => session.tick(), 100);
+  const second = setInterval(() => session.second(), 1000);
+
+  if (!quiet) {
+    console.log(`\nphone-wand ${VERSION}\n`);
+    console.log((await QRCode.toString(joinUrl, { type: "terminal", small: true })).trimEnd());
+    console.log(`\n  Phones join at:  ${joinUrl}`);
+    if (httpPort) console.log(`  Plain HTTP:      http://${host}:${httpPort}/${key ? `?k=${key}` : ""}`);
+    console.log(`  Dashboard:       ${dashboardUrl}`);
+    console.log(`  Apps connect to: ws://${appHost === "0.0.0.0" ? "127.0.0.1" : appHost}:${appPort}/app`);
+    if (tls.source === "local-ca") {
+      console.log(`  Certificate:     local CA in ${dataDir} (phones can install it from https://${host}:${phonePort}/ca.crt)`);
+    } else {
+      console.log(`  Certificate:     ${values["tls-cert"]}`);
+    }
+    if (lan.length > 1 && !values.host) {
+      console.log(`  Other addresses: ${lan.slice(1).map((a) => `${a.address} (${a.iface})`).join(", ")}  (use --host to pick one)`);
+    }
+    console.log(`\n  ${maxPlayers} player slots. Press Ctrl+C to stop.\n`);
+  }
+  if (!values["no-open"]) openBrowser(dashboardUrl);
+  const stopSim = values.simulate ? simulate(session, int(values.simulate, "--simulate", 0), key) : null;
+  const stopReplay = values.replay ? replay(session, readRecording(values.replay), key, !!values.loop) : null;
+
+  const shutdown = () => {
+    clearInterval(tick);
+    clearInterval(second);
+    stopSim?.();
+    stopReplay?.();
+    servers.stop();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
+main().catch((e) => fail((e as Error).stack ?? String(e)));

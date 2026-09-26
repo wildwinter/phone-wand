@@ -1,0 +1,10 @@
+{
+  "protocol": 0,
+  "sessions": [
+    "basic",
+    "screen-calibration",
+    "players",
+    "app-commands",
+    "raw"
+  ]
+}

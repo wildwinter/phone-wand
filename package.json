@@ -1,0 +1,28 @@
+{
+  "name": "phone-wand-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Phones as shared pointing devices for a shared screen: relay, phone page, protocol and client libraries.",
+  "license": "MIT",
+  "author": "Ian Thomas (storytools.se)",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "assets": "bun scripts/build-assets.ts",
+    "relay": "bun scripts/build-assets.ts && bun packages/relay/src/main.ts",
+    "sim": "bun scripts/build-assets.ts && bun packages/relay/src/main.ts --simulate 3",
+    "typecheck": "bun scripts/build-assets.ts && tsc -p .",
+    "test": "bun scripts/build-assets.ts && bun test",
+    "conformance": "bun scripts/conformance.ts",
+    "conformance:check": "bun scripts/conformance.ts --check"
+  },
+  "devDependencies": {
+    "@phone-wand/core": "workspace:*",
+    "@phone-wand/relay": "workspace:*",
+    "@types/bun": "^1.4.2",
+    "phone-wand": "workspace:*",
+    "typescript": "^5.9"
+  }
+}

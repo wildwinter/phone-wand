@@ -1,0 +1,36 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Gus",
+      "colour": "#00c2ff",
+      "label": "Blue team",
+      "state": "active",
+      "calibration": "none",
+      "transport": "ws",
+      "buttons": [],
+      "pose": {
+        "seq": 17,
+        "yaw": 0,
+        "pitch": 0,
+        "roll": 0,
+        "q": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "dir": [
+          0,
+          0,
+          1
+        ],
+        "screen": [
+          0.5,
+          0.5
+        ]
+      }
+    }
+  ]
+}

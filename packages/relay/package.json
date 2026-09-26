@@ -1,0 +1,16 @@
+{
+  "name": "@phone-wand/relay",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "phone-wand": "src/main.ts" },
+  "dependencies": {
+    "@peculiar/x509": "^2.1.0",
+    "@phone-wand/core": "workspace:*",
+    "qrcode": "^1.5.4",
+    "reflect-metadata": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Ada2",
+      "colour": "#ff4d6d",
+      "label": "",
+      "state": "active",
+      "calibration": "ray",
+      "transport": "ws",
+      "buttons": [],
+      "pose": {
+        "seq": 62,
+        "yaw": 32.444,
+        "pitch": -12.652,
+        "roll": -5.414,
+        "q": [
+          0.1188,
+          0.27235,
+          0.01432,
+          0.95473
+        ],
+        "dir": [
+          0.52345,
+          -0.21903,
+          0.82342
+        ],
+        "screen": [
+          1.37328,
+          1.14964
+        ]
+      }
+    }
+  ]
+}

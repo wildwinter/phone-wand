@@ -1,0 +1,36 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Bea",
+      "colour": "#ff4d6d",
+      "label": "",
+      "state": "active",
+      "calibration": "screen",
+      "transport": "ws",
+      "buttons": [],
+      "pose": {
+        "seq": 50,
+        "yaw": 18.319,
+        "pitch": 0.051,
+        "roll": -0.314,
+        "q": [
+          0,
+          0.15919,
+          0.00278,
+          0.98724
+        ],
+        "dir": [
+          0.31431,
+          0.00088,
+          0.94932
+        ],
+        "screen": [
+          0.95483,
+          0.49724
+        ]
+      }
+    }
+  ]
+}
