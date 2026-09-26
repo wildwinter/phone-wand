@@ -26,7 +26,6 @@ pose p1 seq=19 screen=yes
 pose p1 seq=20 screen=yes
 pose p1 seq=21 screen=yes
 pose p1 seq=22 screen=yes
-gesture p1 push buttons=-
 pose p1 seq=23 screen=yes
 pose p1 seq=24 screen=yes
 pose p1 seq=25 screen=yes
@@ -35,6 +34,7 @@ pose p1 seq=27 screen=yes
 pose p1 seq=28 screen=yes
 pose p1 seq=29 screen=yes
 pose p1 seq=30 screen=yes
+gesture p1 push buttons=-
 pose p1 seq=31 screen=yes
 pose p1 seq=32 screen=yes
 pose p1 seq=33 screen=yes
@@ -75,7 +75,6 @@ pose p1 seq=67 screen=yes
 pose p1 seq=68 screen=yes
 pose p1 seq=69 screen=yes
 pose p1 seq=70 screen=yes
-gesture p1 left buttons=-
 pose p1 seq=71 screen=yes
 pose p1 seq=72 screen=yes
 pose p1 seq=73 screen=yes
@@ -84,6 +83,7 @@ pose p1 seq=75 screen=yes
 pose p1 seq=76 screen=yes
 pose p1 seq=77 screen=yes
 pose p1 seq=78 screen=yes
+gesture p1 left buttons=-
 pose p1 seq=79 screen=yes
 pose p1 seq=80 screen=yes
 pose p1 seq=81 screen=yes
@@ -124,7 +124,6 @@ pose p1 seq=115 screen=yes
 pose p1 seq=116 screen=yes
 pose p1 seq=117 screen=yes
 pose p1 seq=118 screen=yes
-gesture p1 up buttons=-
 pose p1 seq=119 screen=yes
 pose p1 seq=120 screen=yes
 pose p1 seq=121 screen=yes
@@ -133,6 +132,7 @@ pose p1 seq=123 screen=yes
 pose p1 seq=124 screen=yes
 pose p1 seq=125 screen=yes
 pose p1 seq=126 screen=yes
+gesture p1 up buttons=-
 pose p1 seq=127 screen=yes
 pose p1 seq=128 screen=yes
 pose p1 seq=129 screen=yes
@@ -174,7 +174,6 @@ pose p1 seq=163 screen=yes
 pose p1 seq=164 screen=yes
 pose p1 seq=165 screen=yes
 pose p1 seq=166 screen=yes
-gesture p1 pull buttons=primary
 pose p1 seq=167 screen=yes
 pose p1 seq=168 screen=yes
 pose p1 seq=169 screen=yes
@@ -184,6 +183,7 @@ pose p1 seq=172 screen=yes
 pose p1 seq=173 screen=yes
 button p1 primary up
 pose p1 seq=174 screen=yes
+gesture p1 pull buttons=primary
 pose p1 seq=175 screen=yes
 pose p1 seq=176 screen=yes
 pose p1 seq=177 screen=yes
@@ -272,7 +272,6 @@ pose p1 seq=259 screen=yes
 pose p1 seq=260 screen=yes
 pose p1 seq=261 screen=yes
 pose p1 seq=262 screen=yes
-gesture p1 shake buttons=-
 pose p1 seq=263 screen=yes
 pose p1 seq=264 screen=yes
 pose p1 seq=265 screen=yes
@@ -281,6 +280,7 @@ pose p1 seq=267 screen=yes
 pose p1 seq=268 screen=yes
 pose p1 seq=269 screen=yes
 pose p1 seq=270 screen=yes
+gesture p1 shake buttons=-
 pose p1 seq=271 screen=yes
 pose p1 seq=272 screen=yes
 pose p1 seq=273 screen=yes

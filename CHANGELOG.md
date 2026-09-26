@@ -7,6 +7,12 @@ the protocol.
 
 ## [Unreleased]
 
+### Fixed
+
+- 0.6.0 hardly ever reported push, pull, left, right, up or down: it threw away any movement made
+  while the wrist turned faster than 150 degrees per second, which most real movements do. Now a
+  movement is dropped only if a flick or twist actually happened at the same time.
+
 ## [0.6.0] - 2026-09-26
 
 ### Added

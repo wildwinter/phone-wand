@@ -70,6 +70,20 @@ describe("movements", () => {
     expect(g.map((x) => x.gesture)).toEqual(["left"]);
   });
 
+  test("a movement with ordinary wrist rotation in it still counts", () => {
+    // A push, a pull and a sideways move, each with the wrist turning up to about 180 degrees per
+    // second along the way (under the flick rate): real movements, which 0.6.0 threw away.
+    const wobble = (axis: number, sign: number) => (t: number) => {
+      const u = Math.min(1, Math.max(0, (t - 0.2) / 0.25));
+      const yaw = 12 * Math.sin(Math.PI * u);
+      const pitch = 6 * Math.sin(2 * Math.PI * u);
+      return { a: flick(axis, sign)(t).a, q: orient(yaw, pitch) };
+    };
+    expect(run(1, wobble(2, 1)).map((x) => x.gesture)).toEqual(["push"]);
+    expect(run(1, wobble(2, -1)).map((x) => x.gesture)).toEqual(["pull"]);
+    expect(run(1, wobble(0, -1)).map((x) => x.gesture)).toEqual(["left"]);
+  });
+
   test("an even diagonal is not a named movement", () => {
     expect(run(1, (t) => {
       const a = flick(2, 1)(t).a[2];

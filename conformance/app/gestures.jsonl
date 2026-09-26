@@ -26,7 +26,6 @@
 {"type":"pose","id":"p1","seq":20,"t":433.59999999999985,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":21,"t":450.29999999999984,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":22,"t":466.99999999999983,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
-{"type":"gesture","id":"p1","gesture":"push","strength":0.498,"speed":1.245,"dir":[0,0,1],"angle":0,"duration":267,"t":199.8,"buttons":[]}
 {"type":"pose","id":"p1","seq":23,"t":483.6999999999998,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":24,"t":500.3999999999998,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":25,"t":517.0999999999998,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -35,6 +34,7 @@
 {"type":"pose","id":"p1","seq":28,"t":567.1999999999999,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":29,"t":583.9,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":30,"t":600.6,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
+{"type":"gesture","id":"p1","gesture":"push","strength":0.498,"speed":1.245,"dir":[0,0,1],"angle":0,"duration":267,"t":199.8,"buttons":[]}
 {"type":"pose","id":"p1","seq":31,"t":617.3000000000001,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":32,"t":634.0000000000001,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":33,"t":650.7000000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -75,7 +75,6 @@
 {"type":"pose","id":"p1","seq":68,"t":1235.2000000000016,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":69,"t":1251.9000000000017,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":70,"t":1268.6000000000017,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
-{"type":"gesture","id":"p1","gesture":"left","strength":0.498,"speed":1.245,"dir":[-1,0,0],"angle":0,"duration":267,"t":1001.4,"buttons":[]}
 {"type":"pose","id":"p1","seq":71,"t":1285.3000000000018,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":72,"t":1302.0000000000018,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":73,"t":1318.7000000000019,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -84,6 +83,7 @@
 {"type":"pose","id":"p1","seq":76,"t":1368.800000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":77,"t":1385.500000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":78,"t":1402.200000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
+{"type":"gesture","id":"p1","gesture":"left","strength":0.498,"speed":1.245,"dir":[-1,0,0],"angle":0,"duration":267,"t":1001.4,"buttons":[]}
 {"type":"pose","id":"p1","seq":79,"t":1418.9000000000021,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":80,"t":1435.6000000000022,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":81,"t":1452.3000000000022,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -124,7 +124,6 @@
 {"type":"pose","id":"p1","seq":116,"t":2036.8000000000038,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":117,"t":2053.5000000000036,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":118,"t":2070.2000000000035,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
-{"type":"gesture","id":"p1","gesture":"up","strength":0.498,"speed":1.245,"dir":[0,1,0],"angle":0,"duration":267,"t":1803,"buttons":[]}
 {"type":"pose","id":"p1","seq":119,"t":2086.9000000000033,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":120,"t":2103.600000000003,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":121,"t":2120.300000000003,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -133,6 +132,7 @@
 {"type":"pose","id":"p1","seq":124,"t":2170.4000000000024,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":125,"t":2187.100000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":126,"t":2203.800000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
+{"type":"gesture","id":"p1","gesture":"up","strength":0.498,"speed":1.245,"dir":[0,1,0],"angle":0,"duration":267,"t":1803,"buttons":[]}
 {"type":"pose","id":"p1","seq":127,"t":2220.500000000002,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":128,"t":2237.2000000000016,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":129,"t":2253.9000000000015,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -174,7 +174,6 @@
 {"type":"pose","id":"p1","seq":164,"t":2838.399999999995,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":165,"t":2855.099999999995,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":166,"t":2871.7999999999947,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
-{"type":"gesture","id":"p1","gesture":"pull","strength":0.498,"speed":1.245,"dir":[0,0,-1],"angle":0,"duration":267,"t":2604.6,"buttons":["primary"]}
 {"type":"pose","id":"p1","seq":167,"t":2888.4999999999945,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":168,"t":2905.1999999999944,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":169,"t":2921.899999999994,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -184,6 +183,7 @@
 {"type":"pose","id":"p1","seq":173,"t":2988.6999999999935,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"button","id":"p1","button":"primary","down":false}
 {"type":"pose","id":"p1","seq":174,"t":3005.3999999999933,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
+{"type":"gesture","id":"p1","gesture":"pull","strength":0.498,"speed":1.245,"dir":[0,0,-1],"angle":0,"duration":267,"t":2604.6,"buttons":["primary"]}
 {"type":"pose","id":"p1","seq":175,"t":3022.099999999993,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":176,"t":3038.799999999993,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":177,"t":3055.4999999999927,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -272,7 +272,6 @@
 {"type":"pose","id":"p1","seq":260,"t":4441.599999999978,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":261,"t":4458.299999999977,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":262,"t":4474.999999999977,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
-{"type":"gesture","id":"p1","gesture":"shake","strength":0.626,"speed":1.565,"dir":[0,0,0],"angle":0,"duration":1069,"t":3406.2,"buttons":[]}
 {"type":"pose","id":"p1","seq":263,"t":4491.699999999977,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":264,"t":4508.399999999977,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":265,"t":4525.099999999977,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
@@ -281,6 +280,7 @@
 {"type":"pose","id":"p1","seq":268,"t":4575.199999999976,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":269,"t":4591.899999999976,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":270,"t":4608.599999999976,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
+{"type":"gesture","id":"p1","gesture":"shake","strength":0.626,"speed":1.565,"dir":[0,0,0],"angle":0,"duration":1069,"t":3406.2,"buttons":[]}
 {"type":"pose","id":"p1","seq":271,"t":4625.299999999976,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":272,"t":4641.999999999975,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}
 {"type":"pose","id":"p1","seq":273,"t":4658.699999999975,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":[0.5,0.5],"accel":[0,0,0]}

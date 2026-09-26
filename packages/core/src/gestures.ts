@@ -7,7 +7,9 @@
 //   turns quickly, the way a wrist flick aims the cursor. Found from the orientation itself.
 //
 // A phone held out in the hand swings around the wrist when it rotates, and its motion sensor reads
-// that swing as movement. So a fast rotation suppresses movement gestures: one action, one gesture.
+// that swing as movement. So a movement is held back briefly before it's reported, and dropped if a
+// flick or twist happened at the same time: one action, one gesture. Ordinary wrist motion during a
+// push or a sideways move doesn't make a flick, so those movements still count.
 //
 // A phone measures acceleration, not position, so movements are found as bursts of acceleration:
 // speeding up, then slowing down. Integrating the acceleration over the burst gives the velocity,
@@ -66,8 +68,10 @@ const MAX_FLICK = 600;
 const MAX_SHAKE = 3000;
 /** Strong reversals within one burst that make a shake. */
 const SHAKE_REVERSALS = 4;
-/** Turning faster than this (degrees per second) means movement readings are the swing, not real. */
-const SWING = 150;
+/** A movement waits this long (ms) before it's reported, in case a flick or twist overlaps it. */
+const HOLD = 120;
+/** How close (ms) a rotation gesture must come to a movement to count as the same action. */
+const OVERLAP = 100;
 /** Nothing new for this long after a gesture, so its own wobble isn't read as another. */
 const COOLDOWN = 250;
 /** Rotation bursts end when turning stays below this share of the lower rate for ROT_HOLD ms. */
@@ -104,12 +108,17 @@ export class GestureDetector {
     reversals: number;
     sign: number;
     axis: number;
-    maxTurn: number;
   } | null = null;
+  /** A movement found and waiting out HOLD, in case a rotation gesture overlaps it. */
+  private pending: { gesture: Gesture; decidedAt: number; end: number } | null = null;
+  /** When the last flick or twist happened, to drop movements that were really its swing. */
+  private lastRotation: { start: number; end: number } | null = null;
   private turn: { start: number; lastActive: number; angle: Vec3; peakRate: Vec3 } | null = null;
   private lastQ: Quat | null = null;
   private lastT = -1;
-  private cooldownUntil = -Infinity;
+  /** No new movement, or no new rotation, until these times (so a gesture's wobble isn't another). */
+  private moveCooldownUntil = -Infinity;
+  private turnCooldownUntil = -Infinity;
 
   constructor(options: Partial<GestureOptions> = {}) {
     this.options = { ...DEFAULT_GESTURES, ...options };
@@ -118,6 +127,7 @@ export class GestureDetector {
   reset(): void {
     this.move = null;
     this.turn = null;
+    this.pending = null;
     this.history = [];
     this.lastQ = null;
     this.lastT = -1;
@@ -143,7 +153,14 @@ export class GestureDetector {
     const w = angularVelocity(prevQ, q, dt);
     const turn = Math.hypot(w[0], w[1], w[2]);
     this.rotation(w, turn, dt, t, out);
-    if (accel) this.movement(accel, dt, t, turn, out);
+    if (accel) this.movement(accel, dt, t, turn);
+    // Report a held movement once it has waited, unless a rotation is still under way (it might yet
+    // turn out to be a flick that explains the movement).
+    const p = this.pending;
+    if (p && t - p.decidedAt >= HOLD && (!this.turn || t - p.decidedAt > MAX_ROTATION)) {
+      out.push(p.gesture);
+      this.pending = null;
+    }
     return out;
   }
 
@@ -153,7 +170,7 @@ export class GestureDetector {
     const { flickRate, twistRate } = this.options;
     const start = Math.min(flickRate, twistRate);
     if (!this.turn) {
-      if (turn < start || t < this.cooldownUntil) return;
+      if (turn < start || t < this.turnCooldownUntil) return;
       this.turn = { start: t - dt * 1000, lastActive: t, angle: [0, 0, 0], peakRate: [0, 0, 0] };
     }
     const r = this.turn;
@@ -187,19 +204,29 @@ export class GestureDetector {
       gesture, strength: clamp01(strength), speed: 0, dir: [0, 0, 0], angle: round(angle, 1),
       duration: Math.round(age), t: round(r.start, 1),
     });
-    this.finish(t);
+    // Any movement at the same time was the phone swinging around the wrist: drop it.
+    this.lastRotation = { start: r.start, end: t };
+    if (this.pending && this.overlapsRotation(this.pending.gesture.t, this.pending.end)) this.pending = null;
+    if (this.move && this.overlapsRotation(this.move.start, t)) this.move = null;
+    this.turn = null;
+    this.moveCooldownUntil = this.turnCooldownUntil = t + COOLDOWN;
+  }
+
+  private overlapsRotation(start: number, end: number): boolean {
+    const r = this.lastRotation;
+    return !!r && start <= r.end + OVERLAP && end >= r.start - OVERLAP;
   }
 
   // ---------------------------------------------------------------- movements
 
-  private movement(a: Vec3, dt: number, t: number, turn: number, out: Gesture[]): void {
+  private movement(a: Vec3, dt: number, t: number, turn: number): void {
     const { threshold, minSpeed } = this.options;
     const mag = magnitude(a);
     this.history.push({ a, dt, t, turn });
     while (this.history.length && t - this.history[0].t > LEAD_IN) this.history.shift();
 
     if (!this.move) {
-      if (mag < threshold || t < this.cooldownUntil || this.turn) return;
+      if (mag < threshold || t < this.moveCooldownUntil || this.pending) return;
       // Start from the gentle beginning: walk back while the acceleration was building, stepping
       // over the moment it passes through zero between speeding up and slowing down.
       let first = this.history.length - 1;
@@ -212,7 +239,7 @@ export class GestureDetector {
       }
       this.move = {
         start: this.history[first].t - this.history[first].dt * 1000, lastActive: t, v: [0, 0, 0],
-        peak: [0, 0, 0], peakSpeed: 0, reversals: 0, sign: 0, axis: -1, maxTurn: 0,
+        peak: [0, 0, 0], peakSpeed: 0, reversals: 0, sign: 0, axis: -1,
       };
       for (let i = first; i < this.history.length - 1; i++) this.integrate(this.history[i], threshold);
     }
@@ -222,16 +249,11 @@ export class GestureDetector {
     if (mag >= threshold * END_SHARE) m.lastActive = t;
     const age = t - m.start;
     const ended = t - m.lastActive >= END_HOLD;
-    // Turning fast means these readings are the phone swinging around the wrist: not a movement.
-    const swung = m.maxTurn > SWING;
     if (m.reversals >= SHAKE_REVERSALS && (ended || age > MAX_SHAKE)) {
-      if (!swung) {
-        out.push({
-          gesture: "shake", strength: clamp01(m.peakSpeed / STRONG_SPEED), speed: round(m.peakSpeed, 3),
-          dir: [0, 0, 0], angle: 0, duration: Math.round(age), t: round(m.start, 1),
-        });
-        this.finish(t);
-      } else this.move = null;
+      this.hold({
+        gesture: "shake", strength: clamp01(m.peakSpeed / STRONG_SPEED), speed: round(m.peakSpeed, 3),
+        dir: [0, 0, 0], angle: 0, duration: Math.round(age), t: round(m.start, 1),
+      }, t);
       return;
     }
     if (!ended) {
@@ -240,8 +262,8 @@ export class GestureDetector {
     }
     const s = m.peakSpeed;
     const axis = mainAxis(m.peak);
-    if (!swung && age <= MAX_FLICK && m.reversals < SHAKE_REVERSALS && s >= minSpeed && Math.abs(m.peak[axis]) >= DOMINANCE * s) {
-      out.push({
+    if (age <= MAX_FLICK && m.reversals < SHAKE_REVERSALS && s >= minSpeed && Math.abs(m.peak[axis]) >= DOMINANCE * s) {
+      this.hold({
         gesture: MOVES[axis][m.peak[axis] > 0 ? 0 : 1],
         strength: clamp01(s / STRONG_SPEED),
         speed: round(s, 3),
@@ -249,17 +271,24 @@ export class GestureDetector {
         angle: 0,
         duration: Math.round(age),
         t: round(m.start, 1),
-      });
-      this.finish(t);
+      }, t);
     } else {
       this.move = null;
     }
   }
 
+  /** A movement was found: hold it back briefly, unless a rotation already explains it. */
+  private hold(gesture: Gesture, t: number): void {
+    const start = this.move!.start;
+    this.move = null;
+    this.moveCooldownUntil = t + COOLDOWN;
+    if (this.overlapsRotation(start, t)) return;
+    this.pending = { gesture, decidedAt: t, end: t };
+  }
+
   private integrate(sample: Sample, threshold: number): void {
     const m = this.move!;
     const { a, dt } = sample;
-    m.maxTurn = Math.max(m.maxTurn, sample.turn);
     m.v = [m.v[0] + a[0] * dt, m.v[1] + a[1] * dt, m.v[2] + a[2] * dt];
     const speed = magnitude(m.v);
     if (speed > m.peakSpeed) {
@@ -276,11 +305,6 @@ export class GestureDetector {
     }
   }
 
-  private finish(t: number): void {
-    this.move = null;
-    this.turn = null;
-    this.cooldownUntil = t + COOLDOWN;
-  }
 }
 
 /**
