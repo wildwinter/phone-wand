@@ -2,7 +2,8 @@
 
 The Phone Wand addon for Godot connects your game to a running relay and turns what it sends into
 Godot signals, `Vector3`, `Quaternion` and `Vector2` values. It is written entirely in GDScript, so
-it works in desktop, mobile and web exports, and it supports Godot 4.4 and newer.
+it works in desktop, mobile and web exports. It is written for Godot 4.4 and newer, and tested with
+Godot 4.7 on macOS and in a web export.
 
 If you have not run the relay yet, start with [Getting started](../getting-started.md). No phone
 to hand? `phone-wand --simulate 3` gives you three simulated players to develop against.

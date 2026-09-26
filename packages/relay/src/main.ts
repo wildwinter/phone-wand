@@ -2,7 +2,7 @@
 // phone-wand relay: command-line entry point.
 
 import { parseArgs } from "node:util";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -58,6 +58,16 @@ Docs: https://github.com/wildwinter/phone-wand`;
 
 function fail(message: string): never {
   console.error(`phone-wand: ${message}`);
+  // Double-clicking the relay on Windows opens a console that closes the moment it exits, so the
+  // message would vanish unread. Wait for Enter first.
+  if (process.platform === "win32" && process.stdin.isTTY) {
+    console.error("\nPress Enter to close.");
+    try {
+      readSync(0, Buffer.alloc(1), 0, 1, null);
+    } catch {
+      // no console to read from
+    }
+  }
   process.exit(1);
 }
 

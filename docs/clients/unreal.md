@@ -3,7 +3,8 @@
 The Phone Wand plugin for Unreal Engine connects your game to a running relay and turns what it
 sends into Blueprint events, `FVector`, `FQuat`, `FRotator` and screen positions. It is a single
 runtime module that uses only the engine's own WebSockets and Json modules, and it is built and
-tested with Unreal Engine 5.7 on macOS. Windows and Linux use the same code.
+tested with Unreal Engine 5.7 on macOS. Windows and Linux use the same code but have not been
+tested yet.
 
 If you have not run the relay yet, start with [Getting started](../getting-started.md). No phone
 to hand? `phone-wand --simulate 3` gives you three simulated players to develop against.

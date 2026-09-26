@@ -16,7 +16,9 @@ Download the relay for the computer that drives your screen from the
 
 Unzip it and run it:
 
-- **macOS:** open Terminal in the folder and run `./phone-wand`, or double-click `phone-wand`.
+- **macOS:** open Terminal in the folder and run `./phone-wand`, or double-click `phone-wand`. If
+  macOS says it can't check the app for malicious software, Control-click `phone-wand`, choose
+  **Open**, then **Open** again (or allow it in **System Settings**, **Privacy & Security**).
 - **Windows:** double-click `phone-wand.exe`. The first time, Windows SmartScreen may say it doesn't
   recognise the app: choose **More info**, then **Run anyway**. When Windows Firewall asks, allow
   access on **private networks**, or phones won't be able to connect.

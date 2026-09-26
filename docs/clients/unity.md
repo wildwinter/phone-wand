@@ -2,8 +2,8 @@
 
 The Phone Wand package for Unity connects your game to a running relay and turns what it sends
 into C# events, `Vector3`, `Quaternion` and screen positions. It has no dependencies on other
-packages, supports Unity 2021.3 and newer, and works in the editor and in desktop, mobile and
-WebGL builds.
+packages. It is tested with Unity 6 in the editor and in a macOS build, and is written to support
+Unity 2021.3 and newer. It includes WebGL support, which has not yet been tested in a WebGL build.
 
 If you have not run the relay yet, start with [Getting started](../getting-started.md). No phone
 to hand? `phone-wand --simulate 3` gives you three simulated players to develop against.

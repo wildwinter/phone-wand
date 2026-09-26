@@ -169,20 +169,32 @@ async function buildJs(): Promise<void> {
 
 // ------------------------------------------------------------------ engines
 
-const JUNK = /(^|\/)(\.DS_Store|Library|Temp|Logs|obj|bin|Binaries|Intermediate|Saved|DerivedDataCache|\.godot|\.vs|\.idea)(\/|$)|\.import$/;
+// Only files git tracks go into a package, so whatever an editor or build has generated locally
+// (Library, Binaries, Saved, .godot, DefaultInput.ini and so on) never ships.
+const tracked = new Set(probe("git", ["ls-files", "-z"]).split("\0").filter(Boolean).map((f) => join(root, f)));
 
 function copyClean(from: string, to: string): void {
-  cpSync(from, to, { recursive: true, filter: (src) => !JUNK.test(relative(from, src)) });
+  cpSync(from, to, {
+    recursive: true,
+    filter: (src) => {
+      if (tracked.has(src)) return true;
+      // Keep directories that contain tracked files.
+      const prefix = src + "/";
+      for (const f of tracked) if (f.startsWith(prefix)) return true;
+      return false;
+    },
+  });
 }
 
 function buildUnity(): void {
   const src = join(root, "clients/unity/PhoneWand");
   if (!existsSync(src)) return console.log("  (no Unity package yet, skipped)");
+  // The zip holds just the package folder, ready to drop into a project's Packages folder.
   const base = `phone-wand-unity-${version}`;
   const dir = join(staging, base);
   copyClean(src, join(dir, "PhoneWand"));
-  common(dir);
-  zip(staging, join(dist, `${base}.zip`), [base]);
+  cpSync(join(root, "CHANGELOG.md"), join(dir, "PhoneWand/CHANGELOG.md"));
+  zip(dir, join(dist, `${base}.zip`), ["PhoneWand"]);
 }
 
 function buildGodot(): void {
@@ -204,7 +216,8 @@ function buildUnreal(): void {
   const demo = join(root, "clients/unreal/PhoneWandDemo");
   if (existsSync(demo)) copyClean(demo, join(dir, "PhoneWandDemo"));
   common(join(dir, "PhoneWand"));
-  zip(staging, join(dist, `${base}.zip`), [base]);
+  // The plugin and the demo side by side at the top of the zip.
+  zip(dir, join(dist, `${base}.zip`), existsSync(demo) ? ["PhoneWand", "PhoneWandDemo"] : ["PhoneWand"]);
 }
 
 // ------------------------------------------------------------------ main

@@ -1,5 +1,8 @@
 # Phone Wand
 
+[![CI](https://github.com/wildwinter/phone-wand/actions/workflows/ci.yml/badge.svg)](https://github.com/wildwinter/phone-wand/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/wildwinter/phone-wand)](https://github.com/wildwinter/phone-wand/releases/latest)
+
 Turn the phones people already carry into pointers for a shared screen.
 
 Each phone becomes a cursor you aim by turning the phone, with big buttons on its touchscreen.
@@ -26,19 +29,40 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
 
 ## Try it in two minutes
 
-1. Download the relay for your computer from the
-   [latest release](https://github.com/wildwinter/phone-wand/releases/latest) and unzip it.
-2. Run `phone-wand` (on macOS and Linux, `./phone-wand` in a terminal; on Windows, double-click
-   `phone-wand.exe`). It prints a QR code and opens the dashboard in your browser.
-3. Scan the QR code with a phone on the same Wi-Fi. A welcome page explains the certificate warning
+1. Download the relay for the computer that drives your screen from the
+   [latest release](https://github.com/wildwinter/phone-wand/releases/latest), and unzip it:
+
+   | Computer | Download | To run it |
+   |---|---|---|
+   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.zip` | Double-click `phone-wand`, or run `./phone-wand` in Terminal |
+   | Intel Mac | `phone-wand-relay-<version>-macos-x64.zip` | The same |
+   | Windows | `phone-wand-relay-<version>-windows-x64.zip` | Double-click `phone-wand.exe`. If SmartScreen appears, choose **More info**, then **Run anyway**. Allow it through the firewall on private networks. |
+   | Linux | `phone-wand-relay-<version>-linux-x64.tar.gz` (or `-linux-arm64`) | Run `./phone-wand` |
+
+   It prints a QR code and opens the dashboard in your browser. Nothing else to install.
+2. Scan the QR code with a phone on the same Wi-Fi. A welcome page explains the certificate warning
    that follows and which buttons to tap (see [Phones and certificates](docs/phones.md) to get rid
    of it for good). Then tap **Tap to start**.
-4. Point the top of the phone at the middle of the screen and press **Recentre**. Your cursor
+3. Point the top of the phone at the middle of the screen and press **Recentre**. Your cursor
    appears on the dashboard's test screen.
-5. For accurate cursors, press **F** on the dashboard for full screen, then press **Calibrate
-   screen** on the phone and point at the top-left and bottom-right corners.
+4. For accurate cursors, press **F** on the dashboard for full screen, then press **Calibrate
+   screen** on the phone and aim at the top-left and bottom-right corners.
 
 No phone to hand? Run `phone-wand --simulate 3` for three simulated players.
+
+Phones need a browser with motion sensors: Safari or Chrome on iPhone and iPad, Chrome on Android.
+
+## Add it to your app
+
+| Engine | Get it | Docs |
+|---|---|---|
+| Unity (tested with Unity 6; 2021.3 or later should work) | Package Manager, **Add package from git URL**: `https://github.com/wildwinter/phone-wand.git?path=clients/unity/PhoneWand`, or unzip `phone-wand-unity-<version>.zip` into `Packages/` | [Unity](docs/clients/unity.md) |
+| Unreal 5.7 (source plugin; rebuilds for other versions) | Unzip `phone-wand-unreal-<version>.zip`, copy `PhoneWand` into your project's `Plugins/` (a demo project comes with it) | [Unreal](docs/clients/unreal.md) |
+| Godot 4.4 or later (tested with 4.7; GDScript, web exports too) | Unzip `phone-wand-godot-<version>.zip` into your project, then enable **Phone Wand** under Project Settings, Plugins | [Godot](docs/clients/godot.md) |
+| JavaScript and TypeScript (browsers, Node 22+, Bun, Deno) | `phone-wand-js-<version>.zip`, or `<script src="http://127.0.0.1:8480/phone-wand.js">` from a running relay | [JavaScript](docs/clients/js.md) |
+
+Each comes with a sample that draws a coloured cursor for every player. Anything that can open a
+WebSocket can use the [protocol](docs/protocol.md) directly.
 
 ## Documentation
 
