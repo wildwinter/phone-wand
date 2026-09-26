@@ -32,8 +32,19 @@ var transport: String = ""
 ## The corner the player is being asked to point at during screen calibration
 ## ("top-left" or "bottom-right"), or "" when not calibrating.
 var calibrating: String = ""
-## Buttons currently held, such as "primary" and "secondary".
+## Buttons currently held: "primary" and "secondary" by default, or the button ids of the layout.
 var buttons: Array[String] = []
+
+# ---------------------------------------------------------------- layout
+
+## The controls the phone shows, as the relay sent it: {"template": ..., "controls": [...]}.
+## The default (primary-secondary with buttons primary and secondary) until an app sends one.
+var layout: Dictionary = PhoneWandLayout.default_layout()
+## The layout's template, such as "primary-secondary" or "grid".
+var template: String = "primary-secondary"
+## Current values of the layout's toggles (bool), sliders (float, 0 to 1), choices (int, the
+## option index) and labels (String), by control id. Buttons have no value.
+var controls: Dictionary = {}
 
 # ---------------------------------------------------------------- stats
 
@@ -85,6 +96,21 @@ func is_pressed(button: String = "primary") -> bool:
 	return buttons.has(button)
 
 
+## The current value of a toggle, slider, choice or label, or default if the layout has none.
+func get_control(control_id: String, default: Variant = null) -> Variant:
+	return controls.get(control_id, default)
+
+
+## The definition of a control in the layout (with "id", "type" and so on), or an empty Dictionary.
+func find_control(control_id: String) -> Dictionary:
+	var list: Variant = layout.get("controls")
+	if list is Array:
+		for c in list:
+			if c is Dictionary and str(c.get("id", "")) == control_id:
+				return c
+	return {}
+
+
 ## True if the player has a screen position inside the screen.
 func is_on_screen() -> bool:
 	return has_screen and screen.x >= 0.0 and screen.x <= 1.0 and screen.y >= 0.0 and screen.y <= 1.0
@@ -126,6 +152,36 @@ func apply_info(info: Dictionary) -> void:
 		platform = str(device.get("platform", platform))
 		sensor = str(device.get("sensor", sensor))
 		transport = str(device.get("transport", transport))
+	var new_layout: Variant = info.get("layout")
+	if new_layout is Dictionary:
+		layout = new_layout.duplicate(true)
+		template = str(layout.get("template", ""))
+	var values: Variant = info.get("controls")
+	if values is Dictionary:
+		controls = {}
+		for key in values:
+			controls[str(key)] = normalise_value(str(key), values[key])
+
+
+## Applies a control value from the relay. Called by PhoneWandClient; returns the stored value.
+func apply_control(control_id: String, value: Variant) -> Variant:
+	var v: Variant = normalise_value(control_id, value)
+	controls[control_id] = v
+	return v
+
+
+## A control value with the type its control takes: JSON numbers arrive as floats, so a choice's
+## index becomes an int and a slider's position a float.
+func normalise_value(control_id: String, value: Variant) -> Variant:
+	var number := typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
+	match str(find_control(control_id).get("type", "")):
+		"choice":
+			return int(value) if number else value
+		"slider":
+			return float(value) if number else value
+		"label":
+			return value if value is String else str(value)
+	return value
 
 
 ## Applies a pose message from the relay. Called by PhoneWandClient.

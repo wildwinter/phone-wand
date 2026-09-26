@@ -28,12 +28,20 @@ signal disconnected()
 signal player_joined(player: PhoneWandPlayer)
 ## A player's slot is free again. The player object is no longer in players.
 signal player_left(player: PhoneWandPlayer)
-## Something about the player changed: state, name, colour, label, calibration or transport.
+## Something about the player changed: state, name, colour, label, calibration, transport or
+## layout (a new layout replaces player.layout, player.template and player.controls).
 signal player_changed(player: PhoneWandPlayer)
 ## A new pose arrived, typically 60 times a second per player.
 signal pose(player: PhoneWandPlayer)
-## A button went down or up. button is "primary" or "secondary". Every down is followed by an up.
+## A button went down or up. button is the button's id in the player's layout: "primary" or
+## "secondary" by default. Every down is followed by an up.
 signal button(player: PhoneWandPlayer, button: String, down: bool)
+## A toggle (bool), slider (float, 0 to 1), choice (int, the option index) or label (String)
+## changed, on the phone or because an app set it. player.controls already holds the new value.
+signal control_changed(player: PhoneWandPlayer, control: String, value: Variant)
+## The relay could not use something this app sent (a bad layout, say); message says why. With
+## nothing connected to this signal, the client prints the message as a warning instead.
+signal relay_error(message: String)
 ## The player is being asked to point at a corner: step is "top-left", "bottom-right" or
 ## "cancelled".
 signal calibrating(player: PhoneWandPlayer, step: String)
@@ -567,6 +575,51 @@ func calibrate(mode: String = "screen", id: String = "") -> void:
 	_send(msg)
 
 
+## Chooses the controls a phone shows, or every phone's when id is "". layout is a Dictionary in
+## the protocol's shape ({"template": ..., "controls": [...]}; PhoneWandLayout builds them), or
+## null for the default Primary and Secondary. An invalid layout changes nothing and comes back as
+## relay_error. See docs/layouts.md.
+func set_layout(layout: Variant, id: String = "") -> void:
+	var msg := {"type": "layout", "layout": layout if layout is Dictionary else null}
+	if id != "":
+		msg["id"] = id
+	_send(msg)
+
+
+## Changes a control's value on a phone, or on every phone when id is "": a toggle's bool, a
+## slider's 0 to 1, a choice's option index, or a label's text. A number sent to a label becomes
+## its text. Every app then gets control_changed.
+func set_control(control: String, value: Variant, id: String = "") -> void:
+	var targets: Array = []
+	if id != "":
+		var p: PhoneWandPlayer = players.get(id)
+		if p != null:
+			targets.append(p)
+	else:
+		targets = players.values()
+	var number := typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
+	if number:
+		for p in targets:
+			var type := str(p.find_control(control).get("type", ""))
+			if type == "label":
+				value = _number_text(value)
+				break
+			if type == "choice":
+				value = int(value)
+				break
+	var msg := {"type": "set", "control": control, "value": value}
+	if id != "":
+		msg["id"] = id
+	_send(msg)
+
+
+# 3.0 as "3", 2.5 as "2.5".
+static func _number_text(value: Variant) -> String:
+	if typeof(value) == TYPE_FLOAT and value == floorf(value) and absf(value) < 1e15:
+		return str(int(value))
+	return str(value)
+
+
 # ---------------------------------------------------------------- relay to app
 
 ## Handles one relay message as JSON text. Public so recorded sessions can be replayed through it.
@@ -628,6 +681,18 @@ func handle(msg: Dictionary) -> void:
 			else:
 				p.buttons.erase(b)
 			button.emit(p, b, down)
+		"control":
+			var p := _known(msg)
+			if p == null:
+				return
+			var c := str(msg.get("control", ""))
+			control_changed.emit(p, c, p.apply_control(c, msg.get("value")))
+		"error":
+			var message := str(msg.get("message", ""))
+			if relay_error.get_connections().is_empty():
+				push_warning("phone-wand: " + message)
+			else:
+				relay_error.emit(message)
 		"calibrating":
 			var p := _known(msg)
 			if p == null:

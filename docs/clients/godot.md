@@ -81,6 +81,53 @@ func _on_pose(player: PhoneWandPlayer) -> void:
 You do not have to use signals. Every player object is kept up to date, so you can read
 `PhoneWand.players` (or `PhoneWand.players_by_slot()`) in `_process` instead.
 
+## Layouts
+
+By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
+can choose other controls, for every phone or for each player: buttons, toggles, sliders, choices
+and text labels, placed by a template. [Layouts](../layouts.md) explains the templates and
+controls. `PhoneWandLayout` builds them:
+
+```gdscript
+func _ready() -> void:
+    # A big Shoot button, then Reload, a Zoom toggle and an ammo count below it.
+    PhoneWand.set_layout(PhoneWandLayout.layout("primary-row", [
+        PhoneWandLayout.button("shoot", "Shoot"),
+        PhoneWandLayout.button("reload", "Reload"),
+        PhoneWandLayout.toggle("zoom", "Zoom"),
+        PhoneWandLayout.label("ammo", "Ammo", "12"),
+    ]))
+    PhoneWand.button.connect(_on_button)
+    PhoneWand.control_changed.connect(_on_control)
+
+
+func _on_button(player: PhoneWandPlayer, button: String, down: bool) -> void:
+    if button == "shoot" and down:
+        shoot(player)
+        PhoneWand.set_control("ammo", ammo_left(player), player.id)   # a number becomes the label's text
+
+
+func _on_control(player: PhoneWandPlayer, control: String, value: Variant) -> void:
+    if control == "zoom":
+        set_zoom(player, value)
+```
+
+- `set_layout(layout, id)` sends to one player, or to every phone when `id` is empty. Pass `null`
+  for the default. A layout sent before a player joins does not reach them: send it from
+  `player_joined` too (or again) if players can join later.
+- Presses of your buttons arrive through `button` with your ids. Toggles, sliders and choices
+  arrive through `control_changed`, and are kept in `player.controls`: read one with
+  `player.get_control("zoom", false)`.
+- Values have the type their control takes: a toggle's `bool`, a slider's `float` from 0 to 1, a
+  choice's option index as an `int` (although Godot's JSON parser reads every number as a
+  float), and a label's `String`.
+- A layout or value the relay can't use (an unknown template, too many controls, a toggle set to
+  a number) changes nothing, and comes back through `relay_error`. With nothing connected to that
+  signal, the client prints the message as a warning.
+
+The layout is a plain `Dictionary` in the [protocol's](../protocol.md#layouts) JSON shape, so you
+can also write it out by hand or load it from a JSON file.
+
 ## API reference
 
 ### PhoneWandClient (the `PhoneWand` autoload)
@@ -108,9 +155,11 @@ Signals:
 | `disconnected()` | The connection was lost. `player_left` fires for every player first. |
 | `player_joined(player)` | A player took a slot. |
 | `player_left(player)` | A player's slot is free again. A phone that disconnects has 60 seconds to come back before this fires. |
-| `player_changed(player)` | State, name, colour, label, calibration or transport changed. |
+| `player_changed(player)` | State, name, colour, label, calibration, transport or layout changed. A new layout replaces `player.layout`, `template` and `controls`. |
 | `pose(player)` | A new pose arrived, typically 60 times a second per player. |
-| `button(player, button: String, down: bool)` | `button` is `"primary"` or `"secondary"`. Every down is followed by an up, even if the phone disconnects with a button held. |
+| `button(player, button: String, down: bool)` | `button` is the button's id in the player's layout: `"primary"` or `"secondary"` by default. Every down is followed by an up, even if the phone disconnects with a button held, or a new layout removes it. |
+| `control_changed(player, control: String, value)` | A toggle (`bool`), slider (`float`, 0 to 1), choice (`int` option index) or label (`String`) changed, on the phone or because an app set it. `player.controls` already holds the new value. |
+| `relay_error(message: String)` | The relay couldn't use something this app sent, such as an invalid layout. If nothing is connected, the client uses `push_warning` instead. |
 | `calibrating(player, step: String)` | The player is being asked to point at a corner: `"top-left"`, `"bottom-right"`, or `"cancelled"`. |
 | `calibrated(player, calibration: String)` | The player pressed Recentre (`"ray"`) or finished two-corner calibration (`"screen"`). |
 | `stats(player)` | Once a second per player: see `rtt`, `rate` and `dropped`. |
@@ -135,6 +184,8 @@ Methods:
 | `prompt(text, id := "", duration := 3000)` | Shows text on a phone, or on every phone when `id` is empty. `duration` is in milliseconds; `0` keeps it up until the next prompt; empty text clears it. |
 | `haptic(pattern, id := "")` | Vibrates a phone (Android only: iPhones ignore it). `pattern` is an `int` or an array of milliseconds, alternating on and off. |
 | `calibrate(mode := "screen", id := "")` | Asks a player (or everyone) to calibrate: `"screen"` for two corners, or `"ray"` to point at the middle and press Recentre. |
+| `set_layout(layout, id := "")` | Chooses the controls a phone shows, or every phone's when `id` is empty. `layout` is a `Dictionary` (see [Layouts](#layouts)) or `null` for the default. |
+| `set_control(control: String, value, id := "")` | Sets a toggle, slider, choice or label on a phone, or on every phone when `id` is empty. A number sent to a label becomes its text, and to a choice an `int`. |
 | `handle_message(json_text)` / `handle(msg)` | Processes one relay message. The client calls these itself; they are public so tests can replay recorded sessions. |
 | `poll()` | Services the connection. Called from `_process`; you only need it if you turn the node's processing off. |
 | `url_override() -> String` (static) | The relay URL given at launch, if any (see below). |
@@ -185,10 +236,29 @@ not change them.
 | `rig_q`, `rig_dir: Array` | The pose's quaternion and direction exactly as the relay sent them, in the rig frame. |
 | `pose: Dictionary` | The last pose message as received. |
 | `has_stats`, `rtt`, `rate`, `dropped` | Round trip in milliseconds, poses per second, and samples lost in the last second. `stats` holds the whole message. |
+| `layout: Dictionary` | The controls the phone shows, as the relay sent it (`template` and `controls`). The default layout until an app sends one. |
+| `template: String` | The layout's template, such as `"primary-secondary"` or `"grid"`. |
+| `controls: Dictionary` | Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons have none. |
 
 Methods: `is_pressed(button := "primary") -> bool`, `is_on_screen() -> bool`,
 `screen_position(viewport_size: Vector2) -> Vector2` (pixels; returns `Vector2.ZERO` when
-`has_screen` is false, so check that first).
+`has_screen` is false, so check that first), `get_control(id, default = null)` (a control's
+current value), `find_control(id) -> Dictionary` (a control's definition in the layout, or empty).
+
+### PhoneWandLayout
+
+Static helpers that return layout and control `Dictionary`s for `set_layout`. `colour` is a
+`Color` or `"#rrggbb"`, or `null` for the player's colour.
+
+| Function | Result |
+|---|---|
+| `layout(template, controls: Array)` | A layout: `"primary"`, `"primary-secondary"`, `"pair"`, `"primary-row"` or `"grid"`, and its controls in order. |
+| `default_layout()` | Primary and Secondary, what phones show until an app sends a layout. |
+| `button(id, label := "", colour = null)` | A button. |
+| `toggle(id, label := "", value := false, colour = null)` | An on and off switch. |
+| `slider(id, label := "", value := 0.0, vertical := false, spring = null, colour = null)` | A slider from 0 to 1. `spring` is where it returns when let go, or `null` to stay put. |
+| `choice(id, options: Array, label := "", value := 0, colour = null)` | 2 to 4 options; the value is the chosen index. |
+| `label(id, label := "", text := "", colour = null)` | Text only your game changes, such as a score. |
 
 ### PhoneWandFrames
 
@@ -235,8 +305,11 @@ in the addon so you can run it in your own project. It:
   phone"), since they have no cursor until they do,
 - loads the join QR code from the relay as a texture (with `HTTPRequest`) and shows the join URL,
 - lets you try the app-to-relay messages from the keyboard: **C** asks everyone to calibrate the
-  screen, **R** asks them to recentre, **P** sends a prompt, **H** a vibration, and **Q** hides or
-  shows the QR code.
+  screen, **R** asks them to recentre, **P** sends a prompt, **H** a vibration, **Q** hides or
+  shows the QR code, and **L** puts the next sample layout on every phone (the default, a
+  `primary-row` with a toggle and an ammo label, and a `grid` with every kind of control). The
+  most recent control change shows briefly at the top, and Shoot, Reload and Fire update the
+  sample labels with `set_control`.
 
 It uses the `PhoneWand` autoload when the plugin is enabled, and creates its own client otherwise.
 For accurate cursors, run the demo full screen and have players use **Calibrate screen** on their
@@ -402,7 +475,8 @@ godot --headless --path clients/godot --script res://test/test_conformance.gd
   parse stops a whole project from opening.
 - `test_conformance.gd` replays every session in the repository's
   [conformance suite](../../conformance/README.md) through `handle_message`, compares the event log
-  and final player state, and checks the frame conversions. It prints `ALL PASS` or every
+  and final player state (layouts and control values included), checks the frame conversions, and
+  checks control values keep their types. It prints `ALL PASS` or every
   difference, and exits non-zero on failure. Pass a different suite folder after `--`.
 - `live_check.gd` connects to a running relay and checks that it sees the hello, players joining
   and poses. Start a relay with simulated players, then run:

@@ -32,6 +32,7 @@ func _initialize() -> void:
 	for session_name in index.get("sessions", []):
 		_run_session(dir, str(session_name))
 	_check_conversions(dir)
+	_check_value_types()
 	_finish()
 
 
@@ -76,6 +77,10 @@ func _run_session(dir: String, session_name: String) -> void:
 		_log.append("pose %s seq=%d screen=%s" % [p.id, p.seq, "yes" if p.has_screen else "no"]))
 	client.button.connect(func(p: PhoneWandPlayer, b: String, down: bool) -> void:
 		_log.append("button %s %s %s" % [p.id, b, "down" if down else "up"]))
+	client.control_changed.connect(func(p: PhoneWandPlayer, c: String, _value: Variant) -> void:
+		_log.append("control %s %s" % [p.id, c]))
+	# error fires nothing in the log; connecting keeps the warnings out of the output.
+	client.relay_error.connect(func(_message: String) -> void: pass)
 	client.calibrating.connect(func(p: PhoneWandPlayer, step: String) -> void:
 		_log.append("calibrating %s %s" % [p.id, step]))
 	client.calibrated.connect(func(p: PhoneWandPlayer, calibration: String) -> void:
@@ -153,6 +158,8 @@ func _state(client: PhoneWandClient) -> Dictionary:
 			"calibration": p.calibration,
 			"transport": p.transport,
 			"buttons": buttons,
+			"template": p.template,
+			"controls": p.controls,
 			"pose": pose,
 		})
 	return {"players": list}
@@ -190,6 +197,58 @@ func _compare(want: Variant, got: Variant, path: String) -> void:
 	else:
 		if typeof(got) != typeof(want) or got != want:
 			_fail("%s: expected %s, got %s" % [path, str(want), str(got)])
+
+
+# ---------------------------------------------------------------- control value types
+
+# Godot parses every JSON number as a float: check choices come out as ints, sliders as floats and
+# labels as text, and that PhoneWandLayout builds what the relay expects.
+func _check_value_types() -> void:
+	var before := _failures
+	var client := PhoneWandClient.new()
+	client.auto_connect = false
+	client.reconnect = false
+	var grid := PhoneWandLayout.layout("grid", [
+		PhoneWandLayout.button("fire", "Fire"),
+		PhoneWandLayout.slider("power", "Power", 0.5),
+		PhoneWandLayout.choice("weapon", ["Bow", "Sling"], "Weapon", 1),
+		PhoneWandLayout.label("score", "Score", "7"),
+	])
+	var player := {"id": "p1", "slot": 0, "name": "A", "colour": "#ff4d6d", "label": "", "state": "active",
+		"calibration": "none", "device": {}, "layout": grid, "controls": {"power": 0.5, "weapon": 1, "score": "7"}}
+	client.handle_message(JSON.stringify({"type": "join", "player": player}))
+	var got := []
+	client.control_changed.connect(func(_p: PhoneWandPlayer, c: String, v: Variant) -> void: got.append([c, v]))
+	client.handle_message('{"type":"control","id":"p1","control":"weapon","value":0}')
+	client.handle_message('{"type":"control","id":"p1","control":"power","value":1}')
+	client.handle_message('{"type":"control","id":"p1","control":"score","value":"10"}')
+	var p := client.get_player("p1")
+	var checks := [
+		[p.template, "grid"],
+		[typeof(p.get_control("weapon")), TYPE_INT],
+		[p.get_control("weapon"), 0],
+		[typeof(p.get_control("power")), TYPE_FLOAT],
+		[p.get_control("score"), "10"],
+		[p.get_control("missing", -1), -1],
+		[got.size(), 3],
+		[typeof(got[0][1]) if got.size() > 0 else -1, TYPE_INT],
+		[str(p.find_control("weapon").get("type")), "choice"],
+		[PhoneWandClient._number_text(12.0), "12"],
+		[PhoneWandClient._number_text(2.5), "2.5"],
+		[JSON.stringify(PhoneWandLayout.default_layout()), '{"controls":[{"id":"primary","label":"Primary","type":"button"},{"id":"secondary","label":"Secondary","type":"button"}],"template":"primary-secondary"}'],
+	]
+	for i in checks.size():
+		if checks[i][0] != checks[i][1]:
+			_fail("value types[%d]: expected %s, got %s" % [i, str(checks[i][1]), str(checks[i][0])])
+	# A player message replaces the layout and values entirely.
+	player["layout"] = PhoneWandLayout.default_layout()
+	player["controls"] = {}
+	client.handle_message(JSON.stringify({"type": "player", "player": player}))
+	if p.template != "primary-secondary" or not p.controls.is_empty():
+		_fail("value types: a player message did not replace the layout and controls")
+	client.free()
+	var verdict := "ok" if _failures == before else "FAILED"
+	print("  control value types: %d checks, %s" % [checks.size() + 1, verdict])
 
 
 # ---------------------------------------------------------------- conversions

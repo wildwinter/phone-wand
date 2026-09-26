@@ -2,11 +2,13 @@ extends Control
 ## Phone Wand demo: draws each player's cursor where their phone points.
 ##
 ## - A coloured ring with the player's name at their screen position.
-## - A ripple when they press the primary button (and a filled ring while it is held).
+## - A ripple when they press a button (and a filled ring while one is held).
 ## - An arrow at the edge of the window when they point off the screen.
 ## - A line of text at the bottom left for each player who still has to set up their aim (players
 ##   have no screen position until they have calibrated once, or while they are calibrating).
 ## - The join QR code (loaded from the relay as a PNG) and the join URL as text.
+## - L cycles every phone through sample layouts (the default, primary-row with a toggle and a
+##   label, and a grid with every kind of control); the latest control change shows at the top.
 ##
 ## Uses the PhoneWand autoload when the plugin is enabled, or makes its own client if not. With the
 ## phone_wand/start_relay project setting on (as in this project), the client starts the relay
@@ -17,6 +19,8 @@ const RIPPLE_TIME := 0.6
 const EDGE_MARGIN := 28.0
 ## Space kept clear below the waiting list for the status line.
 const WAITING_BOTTOM := 48.0
+## How long the latest control change (or relay error) stays at the top of the window.
+const NOTICE_TIME := 2.5
 
 ## The relay to use when this scene makes its own client (no PhoneWand autoload).
 @export var relay_url: String = PhoneWandClient.DEFAULT_URL
@@ -25,6 +29,11 @@ var wand: PhoneWandClient
 var _ripples: Array[Dictionary] = []
 var _qr_request: HTTPRequest
 var _qr_loaded_from := ""
+var _layouts: Array = []
+var _layout_index := 0
+var _notice := ""
+var _notice_colour := Color.WHITE
+var _notice_age := NOTICE_TIME
 
 @onready var _qr_panel: PanelContainer = %QrPanel
 @onready var _qr_image: TextureRect = %QrImage
@@ -46,6 +55,9 @@ func _ready() -> void:
 	wand.player_joined.connect(_on_players_changed.unbind(1))
 	wand.player_left.connect(_on_players_changed.unbind(1))
 	wand.button.connect(_on_button)
+	wand.control_changed.connect(_on_control_changed)
+	wand.relay_error.connect(_on_relay_error)
+	_layouts = _sample_layouts()
 	_qr_request = HTTPRequest.new()
 	add_child(_qr_request)
 	_qr_request.request_completed.connect(_on_qr_completed)
@@ -58,6 +70,7 @@ func _process(delta: float) -> void:
 	for r in _ripples:
 		r["age"] += delta
 	_ripples = _ripples.filter(func(r: Dictionary) -> bool: return r["age"] < RIPPLE_TIME)
+	_notice_age += delta
 	queue_redraw()
 
 
@@ -75,6 +88,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				wand.haptic([40, 60, 40])
 			KEY_Q:
 				_qr_panel.visible = not _qr_panel.visible
+			KEY_L:
+				_layout_index = (_layout_index + 1) % _layouts.size()
+				var entry: Dictionary = _layouts[_layout_index]
+				wand.set_layout(entry["layout"])
+				_show_notice("Layout on every phone: " + entry["name"], Color.WHITE)
 
 
 func _on_connected(hello: Dictionary) -> void:
@@ -107,8 +125,54 @@ func _on_qr_completed(result: int, code: int, _headers: PackedStringArray, body:
 
 
 func _on_button(player: PhoneWandPlayer, button_name: String, down: bool) -> void:
-	if button_name == "primary" and down and player.has_screen:
+	if not down:
+		return
+	# Any button makes a ripple, so custom layouts work too.
+	if player.has_screen:
 		_ripples.append({"pos": _clamped(player.screen_position(size)), "colour": player.colour, "age": 0.0})
+	# The sample layouts' labels count presses, to show set_control.
+	match button_name:
+		"shoot":
+			wand.set_control("ammo", maxi(int(player.get_control("ammo", "0")) - 1, 0), player.id)
+		"reload":
+			wand.set_control("ammo", 12, player.id)
+		"fire":
+			wand.set_control("score", int(player.get_control("score", "0")) + 1, player.id)
+
+
+func _on_control_changed(player: PhoneWandPlayer, control: String, value: Variant) -> void:
+	_show_notice("%s: %s = %s" % [player.name, control, JSON.stringify(value)], player.colour)
+
+
+func _on_relay_error(message: String) -> void:
+	_show_notice("Relay error: " + message, Color(1.0, 0.36, 0.42))
+
+
+func _show_notice(text: String, colour: Color) -> void:
+	_notice = text
+	_notice_colour = colour
+	_notice_age = 0.0
+
+
+# The layouts L cycles through: the default, then primary-row and grid.
+static func _sample_layouts() -> Array:
+	return [
+		{"name": "default", "layout": null},
+		{"name": "primary-row", "layout": PhoneWandLayout.layout("primary-row", [
+			PhoneWandLayout.button("shoot", "Shoot"),
+			PhoneWandLayout.button("reload", "Reload"),
+			PhoneWandLayout.toggle("zoom", "Zoom"),
+			PhoneWandLayout.label("ammo", "Ammo", "12"),
+		])},
+		{"name": "grid", "layout": PhoneWandLayout.layout("grid", [
+			PhoneWandLayout.button("fire", "Fire"),
+			PhoneWandLayout.toggle("shield", "Shield"),
+			PhoneWandLayout.slider("power", "Power", 0.5),
+			PhoneWandLayout.slider("throttle", "Throttle", 0.5, true, 0.5),
+			PhoneWandLayout.choice("weapon", ["Bow", "Sling", "Net"], "Weapon"),
+			PhoneWandLayout.label("score", "Score", "0"),
+		])},
+	]
 
 
 func _update_status() -> void:
@@ -121,7 +185,7 @@ func _update_status() -> void:
 		return
 	var count := wand.players.size()
 	var max_players := int(wand.hello.get("maxPlayers", 0))
-	_status_label.text = "%d of %d players.  Keys: C calibrate screen, R ask to recentre, P prompt, H haptic, Q show or hide QR" % [count, max_players]
+	_status_label.text = "%d of %d players.  Keys: C calibrate screen, R ask to recentre, P prompt, H haptic, Q show or hide QR, L next layout" % [count, max_players]
 	_qr_panel.visible = true
 
 
@@ -145,7 +209,7 @@ func _draw() -> void:
 		var inside := player.has_screen and Rect2(Vector2.ZERO, size).grow(-1.0).has_point(player.screen_position(size))
 		if inside:
 			var pos := player.screen_position(size)
-			if player.is_pressed("primary"):
+			if not player.buttons.is_empty():
 				draw_circle(pos, CURSOR_RADIUS, colour)
 			draw_circle(pos, CURSOR_RADIUS, colour, false, 4.0, true)
 			draw_circle(pos, 3.0, colour)
@@ -153,6 +217,13 @@ func _draw() -> void:
 		else:
 			_draw_edge_arrow(font, font_size, player, colour)
 	_draw_waiting(font, font_size)
+	if _notice != "" and _notice_age < NOTICE_TIME:
+		var c := _notice_colour
+		c.a = 1.0 - _notice_age / NOTICE_TIME
+		var width := font.get_string_size(_notice, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+		var pos := Vector2((size.x - width) / 2.0, font_size + 16.0)
+		draw_string_outline(font, pos, _notice, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, 4, Color(0, 0, 0, 0.8 * c.a))
+		draw_string(font, pos, _notice, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, c)
 
 
 # True for a player who still has to do something before they get a cursor.

@@ -18,6 +18,9 @@ func _ready() -> void:
             print(player.name, " fired"))
 ```
 
+Choose the controls each phone shows (buttons, toggles, sliders, choices and labels) with
+`PhoneWand.set_layout()` and `PhoneWandLayout`; see [Layouts](https://github.com/wildwinter/phone-wand/blob/main/docs/layouts.md).
+
 The demo scene, `demo/cursors.tscn`, draws a cursor for every player who has set up their aim, a line asking the others to, and the
 join QR code.
 
