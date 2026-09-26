@@ -19,6 +19,7 @@ the protocol.
 - Safari on iPhone works, including the welcome page, calibration and the Mac app. It connects over
   WebSocket even with the relay's own certificate (the HTTP fallback wasn't needed), at 60 updates
   a second with a 9 to 17 ms round trip on home Wi-Fi.
+- iPad works too.
 
 ## [0.3.0] - 2026-09-26
 

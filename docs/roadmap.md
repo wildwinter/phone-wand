@@ -6,8 +6,8 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 ## Testing still to do
 
-- **Phones and browsers:** iPad, and Android phones with Chrome. (Safari and Chrome on iPhone are
-  tested.)
+- **Phones and browsers:** Android phones with Chrome. (Safari and Chrome on iPhone, and iPad,
+  are tested.)
 - **Relay platforms:** the Windows relay and tray app, and the Linux relay, including starting the
   relay from a game on each.
 - **Lag:** the goal is under 40 ms from phone to app on local Wi-Fi. First measurement: an iPhone
