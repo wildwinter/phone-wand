@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-26
+
 ### Changed
 
 - The supported engine versions are stated as Unity 6.4 (6000.4), Godot 4.7 and Unreal 5.7, the
