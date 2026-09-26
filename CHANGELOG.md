@@ -7,6 +7,15 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- Games can start the relay themselves, hidden, and stop it when they stop: a **Start Relay**
+  option in the Unity, Godot and Unreal clients, and `startRelay()` for Node. A relay that's
+  already running is used instead. See `docs/shipping.md`.
+- `phone-wand-relay-<version>-embed.zip`: the relay for every platform, laid out for games to
+  ship, with one universal macOS binary, signed and notarized.
+- Relay options `--lifeline` (stop when standard input closes) and `--log <file>`.
+
 ## [0.2.0] - 2026-09-26
 
 ### Changed

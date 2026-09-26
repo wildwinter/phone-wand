@@ -57,6 +57,8 @@ Run `phone-wand --help` for this list.
 | `--data-dir <dir>` | `~/.phone-wand` | Where certificates and settings are kept. |
 | `--no-open` | | Don't open the dashboard in a browser. |
 | `--quiet` | | Print only errors. |
+| `--log <file>` | | Write all output to this file instead of the terminal. |
+| `--lifeline` | | Stop when standard input closes. For programs that start the relay: see [Shipping the relay with your game](shipping.md). |
 | `-v`, `--version` | | Print the version. |
 
 ## The dashboard

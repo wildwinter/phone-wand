@@ -63,6 +63,9 @@ Phones need a browser with motion sensors: Safari or Chrome on iPhone and iPad, 
 Each comes with a sample that draws a coloured cursor for every player. Anything that can open a
 WebSocket can use the [protocol](docs/protocol.md) directly.
 
+To ship a game that starts the relay itself, hidden, so players never see it, see
+[Shipping the relay with your game](docs/shipping.md).
+
 ## Documentation
 
 - [Getting started](docs/getting-started.md): the relay, the phones and your first app
@@ -72,6 +75,8 @@ WebSocket can use the [protocol](docs/protocol.md) directly.
   designing for phone pointing
 - Client libraries: [JavaScript](docs/clients/js.md), [Unity](docs/clients/unity.md),
   [Godot](docs/clients/godot.md), [Unreal](docs/clients/unreal.md)
+- [Shipping the relay with your game](docs/shipping.md): starting the relay from Unity, Godot,
+  Unreal or Node, and signing it for macOS
 - [Protocol](docs/protocol.md): the messages, for writing your own client
 - [Testing](docs/testing.md): simulated players, recording and replay, the conformance suite
 - [Development](docs/development.md): building from source and releasing

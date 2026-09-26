@@ -115,6 +115,35 @@ When the relay goes away, every player gets a `leave`, then `disconnected` fires
 - `toRightHanded(dir)` and `quatToRightHanded(q)`: rig frame to the right-handed, `-z` forward frame
   used by Three.js, Babylon.js (right-handed mode) and WebXR.
 
+## Starting the relay from a Node program
+
+A Node, Bun or Deno program can start the relay itself, hidden, and stop it when it stops. Put the
+`phone-wand-relay` folder from `phone-wand-relay-<version>-embed.zip` next to your program (see
+[Shipping the relay with your game](../shipping.md)), then:
+
+```js
+import { PhoneWand } from "./phone-wand.mjs";
+import { startRelay } from "./phone-wand-node.mjs";
+
+const relay = await startRelay({ folder: "./phone-wand-relay", args: ["--max-players", "8"] });
+const wand = new PhoneWand();
+// ...
+wand.close();
+await relay.stop();
+```
+
+If a relay is already running on this computer, `startRelay` uses it and `relay.started` is
+`false`; `stop()` then does nothing. The relay also stops by itself if your program exits without
+calling `stop()`.
+
+| Option | Default | |
+|---|---|---|
+| `folder` | `./phone-wand-relay` | The folder from the embed zip. |
+| `executable` | | The relay program itself, instead of `folder`. |
+| `url` | `ws://127.0.0.1:8480/app` | The URL your client uses; its port is passed to the relay. |
+| `args` | | Extra relay options. |
+| `log` | `phone-wand-relay.log` in the temporary folder | Where the relay writes its output. |
+
 ## Pages served over HTTPS
 
 A page served from an `https://` address may not be allowed to connect to `ws://127.0.0.1`, because
