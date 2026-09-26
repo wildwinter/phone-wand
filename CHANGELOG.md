@@ -7,6 +7,10 @@ the protocol.
 
 ## [Unreleased]
 
+### Tested
+
+- The 0.4.0 layouts, settings and Recentre placement on a real phone, right- and left-handed.
+
 ## [0.4.0] - 2026-09-26
 
 ### Added

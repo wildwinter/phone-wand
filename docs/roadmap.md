@@ -19,6 +19,8 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 ## Planned features
 
+Next up: gestures.
+
 - **Gestures.** The phone spots a flick (to throw) or a shake from its motion sensors, and apps get
   a `gesture` event with its strength and direction.
 - **OSC output.** The relay also sends pointers, buttons and players as
