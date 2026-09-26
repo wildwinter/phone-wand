@@ -8,6 +8,10 @@
 // SetLayout chooses the controls each phone shows (see docs/layouts.md); their changes arrive as
 // ControlChanged, and presses of your buttons as Button with your ids.
 //
+// Gesture fires when a player flicks, shakes or twists the phone (see docs/gestures.md):
+//
+//   wand.Gesture += (g, player) => { if (g.Is(GestureName.Pull) && g.WasHeld(PhoneButton.Primary)) DrawBow(player, g.Strength); };
+//
 // Messages arrive on a background thread and are delivered in Update, so every event fires on
 // the main thread and you can touch the scene from any handler.
 //
@@ -59,6 +63,19 @@ namespace StoryTools.PhoneWand
 
         [Tooltip("Log connections, joins and leaves to the console.")]
         [SerializeField] bool logEvents = false;
+
+        [Header("Gestures")]
+        [Tooltip("Send this app gesture events (flicks, shakes and twists). See docs/gestures.md.")]
+        [SerializeField] bool gesturesEnabled = true;
+
+        [Tooltip("Acceleration in m/s^2 that starts a movement. Lower is more sensitive. Relay default 7.")]
+        [SerializeField, Min(0f)] float gestureThreshold = (float)GestureSensitivity.DefaultThreshold;
+
+        [Tooltip("Peak speed in m/s a movement must reach. Relay default 0.35.")]
+        [SerializeField, Min(0f)] float gestureMinSpeed = (float)GestureSensitivity.DefaultMinSpeed;
+
+        [Tooltip("Roll rate in degrees per second that makes a twist. Relay default 360.")]
+        [SerializeField, Min(0f)] float gestureTwistRate = (float)GestureSensitivity.DefaultTwistRate;
 
         [Header("Managed relay")]
         [Tooltip("Start the relay, hidden, when connecting (unless one is already running) and stop it when this client stops. " +
@@ -125,6 +142,37 @@ namespace StoryTools.PhoneWand
 
         /// <summary>True while a relay this client started is running.</summary>
         public bool StartedRelay => relay != null && relay.IsRunning;
+
+        /// <summary>
+        /// Send this app gesture events. Kept across reconnects; changing it while connected tells
+        /// the relay straight away.
+        /// </summary>
+        public bool GesturesEnabled
+        {
+            get { return gesturesEnabled; }
+            set { gesturesEnabled = value; connection.Gestures = GesturesFromSettings(); }
+        }
+
+        /// <summary>Acceleration in m/s^2 that starts a movement; lower is more sensitive. Default 7.</summary>
+        public float GestureThreshold
+        {
+            get { return gestureThreshold; }
+            set { gestureThreshold = value; connection.Gestures = GesturesFromSettings(); }
+        }
+
+        /// <summary>Peak speed in m/s a movement must reach. Default 0.35.</summary>
+        public float GestureMinSpeed
+        {
+            get { return gestureMinSpeed; }
+            set { gestureMinSpeed = value; connection.Gestures = GesturesFromSettings(); }
+        }
+
+        /// <summary>Roll rate in degrees per second that makes a twist. Default 360.</summary>
+        public float GestureTwistRate
+        {
+            get { return gestureTwistRate; }
+            set { gestureTwistRate = value; connection.Gestures = GesturesFromSettings(); }
+        }
 
         /// <summary>The engine-free core: state, events and message handling.</summary>
         public PhoneWandCore Core => connection.Core;
@@ -207,6 +255,16 @@ namespace StoryTools.PhoneWand
         }
 
         /// <summary>
+        /// The player moved the phone deliberately: a push, pull, sideways or vertical flick, shake
+        /// or twist. GestureDirection(g) gives its direction as a Vector3. See docs/gestures.md.
+        /// </summary>
+        public event Action<GestureEvent, Player> Gesture
+        {
+            add { connection.Core.Gesture += value; }
+            remove { connection.Core.Gesture -= value; }
+        }
+
+        /// <summary>
         /// The relay could not use something this app sent (a bad layout or value); the message says
         /// why. With no listener, the client logs it as a warning.
         /// </summary>
@@ -279,6 +337,8 @@ namespace StoryTools.PhoneWand
         {
             connection.Url = url;
             connection.AutoReconnect = autoReconnect;
+            // While playing, inspector changes reach the relay at once, for tuning with a phone in hand.
+            connection.Gestures = GesturesFromSettings();
         }
 
         void Log(string message)
@@ -295,6 +355,7 @@ namespace StoryTools.PhoneWand
             connection.Url = url;
             connection.AutoReconnect = autoReconnect;
             connection.Smoothing = SmoothingFromSettings();
+            connection.Gestures = GesturesFromSettings();
             connection.Connect();
         }
 
@@ -370,6 +431,19 @@ namespace StoryTools.PhoneWand
             }
         }
 
+        GestureSensitivity GesturesFromSettings()
+        {
+            if (!gesturesEnabled) return GestureSensitivity.Off;
+            return new GestureSensitivity(Tidy(gestureThreshold), Tidy(gestureMinSpeed), Tidy(gestureTwistRate));
+        }
+
+        // A float as the double it was typed as (0.35f as 0.35, not 0.3499999940395355), via decimal.
+        static double Tidy(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return 0;
+            return Math.Abs(value) < 1e9f ? (double)(decimal)value : value;
+        }
+
         // ------------------------------------------------------------------ app -> relay
 
         /// <summary>
@@ -390,6 +464,20 @@ namespace StoryTools.PhoneWand
         {
             smoothing = SmoothingMode.Raw;
             connection.Smoothing = Smoothing.Off;
+        }
+
+        /// <summary>
+        /// Set this app's gesture sensitivity and turn gestures on (kept across reconnects). Lower
+        /// threshold is more sensitive. The defaults are the relay's.
+        /// </summary>
+        public void ConfigureGestures(float threshold = (float)GestureSensitivity.DefaultThreshold,
+            float minSpeed = (float)GestureSensitivity.DefaultMinSpeed, float twistRate = (float)GestureSensitivity.DefaultTwistRate)
+        {
+            gesturesEnabled = true;
+            gestureThreshold = threshold;
+            gestureMinSpeed = minSpeed;
+            gestureTwistRate = twistRate;
+            connection.Gestures = GesturesFromSettings();
         }
 
         /// <summary>Change a player's colour and/or label (shown on their phone). Null leaves a field unchanged.</summary>
@@ -465,6 +553,19 @@ namespace StoryTools.PhoneWand
 
         /// <summary>The phone's orientation as a Unity rotation (maps +z to the pointing direction).</summary>
         public static Quaternion Rotation(PlayerPose pose) => pose.Rotation.ToQuaternion();
+
+        /// <summary>
+        /// The phone's acceleration in m/s^2, gravity removed, as a Unity vector (x right, y up,
+        /// z forward), or null when the pose has none (motion access refused).
+        /// </summary>
+        public static Vector3? Accel(PlayerPose pose)
+        {
+            if (pose == null || !pose.Accel.HasValue) return null;
+            return pose.Accel.Value.ToVector3();
+        }
+
+        /// <summary>A gesture's direction of movement as a Unity unit vector (zero for shakes and twists).</summary>
+        public static Vector3 GestureDirection(GestureEvent gesture) => gesture.Dir.ToVector3();
 
         /// <summary>
         /// Where the player points, in Unity screen pixels (origin bottom-left, like

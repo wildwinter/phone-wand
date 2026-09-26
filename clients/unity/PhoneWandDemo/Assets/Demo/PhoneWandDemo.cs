@@ -1,7 +1,8 @@
 // Phone Wand demo: cursors for every player, plus a panel with the join QR code, the player list
 // and their connection stats. It also shows the app-to-phone messages: a welcome prompt on
 // join, a buzz (Android) on every click, keys to ask everyone to calibrate, and sample layouts
-// (the controls on the phones), whose changes show briefly at the top. Players have no
+// (the controls on the phones), whose changes show briefly at the top, as do gestures (a flick,
+// shake or twist of the phone, with any buttons held: "Kit: pull + primary"). Players have no
 // cursor until they have set up their aim once (or while they calibrate), so a line at the bottom
 // left says what each of them still needs to do on their phone.
 //
@@ -104,6 +105,7 @@ public class PhoneWandDemo : MonoBehaviour
         wand.PlayerJoined += OnJoined;
         wand.Button += OnButton;
         wand.ControlChanged += OnControl;
+        wand.Gesture += OnGesture;
         wand.Error += OnError;
         wand.Calibrating += OnCalibrating;
         wand.Calibrated += OnCalibrated;
@@ -115,6 +117,7 @@ public class PhoneWandDemo : MonoBehaviour
         wand.PlayerJoined -= OnJoined;
         wand.Button -= OnButton;
         wand.ControlChanged -= OnControl;
+        wand.Gesture -= OnGesture;
         wand.Error -= OnError;
         wand.Calibrating -= OnCalibrating;
         wand.Calibrated -= OnCalibrated;
@@ -178,6 +181,12 @@ public class PhoneWandDemo : MonoBehaviour
         ShowMessage(player.Name + ": " + e.Control + " = " + value, player.UnityColour());
     }
 
+    void OnGesture(GestureEvent g, Player player)
+    {
+        string held = g.Buttons.Count > 0 ? " + " + string.Join(" + ", g.Buttons) : "";
+        ShowMessage(player.Name + ": " + g.Gesture + held, player.UnityColour());
+    }
+
     void OnError(string error)
     {
         ShowMessage("Relay error: " + error, new Color(1f, 0.36f, 0.42f));
@@ -237,7 +246,7 @@ public class PhoneWandDemo : MonoBehaviour
         if (showPanel) DrawPanel();
     }
 
-    // The latest control change (or relay error), top centre, for a moment.
+    // The latest control change, gesture or relay error, top centre, for a moment.
     void DrawMessage()
     {
         float age = Time.unscaledTime - messageAt;

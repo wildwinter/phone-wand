@@ -10,6 +10,8 @@
 //     -phoneWandRelayArgs "--port 23443 --no-landing"
 //   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
 //     -executeMethod PhoneWandChecks.Layouts -phoneWandUrl ws://127.0.0.1:8480/app
+//   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+//     -executeMethod PhoneWandChecks.Gestures -phoneWandUrl ws://127.0.0.1:8480/app
 //
 // Each exits the editor with 0 on success and 1 on failure, and logs a line starting with
 // "PhoneWandChecks:".
@@ -381,6 +383,131 @@ public static class PhoneWandChecks
         finally
         {
             Application.logMessageReceived -= onLog;
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+        }
+        EditorApplication.Exit(code);
+    }
+
+    /// <summary>
+    /// Gestures, against a running relay with one phone that flicks every second or two while
+    /// holding "primary" (a scripted fake phone sending acceleration in its poses). Drives a
+    /// PhoneWandClient component: a gesture must arrive with buttons ["primary"] and poses must carry
+    /// accel; turning GesturesEnabled off must stop them, including after a reconnect (so the
+    /// setting is sent again on connect); turning it back on must bring them back.
+    /// </summary>
+    public static void Gestures()
+    {
+        int code = 1;
+        GameObject go = null;
+        try
+        {
+            string url = Arg("-phoneWandUrl") ?? PhoneWandCore.DefaultUrl;
+            double seconds = double.Parse(Arg("-phoneWandSeconds") ?? "20", CultureInfo.InvariantCulture);
+            var failures = new List<string>();
+
+            go = new GameObject("PhoneWandChecks.Gestures");
+            var wand = go.AddComponent<PhoneWandClient>();
+            typeof(PhoneWandClient).GetMethod("Awake", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(wand, null);
+            wand.Url = url;
+            wand.AutoReconnect = false;
+            if (!wand.GesturesEnabled || wand.GestureThreshold != 7f || wand.GestureMinSpeed != 0.35f || wand.GestureTwistRate != 360f)
+                failures.Add("the gesture defaults are not on, 7, 0.35, 360");
+
+            var gestures = new List<GestureEvent>();
+            int poses = 0, accels = 0;
+            wand.Gesture += (g, p) =>
+            {
+                gestures.Add(g);
+                Vector3 dir = PhoneWandClient.GestureDirection(g);
+                Debug.Log("PhoneWandChecks: gesture " + g + " dir " + dir.ToString("F2") + " speed " +
+                    g.Speed.ToString("0.00", CultureInfo.InvariantCulture) + " buttons [" + string.Join(",", g.Buttons) + "]");
+                if (g.DirectionVector() != dir) failures.Add("DirectionVector and GestureDirection differ");
+            };
+            wand.Pose += (pose, p) =>
+            {
+                poses++;
+                Vector3? a = PhoneWandClient.Accel(pose);
+                if (!a.HasValue) return;
+                accels++;
+                if (pose.AccelVector() != a) failures.Add("AccelVector and Accel differ");
+                if (a.Value.magnitude > 5f && accels % 10 == 0) Debug.Log("PhoneWandChecks: accel " + a.Value.ToString("F2"));
+            };
+
+            var clock = Stopwatch.StartNew();
+            bool WaitFor(Func<bool> condition, string what)
+            {
+                var start = clock.Elapsed.TotalSeconds;
+                while (clock.Elapsed.TotalSeconds - start < seconds)
+                {
+                    wand.Connection.Pump();
+                    if (condition()) return true;
+                    Thread.Sleep(10);
+                }
+                failures.Add("timed out waiting for " + what);
+                return false;
+            }
+            void PumpFor(double s)
+            {
+                var start = clock.Elapsed.TotalSeconds;
+                while (clock.Elapsed.TotalSeconds - start < s)
+                {
+                    wand.Connection.Pump();
+                    Thread.Sleep(10);
+                }
+            }
+
+            // 1. On by default: a gesture while primary is held.
+            wand.Connect();
+            if (WaitFor(() => gestures.Exists(g => g.WasHeld(PhoneButton.Primary)), "a gesture with primary held"))
+            {
+                var first = gestures.Find(x => x.WasHeld(PhoneButton.Primary));
+                if (string.Join(",", first.Buttons) != "primary") failures.Add("the gesture's buttons are [" + string.Join(",", first.Buttons) + "]");
+                if (first.Strength <= 0 || first.Strength > 1) failures.Add("the gesture's strength is " + first.Strength);
+            }
+            if (accels == 0) failures.Add("no pose carried accel (" + poses + " poses)");
+
+            // 2. Off while connected: sent at once, so no more gestures.
+            wand.GesturesEnabled = false;
+            PumpFor(0.3);
+            int before = gestures.Count;
+            PumpFor(4);
+            if (gestures.Count != before) failures.Add((gestures.Count - before) + " gesture(s) arrived with gestures off");
+
+            // 3. Still off after reconnecting: the setting goes out again on connect.
+            wand.Disconnect();
+            wand.Connect();
+            WaitFor(() => wand.IsConnected, "reconnecting");
+            before = gestures.Count;
+            PumpFor(4);
+            if (gestures.Count != before) failures.Add((gestures.Count - before) + " gesture(s) arrived after reconnecting with gestures off");
+
+            // 4. On again, with an explicit sensitivity.
+            wand.ConfigureGestures(7f, 0.35f, 360f);
+            before = gestures.Count;
+            WaitFor(() => gestures.Count > before, "a gesture after turning gestures back on");
+
+            typeof(PhoneWandClient).GetMethod("OnDisable", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(wand, null);
+
+            foreach (var f in failures) Debug.LogError("PhoneWandChecks: " + f);
+            string summary = "gestures=" + gestures.Count + " poses=" + poses + " poses-with-accel=" + accels;
+            if (failures.Count == 0)
+            {
+                Debug.Log("PhoneWandChecks: gestures PASS " + summary);
+                code = 0;
+            }
+            else
+            {
+                Debug.LogError("PhoneWandChecks: gestures FAIL " + summary);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("PhoneWandChecks: gestures FAIL: " + e);
+        }
+        finally
+        {
             if (go != null) UnityEngine.Object.DestroyImmediate(go);
         }
         EditorApplication.Exit(code);

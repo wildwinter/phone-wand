@@ -157,6 +157,47 @@ Button ids are strings. `PhoneButton.Primary` and `PhoneButton.Secondary` are th
 `player.IsHeld(PhoneButton.Primary)` still compiles and works; code that declared a variable of
 type `PhoneButton`, or called `ProtocolNames.Of` on one, now uses `string`.)
 
+## Gestures
+
+Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
+The relay spots these movements and the client raises `Gesture`; see [Gestures](../gestures.md)
+for what each one is and what works well. `Buttons` says which buttons were held when the movement
+started, so "hold Primary and pull back" is a pull that `WasHeld(PhoneButton.Primary)`:
+
+```csharp
+wand.Gesture += (g, player) =>
+{
+    if (g.Is(GestureName.Pull) && g.WasHeld(PhoneButton.Primary)) DrawBow(player, (float)g.Strength);
+    if (g.Is(GestureName.Push)) Throw(player, PhoneWandClient.GestureDirection(g) * (float)g.Speed);
+    if (g.Is(GestureName.Shake)) Shuffle(player);
+};
+wand.ConfigureGestures(9f);   // needs a firmer flick than the default 7
+```
+
+A `GestureEvent` has:
+
+| Property | Meaning |
+|---|---|
+| `Id` | The player's id. |
+| `Gesture` | `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`, `"twist-left"` or `"twist-right"`. The `GestureName` constants (`GestureName.Push`, `GestureName.TwistLeft`, ...) hold them; `Is(name)` compares. |
+| `Strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
+| `Speed` | Peak speed of the movement in m/s (0 for twists). |
+| `Dir` | `RigVector3`: unit direction of the movement (zero for shakes and twists). `PhoneWandClient.GestureDirection(g)` or `g.DirectionVector()` gives a `Vector3`, so a push is about `Vector3.forward`. |
+| `Duration` | How long it took, in ms. |
+| `T` | Relay time it started, in ms since the Unix epoch. |
+| `Buttons`, `WasHeld(id)` | The ids of the buttons held when it started, sorted. |
+
+Sensitivity is set per app, in the inspector under **Gestures** (Gestures Enabled, Gesture
+Threshold, Gesture Min Speed, Gesture Twist Rate; the defaults are the relay's: on, 7, 0.35, 360),
+from code with the matching properties, or with `ConfigureGestures(threshold, minSpeed, twistRate)`.
+Set `GesturesEnabled = false` for no gesture events. The client sends the settings when it connects
+and again after every reconnect, and a change while connected (including in the inspector during
+Play) reaches the relay at once.
+
+To recognise movements yourself, read each pose's acceleration: `PhoneWandClient.Accel(pose)` (or
+`pose.AccelVector()`) is a `Vector3?` in m/s², gravity removed, in the same frame as the pointing
+direction, and null when the phone sent none (for example if motion access was refused).
+
 ## API reference
 
 ### PhoneWandClient (component)
@@ -171,6 +212,8 @@ Inspector settings:
 | Smoothing | Relay Default | `Relay Default`, `Custom` (uses Min Cutoff, Beta and D Cutoff) or `Raw`. |
 | Min Cutoff, Beta, D Cutoff | 1, 5, 1 | One Euro filter settings for `Custom`. |
 | Log Events | off | Log connections, joins and leaves to the console. |
+| Gestures Enabled | on | Send this app `Gesture` events. See [Gestures](#gestures). |
+| Gesture Threshold, Gesture Min Speed, Gesture Twist Rate | 7, 0.35, 360 | Acceleration in m/s² that starts a movement (lower is more sensitive), peak speed in m/s a movement must reach, and roll rate in degrees per second that makes a twist. |
 | Start Relay | off | Start the relay yourself, hidden, and stop it with the game. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
 | Relay Path | empty | A `phone-wand-relay` folder or the relay program. Empty means `Application.streamingAssetsPath/phone-wand-relay`. |
 | Relay Arguments | empty | Extra relay options, for example `--max-players 8 --key party`. |
@@ -187,6 +230,8 @@ Properties and methods:
 | `Connect()`, `Disconnect()` | Start connecting, or disconnect and stop retrying. `Disconnect` fires `PlayerLeft` for every player and then `Disconnected` before it returns. Disabling the component disconnects. |
 | `ConfigureSmoothing(minCutoff, beta, dCutoff)` | Set the relay's One Euro filter for this app. Lower `minCutoff` is steadier when still; higher `beta` is quicker when moving. Kept across reconnects. |
 | `ConfigureRaw()` | Turn smoothing off for this app. Kept across reconnects. |
+| `ConfigureGestures(threshold = 7, minSpeed = 0.35, twistRate = 360)` | Set this app's gesture sensitivity and turn gestures on. Kept across reconnects. |
+| `bool GesturesEnabled`, `float GestureThreshold`, `GestureMinSpeed`, `GestureTwistRate` | As in the inspector. Setting one while connected sends it straight away; all are sent again on every connect. |
 | `Style(id, colour, label)` | Change a player's colour (a `Color`, or a `"#rrggbb"` string) and label. Both show on their phone. Pass null to leave one alone. |
 | `Prompt(text, id, duration)` | Show text on a phone, or on every phone when `id` is null. `duration` in ms (relay default 3000); 0 keeps it until the next prompt; empty text clears it. |
 | `Haptic(ms, id)`, `Haptic(int[] pattern, id)` | Vibrate one phone, or all when `id` is null. The pattern alternates on and off milliseconds. Android only: iPhones do not allow it. |
@@ -207,6 +252,8 @@ Static helpers:
 | `PhoneWandClient.Rotation(pose)` | The phone's orientation as a `Quaternion`. `Rotation(pose) * Vector3.forward` is the pointing direction. |
 | `PhoneWandClient.ScreenPosition(pose, camera = null)` | `Vector2?` in Unity screen pixels, origin bottom-left (the same space as `Input.mousePosition` and `Camera.ScreenPointToRay`). With a camera, the position is within that camera's pixel rect. Null when there is no pose or the phone points far from the screen. Values outside the screen mean the player is pointing off it. |
 | `PhoneWandClient.GuiPosition(pose)` | `Vector2?` in GUI pixels, origin top-left, for `OnGUI`. |
+| `PhoneWandClient.Accel(pose)` | `Vector3?`: the phone's acceleration in m/s², gravity removed, or null when the pose has none. |
+| `PhoneWandClient.GestureDirection(gesture)` | A gesture's direction of movement as a `Vector3` (zero for shakes and twists). |
 
 ### Events
 
@@ -220,6 +267,7 @@ Static helpers:
 | `Pose` | `PlayerPose, Player` | A new orientation sample, typically 60 a second per player. |
 | `Button` | `ButtonEvent, Player` | A button went down or up: `Id` (the player), `Button` (the button's id from the layout: `"primary"` and `"secondary"` by default), `Down`. Every down is followed by an up, even if the phone disconnects or a new layout removes the button. |
 | `ControlChanged` | `ControlEvent, Player` | A toggle, slider, choice or label changed, on the phone or because an app set it: `Id`, `Control` (its id), `Value` (`bool`, `double` or `string`), with `AsBool`, `AsNumber`, `AsIndex` and `AsString` to read it. The player's `Controls` already hold the new value. |
+| `Gesture` | `GestureEvent, Player` | The player moved the phone deliberately: a flick, shake or twist. See [Gestures](#gestures). |
 | `Error` | `string` | The relay could not use something this app sent (a bad layout or value); the message says why. With no handler, the client logs a warning instead. |
 | `Calibrating` | `CalibrationStep, Player` | The player is being asked to point at `TopLeft` or `BottomRight`, or `Cancelled`. |
 | `Calibrated` | `Calibration, Player` | The player pressed Recentre (`Ray`) or finished screen calibration (`Screen`). |
@@ -286,9 +334,11 @@ toggle, a `double` for a slider or a choice's index), `Orientation` and `Spring`
 | `Direction` | `RigVector3`: calibrated unit pointing direction. `.ToVector3()` for Unity. |
 | `Yaw`, `Pitch`, `Roll` | Degrees. Yaw is positive to the right, pitch upwards, roll clockwise as seen from behind. |
 | `Screen` | `ScreenPoint?`: normalised position, `(0, 0)` top-left to `(1, 1)` bottom-right, or null. `IsOnScreen` checks the 0..1 range. |
+| `Accel` | `RigVector3?`: the phone's acceleration in m/s², gravity removed, in the same frame as `Direction`, unsmoothed. Null when the phone sends none (motion access refused). `.AccelVector()` gives a `Vector3?`. |
 
 Other extension methods in `PhoneWandExtensions`: `ScreenPoint.ToScreenPixels(camera)`,
-`ScreenPoint.ToGuiPixels()`, `ScreenPoint.ToVector2()`, and `PlayerPose.ToRay(origin, frame)`, which
+`ScreenPoint.ToGuiPixels()`, `ScreenPoint.ToVector2()`, `PlayerPose.AccelVector()`,
+`GestureEvent.DirectionVector()`, and `PlayerPose.ToRay(origin, frame)`, which
 makes a world-space `Ray` from `origin` along the pointing direction turned by `frame` (pass a
 camera's `transform.rotation` so that forward means into the scene).
 
@@ -299,10 +349,11 @@ UnityEngine references:
 
 - `PhoneWandCore` holds the players and fires the events. `Handle(string json)` processes one relay
   message, which is how the conformance tests replay recorded sessions. It also builds the outgoing
-  messages (`Configure`, `Style`, `Prompt`, `Haptic`, `Calibrate`, `SetLayout`, `SetControl`).
+  messages (`Configure` with a `Smoothing` and/or a `GestureSensitivity`, `Style`, `Prompt`, `Haptic`, `Calibrate`, `SetLayout`, `SetControl`).
   With no `Error` handler, relay errors go to its `UnhandledError` callback (the component logs
   them as warnings).
-- `PhoneWandConnection` owns the WebSocket and the reconnect timer. Nothing happens until you call
+- `PhoneWandConnection` owns the WebSocket and the reconnect timer, and sends its `Smoothing` and
+  `Gestures` settings each time it connects. Nothing happens until you call
   `Pump()`, and every event fires inside that call, on your thread.
 
 Use them directly for editor tools or tests:
@@ -405,7 +456,8 @@ press Play. As well as cursors it shows the join QR code, the player list with t
 sends a welcome prompt and a buzz on every click. Press **C** to ask everyone to calibrate the
 screen, **R** to recentre, **L** to cycle every phone through sample layouts (the default, a
 primary row with a toggle and a label, and a grid with every kind of control; changes show
-briefly at the top of the screen), and **Tab** to hide the panel. A built player accepts
+briefly at the top of the screen), and **Tab** to hide the panel. Gestures show briefly at the top
+too, in the player's colour with any held buttons (for example "Kit: pull + primary"). A built player accepts
 `-phoneWandUrl ws://host:port/app` on the command line.
 
 ## Troubleshooting
@@ -470,6 +522,17 @@ The package is tested three ways. See [Testing](../testing.md) for the conforman
   ```
   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
     -executeMethod PhoneWandChecks.Layouts -phoneWandUrl ws://127.0.0.1:8480/app -logFile -
+  ```
+
+- **Gestures, live.** `PhoneWandChecks.Gestures` drives a Phone Wand Client against a relay with
+  one phone that holds `primary` and flicks every second or two (a scripted fake phone sending
+  acceleration in its poses). A gesture must arrive with buttons `["primary"]` and poses must carry
+  acceleration; with `GesturesEnabled` off none may arrive, also after a reconnect (which proves the
+  setting is sent again on connect); turned back on, they must return.
+
+  ```
+  Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+    -executeMethod PhoneWandChecks.Gestures -phoneWandUrl ws://127.0.0.1:8480/app -logFile -
   ```
 
 - **Start Relay.** `PhoneWandChecks.ManagedRelay` checks the whole cycle in batch mode. With no

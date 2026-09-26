@@ -52,6 +52,15 @@ namespace StoryTools.PhoneWand
         public static Quaternion RotationQuaternion(this PlayerPose pose) => pose.Rotation.ToQuaternion();
 
         /// <summary>
+        /// The pose's acceleration in m/s^2 (gravity removed) as a Unity vector, or null when the
+        /// phone sent none.
+        /// </summary>
+        public static Vector3? AccelVector(this PlayerPose pose) => pose.Accel.HasValue ? pose.Accel.Value.ToVector3() : (Vector3?)null;
+
+        /// <summary>A gesture's direction of movement as a Unity unit vector (zero for shakes and twists).</summary>
+        public static Vector3 DirectionVector(this GestureEvent gesture) => gesture.Dir.ToVector3();
+
+        /// <summary>
         /// A world-space ray from origin along the player's pointing direction, turned by the
         /// frame's rotation (for example a camera's transform, so forward means into the scene).
         /// </summary>
