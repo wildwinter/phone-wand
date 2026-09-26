@@ -16,12 +16,10 @@ Download the relay for the computer that drives your screen from the
 
 Open or unzip it, and run it:
 
-- **macOS:** open the disk image and double-click **Phone Wand**, or drag it to Applications first
-  and start it from there. It runs in the background with no window of its own: the dashboard opens
-  in your browser, and its **Stop relay** button stops it. It's signed and notarized by Apple, so it
-  opens without a warning. The disk image also has `phone-wand`, the same relay as a command-line
-  program: copy it to any folder and run `./phone-wand` in Terminal to see its output and use the
-  options below.
+- **macOS:** open the disk image, drag **Phone Wand** to Applications, and open it. It's signed and
+  notarized by Apple, so it opens without a warning. It shows in the Dock while the relay runs, and
+  the dashboard opens in your browser. Click the Dock icon to bring the dashboard back, and quit the
+  app to stop the relay.
 - **Windows:** double-click `phone-wand.exe`. The first time, Windows SmartScreen may say it doesn't
   recognise the app: choose **More info**, then **Run anyway**. When Windows Firewall asks, allow
   access on **private networks**, or phones won't be able to connect.

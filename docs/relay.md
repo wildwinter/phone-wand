@@ -12,11 +12,19 @@ Several apps can connect at once, for example your game plus the dashboard.
 
 ## The Mac app
 
-On macOS, **Phone Wand.app** is the relay with no terminal: double-click it and the dashboard opens
-in your browser. Stop it with the dashboard's **Stop relay** button. Its output goes to
-`~/Library/Logs/Phone Wand/relay.log`, and if it can't start (say, a port is taken) it says why in a
-dialog. It uses the default options; for others, run the `phone-wand` command-line program from the
-same disk image instead.
+On macOS the relay comes as **Phone Wand.app**. Open it and the dashboard opens in your browser.
+The app stays in the Dock while the relay runs:
+
+- click the Dock icon, or choose **Open Dashboard** (Command-D), to bring the dashboard back,
+- **Show Log** opens the relay's output, kept in `~/Library/Logs/Phone Wand/relay.log`,
+- quitting the app stops the relay, and stopping the relay from the dashboard quits the app.
+
+If the relay can't start (say, a port is taken), a dialog says why. The app uses the default
+options. For others, run the relay inside it from Terminal:
+
+```bash
+"/Applications/Phone Wand.app/Contents/MacOS/phone-wand-relay" --help
+```
 
 ## Options
 

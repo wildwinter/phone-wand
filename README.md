@@ -34,7 +34,7 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
 
    | Computer | Download | To run it |
    |---|---|---|
-   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` | Open the disk image and double-click **Phone Wand** (or drag it to Applications first). It runs in the background, with the dashboard as its window. |
+   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` | Open the disk image, drag **Phone Wand** to Applications and open it. It shows in the Dock while the relay runs; quit it to stop the relay. |
    | Intel Mac | `phone-wand-relay-<version>-macos-x64.dmg` | The same |
    | Windows | `phone-wand-relay-<version>-windows-x64.zip` | Double-click `phone-wand.exe`. If SmartScreen appears, choose **More info**, then **Run anyway**. Allow it through the firewall on private networks. |
    | Linux | `phone-wand-relay-<version>-linux-x64.tar.gz` (or `-linux-arm64`) | Run `./phone-wand` |

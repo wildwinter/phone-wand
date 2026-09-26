@@ -7,6 +7,14 @@ the protocol.
 
 ## [Unreleased]
 
+### Changed
+
+- **Phone Wand.app** is now a proper Mac app: it shows in the Dock while the relay runs, has Open
+  Dashboard and Show Log in its menus, reopens the dashboard when its Dock icon is clicked, and
+  stops the relay when it quits. Stopping the relay from the dashboard quits the app.
+- The macOS disk image no longer has a separate command-line relay beside the app. The relay inside
+  the app still runs from Terminal, with options.
+
 ## [0.1.3] - 2026-09-26
 
 ### Added

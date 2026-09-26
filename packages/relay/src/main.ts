@@ -56,9 +56,10 @@ Other:
 
 Docs: https://github.com/wildwinter/phone-wand`;
 
-// Launched as "Phone Wand.app" on macOS: there is no terminal, so output goes to a log file, the
-// dashboard is the interface, and errors are shown in a dialog.
-const APP_MODE = process.platform === "darwin" && process.execPath.includes(".app/Contents/MacOS/");
+// Started by "Phone Wand.app" on macOS (which sets PHONE_WAND_APP): there is no terminal, so output
+// goes to a log file, the dashboard is the interface, and errors are shown in a dialog. Run by hand
+// from Terminal, even from inside the app, the relay behaves as the ordinary command line.
+const APP_MODE = process.platform === "darwin" && process.env.PHONE_WAND_APP === "1";
 const LOG_FILE = join(homedir(), "Library/Logs/Phone Wand/relay.log");
 
 if (APP_MODE) {
@@ -315,6 +316,12 @@ async function main() {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  if (APP_MODE) {
+    // The app holds our stdin open; when it closes, the app has gone, so the relay goes too.
+    process.stdin.on("end", shutdown);
+    process.stdin.on("close", shutdown);
+    process.stdin.resume();
+  }
 }
 
 main().catch((e) => fail((e as Error).stack ?? String(e)));

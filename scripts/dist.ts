@@ -138,18 +138,28 @@ async function buildRelay(): Promise<void> {
       // A Mac app alongside the command-line tool. Finder won't open a bare command-line program
       // that came from the internet, however it is signed ("does not seem to be an app"), so the
       // app is what people double-click. It runs the same relay, with the dashboard as its window.
+      // The app is a small native wrapper (scripts/macos/PhoneWandApp.swift) that gives the relay a
+      // Dock icon and menus; the relay binary sits beside it and is the only thing in the image.
       const app = join(dir, "Phone Wand.app");
       mkdirSync(join(app, "Contents/MacOS"), { recursive: true });
       mkdirSync(join(app, "Contents/Resources"), { recursive: true });
-      cpSync(exe, join(app, "Contents/MacOS/phone-wand"));
+      const relayInApp = join(app, "Contents/MacOS/phone-wand-relay");
+      cpSync(exe, relayInApp);
+      rmSync(exe);
+      run("swiftc", [
+        "-O", "-target", `${target === "darwin-arm64" ? "arm64" : "x86_64"}-apple-macos13.0`,
+        join(root, "scripts/macos/PhoneWandApp.swift"), "-o", join(app, "Contents/MacOS/Phone Wand"),
+      ]);
       cpSync(join(root, "scripts/macos/AppIcon.icns"), join(app, "Contents/Resources/AppIcon.icns"));
       writeFileSync(join(app, "Contents/Info.plist"), infoPlist());
       if (identity) {
+        // Inside out: the relay (which needs the JIT entitlements), then the app around it.
         run("codesign", [
           "--force", "--timestamp", "--options", "runtime",
           "--entitlements", join(root, "scripts/entitlements.plist"),
-          "--sign", identity, app,
+          "--sign", identity, relayInApp,
         ]);
+        run("codesign", ["--force", "--timestamp", "--options", "runtime", "--sign", identity, app]);
         run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", app]);
         const appZip = join(staging, `${base}-app.zip`);
         run("ditto", ["-c", "-k", "--keepParent", app, appZip]);
@@ -184,13 +194,13 @@ function infoPlist(): string {
   <key>CFBundleName</key><string>Phone Wand</string>
   <key>CFBundleDisplayName</key><string>Phone Wand</string>
   <key>CFBundleIdentifier</key><string>se.storytools.phonewand</string>
-  <key>CFBundleExecutable</key><string>phone-wand</string>
+  <key>CFBundleExecutable</key><string>Phone Wand</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
-  <key>LSUIElement</key><true/>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSHumanReadableCopyright</key><string>Ian Thomas, storytools.se. MIT licence.</string>
 </dict>
 </plist>
@@ -201,15 +211,14 @@ function relayReadme(exe: string, target: string): string {
   const start = target.startsWith("windows")
     ? `Double-click ${exe}, or run it from a terminal.`
     : target.startsWith("darwin")
-      ? `Double-click Phone Wand (drag it to Applications first if you like). It runs in the background\nand opens the dashboard in your browser; stop it with the dashboard's Stop relay button.\n\nFor the command line, copy ${exe} to any folder and run ./${exe} in Terminal.`
+      ? `Drag Phone Wand to Applications, then open it. It shows in the Dock while the relay runs and opens\nthe dashboard in your browser. Click its Dock icon to reopen the dashboard; quit it to stop the relay.\n\nThe relay also runs from Terminal, with options:\n  "/Applications/Phone Wand.app/Contents/MacOS/phone-wand-relay" --help`
       : `Run ./${exe} from a terminal.`;
   return `Phone Wand relay ${version}
 
 Turns phones into shared pointers for a screen.
 
 ${start}
-The dashboard shows a QR code; phones on the same Wi-Fi scan it to join.
-Run "${exe} --help" for the command-line options.
+The dashboard shows a QR code; phones on the same Wi-Fi scan it to join.${target.startsWith("darwin") ? "" : `\nRun "${exe} --help" for the command-line options.`}
 
 Full documentation: https://github.com/wildwinter/phone-wand
 `;
