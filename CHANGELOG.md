@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
 ### Added
 
 - **Gestures**: push, pull, left, right, up, down, shake, twist-left and twist-right, detected by
