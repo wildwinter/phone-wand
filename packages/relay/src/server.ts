@@ -19,6 +19,23 @@ export interface ServerOptions {
   httpPort: number; // plain HTTP for phones; 0 = off
   tls: TlsMaterial;
   joinUrl: string;
+  /** Extra web origins allowed to connect to /app, or "*" for any. */
+  allowOrigins: string[];
+}
+
+/**
+ * Web pages carry an Origin header; native apps usually do not. Only let pages from this computer
+ * (or origins the user allowed) connect as apps, so a random website open in a browser cannot.
+ */
+export function originAllowed(origin: string | null, allowed: string[]): boolean {
+  if (!origin || origin === "null") return true;
+  if (allowed.includes("*") || allowed.includes(origin)) return true;
+  try {
+    const host = new URL(origin).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".localhost");
+  } catch {
+    return false;
+  }
 }
 
 export interface RunningServers {
@@ -219,6 +236,10 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
             headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
           });
         case "/app":
+          if (!originAllowed(req.headers.get("origin"), opts.allowOrigins)) {
+            console.warn(`Refused an app connection from a web page at ${req.headers.get("origin")}. Use --allow-origin to permit it.`);
+            return new Response("Origin not allowed. Start the relay with --allow-origin to permit it.", { status: 403 });
+          }
           if (server.upgrade(req, { data: { kind: "app" } })) return undefined;
           return new Response("WebSocket expected", { status: 400 });
         case "/phone-wand.js":

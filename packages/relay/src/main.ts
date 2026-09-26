@@ -35,6 +35,8 @@ Certificates:
 Apps:
   --app-port <n>        Port apps and the dashboard connect to (default 8480)
   --app-host <addr>     Address apps connect on (default 127.0.0.1; 0.0.0.0 allows other machines)
+  --allow-origin <url>  Let web pages from this origin connect as apps (repeatable; * for any).
+                        Pages from this computer (localhost, 127.0.0.1, files) are always allowed.
 
 Testing:
   --simulate <n>        Add n simulated players that move and click on their own
@@ -88,6 +90,7 @@ async function main() {
         "tls-key": { type: "string" },
         "app-port": { type: "string" },
         "app-host": { type: "string" },
+        "allow-origin": { type: "string", multiple: true },
         simulate: { type: "string" },
         record: { type: "string" },
         replay: { type: "string" },
@@ -150,7 +153,10 @@ async function main() {
 
   let servers;
   try {
-    servers = startServers(session, { phonePort, appPort, appHost, httpPort, tls, joinUrl });
+    servers = startServers(session, {
+      phonePort, appPort, appHost, httpPort, tls, joinUrl,
+      allowOrigins: (values["allow-origin"] ?? []).flatMap((o) => o.split(",")).map((o) => o.trim().replace(/\/$/, "")),
+    });
   } catch (e) {
     const msg = (e as Error).message;
     fail(/in use|EADDRINUSE/i.test(msg) ? `a port is already in use (${msg}). Is another relay running?` : msg);

@@ -32,45 +32,72 @@ for (const ev of ["join", "leave", "player", "calibrated", "stats"] as const) {
   wand.on(ev, () => renderPlayers());
 }
 
+interface Card {
+  el: HTMLElement;
+  swatch: HTMLElement;
+  name: HTMLElement;
+  state: HTMLElement;
+  meta: HTMLElement;
+}
+const cards = new Map<string, Card>();
+
+function makeCard(id: string): Card {
+  const el = document.createElement("div");
+  el.className = "player";
+  el.innerHTML = `
+    <span class="swatch"></span>
+    <span class="name"></span>
+    <span class="state"></span>
+    <span class="meta"></span>
+    <span class="tools">
+      <button data-a="screen">Calibrate</button>
+      <button data-a="buzz">Buzz</button>
+      <button data-a="hello">Say hello</button>
+    </span>`;
+  el.querySelector(".tools")!.addEventListener("click", (e) => {
+    const p = wand.players.get(id);
+    const a = (e.target as HTMLElement).dataset.a;
+    if (!p) return;
+    if (a === "screen") wand.calibrate("screen", { id });
+    if (a === "buzz") wand.haptic([60, 60, 60], { id });
+    if (a === "hello") wand.prompt(`Hello, ${p.name}!`, { id });
+  });
+  const q = (sel: string) => el.querySelector(sel) as HTMLElement;
+  return { el, swatch: q(".swatch"), name: q(".name"), state: q(".state"), meta: q(".meta") };
+}
+
+// Cards are created once per player and updated in place, so buttons keep working while stats
+// arrive every second.
 function renderPlayers(): void {
   const list = wand.list;
   $("count").textContent = String(list.length);
-  $("no-players").classList.toggle("hidden", list.length > 0);
   $("no-players").style.display = list.length ? "none" : "";
+  for (const [id, card] of cards) {
+    if (!wand.players.has(id)) {
+      card.el.remove();
+      cards.delete(id);
+    }
+  }
   const root = $("players");
-  root.replaceChildren(
-    ...list.map((p) => {
-      const el = document.createElement("div");
-      el.className = "player";
-      const s = p.stats;
-      const meta = [
-        p.device.platform,
-        p.device.transport === "http" ? "HTTP fallback" : "WebSocket",
-        p.calibration === "none" ? "not calibrated" : p.calibration === "ray" ? "recentred" : "screen calibrated",
-        s ? `${s.rate} Hz` : "",
-        s ? `${Math.round(s.rtt)} ms round trip` : "",
-        s && s.dropped ? `${s.dropped} dropped` : "",
-      ].filter(Boolean).join(" · ");
-      el.innerHTML = `
-        <span class="swatch" style="background:${p.colour}"></span>
-        <span class="name"></span>
-        <span class="state ${p.state}">${p.state}</span>
-        <span class="meta">${meta}</span>
-        <span class="tools">
-          <button data-a="screen">Calibrate</button>
-          <button data-a="buzz">Buzz</button>
-          <button data-a="hello">Say hello</button>
-        </span>`;
-      el.querySelector(".name")!.textContent = `${p.slot + 1}. ${p.name}${p.label ? ` (${p.label})` : ""}`;
-      el.querySelector(".tools")!.addEventListener("click", (e) => {
-        const a = (e.target as HTMLElement).dataset.a;
-        if (a === "screen") wand.calibrate("screen", { id: p.id });
-        if (a === "buzz") wand.haptic([60, 60, 60], { id: p.id });
-        if (a === "hello") wand.prompt(`Hello, ${p.name}!`, { id: p.id });
-      });
-      return el;
-    }),
-  );
+  list.forEach((p, i) => {
+    let card = cards.get(p.id);
+    if (!card) cards.set(p.id, (card = makeCard(p.id)));
+    // Only move a card when the order changed: moving it mid-click would lose the click.
+    if (root.children[i] !== card.el) root.insertBefore(card.el, root.children[i] ?? null);
+    const s = p.stats;
+    card.swatch.style.background = p.colour;
+    card.name.textContent = `${p.slot + 1}. ${p.name}${p.label ? ` (${p.label})` : ""}`;
+    card.state.textContent = p.state;
+    card.state.className = `state ${p.state}`;
+    card.meta.textContent = [
+      p.device.platform,
+      p.device.transport === "http" ? "HTTP fallback" : "WebSocket",
+      p.calibration === "none" ? "not calibrated" : p.calibration === "ray" ? "recentred" : "screen calibrated",
+      s ? `${s.rate} Hz` : "",
+      s ? `${Math.round(s.rtt)} ms round trip` : "",
+      s && s.dropped ? `${s.dropped} dropped` : "",
+    ].filter(Boolean).join(" · ");
+  });
 }
 
 $("all-screen").addEventListener("click", () => wand.calibrate("screen"));

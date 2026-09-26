@@ -26,6 +26,7 @@ Run `phone-wand --help` for this list.
 | `--tls-key <file>` | | The private key for `--tls-cert`. |
 | `--app-port <n>` | 8480 | Port for apps and the dashboard. |
 | `--app-host <addr>` | 127.0.0.1 | Address apps connect on. `0.0.0.0` lets apps on other computers connect. |
+| `--allow-origin <url>` | | Let web pages from this origin connect as apps, for example `https://mygame.example.com`. Repeat it for more, or use `*` for any. |
 | `--simulate <n>` | | Add simulated players. |
 | `--record <file>` | | Record every phone message to a `.jsonl` file. |
 | `--replay <file>` | | Replay a recording as virtual phones. |
@@ -57,6 +58,14 @@ Run `phone-wand --help` for this list.
 | `http://127.0.0.1:8480/qr.svg` | The same as SVG. |
 | `http://127.0.0.1:8480/status.json` | Current players and settings. |
 | `http://127.0.0.1:8480/phone-wand.js` | The JavaScript client, for a `<script>` tag. |
+
+## Which apps may connect
+
+Native apps (Unity, Unreal and Godot desktop builds, Node) can always connect. Web pages can connect
+only when they come from this computer (`localhost`, `127.0.0.1`, or a local file), so a website
+open in a browser can't read your players or send them messages. To let a page served from somewhere
+else connect, for example a web build hosted online, start the relay with
+`--allow-origin https://that.site`. The relay prints a line whenever it refuses a page.
 
 ## Join keys
 
