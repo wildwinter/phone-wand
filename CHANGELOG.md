@@ -14,6 +14,10 @@ the protocol.
 - `docs/roadmap.md`: planned features, testing still to do, and known limitations.
 - `scripts/check-unity.sh --managed-relay` checks Start Relay from start to stop.
 
+### Tested
+
+- Safari on iPhone works, including the welcome page, calibration and the Mac app.
+
 ## [0.3.0] - 2026-09-26
 
 ### Added
