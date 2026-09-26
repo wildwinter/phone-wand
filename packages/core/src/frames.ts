@@ -65,3 +65,16 @@ export function rollOf(q: Quat, yaw: number, pitch: number): number {
   if (angle < -180) angle += 360;
   return -angle;
 }
+
+/**
+ * How well a phone's reported gravity matches its orientation: +1 when the motion data follows the
+ * standard (a phone lying flat reports +9.8 on z), -1 when every axis is flipped (Safari and Chrome
+ * on iPhone). q is the device-to-world orientation, g the acceleration including gravity in the
+ * phone's own axes. Null when the phone is moving too much to tell.
+ */
+export function gravityAgreement(q: Quat, g: Vec3): number | null {
+  const len = Math.hypot(g[0], g[1], g[2]);
+  if (len < 8 || len > 11.5) return null;
+  const up = qrotate(qconj(q), [0, 0, 1]); // the world's up, in the phone's axes
+  return (g[0] * up[0] + g[1] * up[1] + g[2] * up[2]) / len;
+}

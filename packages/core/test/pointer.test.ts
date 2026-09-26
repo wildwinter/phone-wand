@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   eulerToQuat, sensorToRig, direction, yawPitch, rollOf, derivePose,
-  PointerCalibration, PoseSmoother, DEFAULT_SCREEN, OneEuroFilter,
+  PointerCalibration, PoseSmoother, DEFAULT_SCREEN, OneEuroFilter, gravityAgreement, qconj, qrotate,
 } from "../src/index.js";
 
 const close = (a: number, b: number, eps = 1e-3) => expect(Math.abs(a - b)).toBeLessThan(eps);
@@ -97,5 +97,30 @@ describe("smoothing", () => {
     s.smooth(q, 0);
     const out = s.smooth([-q[0], -q[1], -q[2], -q[3]], 16);
     close(Math.abs(out[3]), Math.abs(q[3]));
+  });
+});
+
+describe("motion sign", () => {
+  // Standard motion data reports the reaction to gravity: +9.81 along the world's up.
+  const standardGravity = (alpha: number, beta: number, gamma: number) => {
+    const q = eulerToQuat(alpha, beta, gamma);
+    const up = qrotate(qconj(q), [0, 0, 1]);
+    return { q, g: up.map((v) => v * 9.81) as [number, number, number] };
+  };
+  const poses: [number, number, number][] = [[0, 0, 0], [40, 20, 0], [0, 70, 10], [120, -30, 45], [0, 10, -80]];
+  test("standard motion data agrees with the orientation, however the phone is held", () => {
+    for (const p of poses) {
+      const { q, g } = standardGravity(...p);
+      close(gravityAgreement(q, g)!, 1);
+    }
+  });
+  test("iPhone motion data (every axis flipped) disagrees", () => {
+    for (const p of poses) {
+      const { q, g } = standardGravity(...p);
+      close(gravityAgreement(q, g.map((v) => -v) as [number, number, number])!, -1);
+    }
+  });
+  test("a phone moving hard says nothing", () => {
+    expect(gravityAgreement(eulerToQuat(0, 0, 0), [0, 0, 25])).toBeNull();
   });
 });

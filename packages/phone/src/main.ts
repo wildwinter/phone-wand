@@ -3,7 +3,7 @@
 
 import {
   type PhoneToRelay, type Quat, type RelayToPhone, type SensorKind,
-  DEFAULT_LAYOUT, eulerToQuat, layoutValues,
+  DEFAULT_LAYOUT, eulerToQuat, gravityAgreement, layoutValues,
 } from "@phone-wand/core";
 import { type RenderedLayout, renderLayout } from "./controls.js";
 
@@ -330,11 +330,29 @@ function onQuat(q: Quat): void {
   send(fresh ? { type: "pose", seq: seq++, ts: lastSample, q, a: lastAccel! } : { type: "pose", seq: seq++, ts: lastSample, q });
 }
 
+// Browsers disagree on the sign of motion data: the standard (and Chrome on Android) reports a phone
+// lying flat as +9.8 up the z axis, while Safari on iPhone reports -9.8, every axis flipped. Rather
+// than guess from the browser, check: the orientation says which way is up, and while the phone is
+// fairly still, gravity in the motion data should point the same way. If it points the other way,
+// flip. The browser is only the starting guess.
+let motionSign = platform === "iOS" ? -1 : 1;
+let signEvidence = 0;
+
+function checkMotionSign(g: DeviceMotionEventAcceleration | null): void {
+  if (!g || g.x === null || g.y === null || g.z === null || !lastQ) return;
+  const agreement = gravityAgreement(lastQ, [g.x, g.y, g.z]);
+  if (agreement === null) return; // moving too much to see gravity clearly
+  signEvidence = Math.max(-50, Math.min(50, signEvidence + agreement));
+  if (Math.abs(signEvidence) > 10) motionSign = signEvidence > 0 ? 1 : -1;
+}
+
 function startMotion(): void {
   window.addEventListener("devicemotion", (e) => {
+    checkMotionSign(e.accelerationIncludingGravity);
     const a = e.acceleration;
     if (!a || a.x === null || a.y === null || a.z === null) return;
-    lastAccel = [Math.round(a.x * 100) / 100, Math.round(a.y * 100) / 100, Math.round(a.z * 100) / 100];
+    const r = (v: number) => Math.round(v * motionSign * 100) / 100;
+    lastAccel = [r(a.x), r(a.y), r(a.z)];
     lastAccelAt = performance.now();
   });
 }

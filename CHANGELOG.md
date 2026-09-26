@@ -7,6 +7,13 @@ the protocol.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone (Safari and Chrome), every movement gesture came out backwards (push as pull, left as
+  right, up as down), because iPhones report motion with every axis flipped compared with the
+  standard. The phone page now checks the direction of gravity against its orientation and
+  corrects the motion data whichever convention the browser uses. Twists were unaffected.
+
 ## [0.5.0] - 2026-09-26
 
 ### Added
