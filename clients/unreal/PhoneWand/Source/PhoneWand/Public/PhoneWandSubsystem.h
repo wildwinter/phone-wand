@@ -12,11 +12,13 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Containers/Ticker.h"
+#include "HAL/PlatformProcess.h"
 #include "PhoneWandTypes.h"
 #include "PhoneWandSubsystem.generated.h"
 
 class IWebSocket;
 class FJsonObject;
+class IHttpRequest;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPhoneWandConnectedEvent, const FPhoneWandHello&, Hello);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPhoneWandDisconnectedEvent);
@@ -83,6 +85,43 @@ public:
 	/** Reconnect automatically when the relay goes away. Defaults to the project setting. */
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand")
 	void SetAutoReconnect(bool bEnabled) { bAutoReconnect = bEnabled; }
+
+	// ------------------------------------------------------------------ managed relay
+
+	/**
+	 * Start the relay from the game (see docs/shipping.md). Takes effect on the next Connect.
+	 * Defaults to the project settings (Start Relay, Relay Path, Relay Arguments). An empty
+	 * RelayPath uses <plugin>/Resources/Relay/phone-wand-relay; it may also name the executable.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Relay")
+	void SetStartRelay(bool bEnabled, const FString& RelayPath = TEXT(""), const FString& RelayArguments = TEXT(""));
+
+	/** True while a relay that this subsystem started is running. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Relay")
+	bool IsRelayStartedByPlugin() const;
+
+	/**
+	 * Stop the relay this subsystem started, if any: closes its standard input, waits up to two
+	 * seconds, then ends it. A relay the plugin did not start is never stopped. Called for you by
+	 * Disconnect and when the game instance shuts down.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Relay")
+	void StopRelay();
+
+	/** C++: the process id of the relay this subsystem started, or 0. */
+	uint32 GetRelayProcessId() const { return IsRelayStartedByPlugin() ? RelayProcessId : 0; }
+
+	/** The relay's folder name for this platform (macos, windows-x64, linux-x64, linux-arm64), or empty. */
+	static FString GetRelayPlatform();
+
+	/**
+	 * The relay executable a path setting points at: the path itself when it is a file, otherwise
+	 * <path>/<platform>/phone-wand-relay (.exe on Windows). Empty uses the plugin's Resources/Relay.
+	 */
+	static FString ResolveRelayExecutable(const FString& RelayPath);
+
+	/** True when Url's host is 127.0.0.1, localhost or [::1]; OutPort gets its port (8480 if none). */
+	static bool ParseLocalRelayUrl(const FString& Url, int32& OutPort);
 
 	// ------------------------------------------------------------------ players
 
@@ -237,6 +276,12 @@ private:
 
 	FPhoneWandPlayer& Upsert(const FJsonObject& Info);
 
+	/** Starts the relay check when needed. Returns true when OpenSocket waits for it. */
+	bool BeginManagedRelay();
+	void FinishRelayCheck(const IHttpRequest* Request, bool bRelayAnswered, int32 Port);
+	void LaunchRelay(int32 Port);
+	void CancelRelayCheck();
+
 	TSharedPtr<IWebSocket> Socket;
 	bool bSocketOpen = false;
 	bool bClosedByUser = true;
@@ -249,6 +294,15 @@ private:
 	float SmoothMinCutoff = 1.0f;
 	float SmoothBeta = 5.0f;
 	float SmoothDCutoff = 1.0f;
+
+	bool bStartRelay = false;
+	FString RelayPathSetting;
+	FString RelayArgumentsSetting;
+	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> RelayCheck;
+	FProcHandle RelayProc;
+	void* RelayStdinWrite = nullptr;
+	int32 RelayPort = 0;
+	uint32 RelayProcessId = 0;
 
 	bool bHasHello = false;
 	FPhoneWandHello Hello;

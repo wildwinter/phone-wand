@@ -4,9 +4,15 @@
 
 #include "Async/Async.h"
 #include "Dom/JsonObject.h"
+#include "HAL/FileManager.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Interfaces/IPluginManager.h"
 #include "IWebSocket.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "PhoneWandLibrary.h"
 #include "PhoneWandLog.h"
@@ -16,6 +22,17 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "WebSocketsModule.h"
+
+// Starting the relay needs a platform that can run other programs: desktop Windows, macOS, Linux.
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#define PHONEWAND_CAN_START_RELAY 1
+#else
+#define PHONEWAND_CAN_START_RELAY 0
+#endif
+
+#if PLATFORM_MAC || PLATFORM_LINUX
+#include <sys/stat.h>
+#endif
 
 namespace
 {
@@ -147,6 +164,12 @@ void UPhoneWandSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	SmoothBeta = Settings->Beta;
 	SmoothDCutoff = Settings->DCutoff;
 
+	bStartRelay = Settings->bStartRelay || FParse::Param(FCommandLine::Get(), TEXT("PhoneWandStartRelay"));
+	RelayPathSetting = Settings->RelayPath;
+	FParse::Value(FCommandLine::Get(), TEXT("PhoneWandRelayPath="), RelayPathSetting);
+	RelayArgumentsSetting = Settings->RelayArguments;
+	FParse::Value(FCommandLine::Get(), TEXT("PhoneWandRelayArgs="), RelayArgumentsSetting, /*bShouldStopOnSeparator*/ false);
+
 	if (Settings->bAutoConnect && !FParse::Param(FCommandLine::Get(), TEXT("PhoneWandNoConnect")))
 	{
 		Connect();
@@ -157,16 +180,20 @@ void UPhoneWandSubsystem::Deinitialize()
 {
 	bClosedByUser = true;
 	CancelReconnect();
+	CancelRelayCheck();
 	CloseSocket();
 	Players.Empty();
 	bHasHello = false;
+	StopRelay();
 	Super::Deinitialize();
 }
 
 void UPhoneWandSubsystem::BeginDestroy()
 {
 	CancelReconnect();
+	CancelRelayCheck();
 	CloseSocket();
+	StopRelay();
 	Super::BeginDestroy();
 }
 
@@ -193,10 +220,11 @@ void UPhoneWandSubsystem::Connect(const FString& Url)
 	}
 
 	bClosedByUser = false;
-	if (Socket.IsValid() && Target == CurrentUrl)
+	if ((Socket.IsValid() || RelayCheck.IsValid()) && Target == CurrentUrl)
 	{
 		return;
 	}
+	CancelRelayCheck();
 	if (Socket.IsValid())
 	{
 		// A different URL: drop the old connection first.
@@ -206,15 +234,20 @@ void UPhoneWandSubsystem::Connect(const FString& Url)
 	CurrentUrl = Target;
 	CancelReconnect();
 	RetryDelay = MinRetryDelay;
-	OpenSocket();
+	if (!BeginManagedRelay())
+	{
+		OpenSocket();
+	}
 }
 
 void UPhoneWandSubsystem::Disconnect()
 {
 	bClosedByUser = true;
 	CancelReconnect();
+	CancelRelayCheck();
 	CloseSocket();
 	HandleConnectionLost();
+	StopRelay();
 }
 
 void UPhoneWandSubsystem::OpenSocket()
@@ -332,6 +365,328 @@ void UPhoneWandSubsystem::OnSocketMessage(const FString& Message)
 		return;
 	}
 	HandleMessage(Message);
+}
+
+// ---------------------------------------------------------------------- managed relay
+//
+// Follows docs/shipping.md ("What the client libraries do"), like startRelay in the Node client:
+// only for a relay on this computer; use one that is already running; otherwise start
+// phone-wand-relay/<platform>/phone-wand-relay hidden, with a pipe as its standard input (the
+// lifeline); stop it when the game stops. A relay this subsystem did not start is never stopped.
+
+void UPhoneWandSubsystem::SetStartRelay(bool bEnabled, const FString& RelayPath, const FString& RelayArguments)
+{
+	bStartRelay = bEnabled;
+	RelayPathSetting = RelayPath;
+	RelayArgumentsSetting = RelayArguments;
+}
+
+FString UPhoneWandSubsystem::GetRelayPlatform()
+{
+#if PLATFORM_MAC
+	return TEXT("macos");
+#elif PLATFORM_WINDOWS && PLATFORM_CPU_X86_FAMILY
+	return TEXT("windows-x64");
+#elif PLATFORM_LINUX && PLATFORM_CPU_ARM_FAMILY
+	return TEXT("linux-arm64");
+#elif PLATFORM_LINUX
+	return TEXT("linux-x64");
+#else
+	return FString();
+#endif
+}
+
+FString UPhoneWandSubsystem::ResolveRelayExecutable(const FString& RelayPath)
+{
+	FString Path = RelayPath.TrimStartAndEnd().TrimQuotes();
+	if (Path.IsEmpty())
+	{
+		TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("PhoneWand"));
+		if (!Plugin.IsValid())
+		{
+			return FString();
+		}
+		Path = FPaths::Combine(Plugin->GetBaseDir(), TEXT("Resources"), TEXT("Relay"), TEXT("phone-wand-relay"));
+	}
+	else if (FPaths::IsRelative(Path))
+	{
+		Path = FPaths::Combine(FPaths::ProjectDir(), Path);
+	}
+	Path = FPaths::ConvertRelativePathToFull(Path);
+	FPaths::CollapseRelativeDirectories(Path);
+	if (FPaths::FileExists(Path))
+	{
+		return Path; // the executable itself
+	}
+	const FString Platform = GetRelayPlatform();
+	if (Platform.IsEmpty())
+	{
+		return FString();
+	}
+	return FPaths::Combine(Path, Platform, PLATFORM_WINDOWS ? TEXT("phone-wand-relay.exe") : TEXT("phone-wand-relay"));
+}
+
+bool UPhoneWandSubsystem::ParseLocalRelayUrl(const FString& Url, int32& OutPort)
+{
+	OutPort = 0;
+	FString Rest = Url.TrimStartAndEnd();
+	int32 SchemeEnd = Rest.Find(TEXT("://"));
+	if (SchemeEnd != INDEX_NONE)
+	{
+		Rest.RightChopInline(SchemeEnd + 3);
+	}
+	int32 PathStart = INDEX_NONE;
+	if (Rest.FindChar(TEXT('/'), PathStart))
+	{
+		Rest.LeftInline(PathStart);
+	}
+	int32 At = INDEX_NONE;
+	if (Rest.FindLastChar(TEXT('@'), At))
+	{
+		Rest.RightChopInline(At + 1);
+	}
+
+	FString Host;
+	FString Port;
+	if (Rest.StartsWith(TEXT("[")))
+	{
+		int32 Close = INDEX_NONE;
+		if (!Rest.FindChar(TEXT(']'), Close))
+		{
+			return false;
+		}
+		Host = Rest.Left(Close + 1);
+		const FString After = Rest.RightChop(Close + 1);
+		if (After.StartsWith(TEXT(":")))
+		{
+			Port = After.RightChop(1);
+		}
+	}
+	else if (!Rest.Split(TEXT(":"), &Host, &Port))
+	{
+		Host = Rest;
+	}
+
+	Host.ToLowerInline();
+	if (Host != TEXT("127.0.0.1") && Host != TEXT("localhost") && Host != TEXT("[::1]"))
+	{
+		return false;
+	}
+	OutPort = 8480;
+	if (!Port.IsEmpty())
+	{
+		if (!Port.IsNumeric())
+		{
+			return false;
+		}
+		OutPort = FCString::Atoi(*Port);
+	}
+	return OutPort > 0 && OutPort < 65536;
+}
+
+bool UPhoneWandSubsystem::IsRelayStartedByPlugin() const
+{
+	FProcHandle Proc = RelayProc;
+	return Proc.IsValid() && FPlatformProcess::IsProcRunning(Proc);
+}
+
+bool UPhoneWandSubsystem::BeginManagedRelay()
+{
+	if (!bStartRelay)
+	{
+		return false;
+	}
+	int32 Port = 0;
+	if (!ParseLocalRelayUrl(CurrentUrl, Port))
+	{
+		UE_LOG(LogPhoneWand, Log, TEXT("Start Relay is on, but %s is not a relay on this computer, so none is started."), *CurrentUrl);
+		return false;
+	}
+#if !PHONEWAND_CAN_START_RELAY
+	UE_LOG(LogPhoneWand, Warning, TEXT("Start Relay is ignored: this platform cannot start programs. Run the relay on a computer and connect to it."));
+	return false;
+#else
+	if (RelayProc.IsValid())
+	{
+		if (RelayPort == Port && IsRelayStartedByPlugin())
+		{
+			return false; // ours, already running on this port
+		}
+		StopRelay();
+	}
+
+	// Is a relay already there (the Phone Wand app, or one started by hand)? Asked without
+	// blocking the game thread; the socket opens when the answer (or the one second timeout) comes.
+	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+	Request->SetURL(FString::Printf(TEXT("http://127.0.0.1:%d/status.json"), Port));
+	Request->SetVerb(TEXT("GET"));
+	Request->SetTimeout(1.0f);
+	TWeakObjectPtr<UPhoneWandSubsystem> Weak(this);
+	Request->OnProcessRequestComplete().BindLambda([Weak, Port](FHttpRequestPtr Req, FHttpResponsePtr Response, bool bConnected)
+	{
+		bool bRelay = false;
+		if (bConnected && Response.IsValid() && Response->GetResponseCode() == 200)
+		{
+			TSharedPtr<FJsonObject> Status;
+			TSharedRef<TJsonReader<TCHAR>> Reader = TJsonReaderFactory<TCHAR>::Create(Response->GetContentAsString());
+			FString Relay;
+			bRelay = FJsonSerializer::Deserialize(Reader, Status) && Status.IsValid() && Status->TryGetStringField(TEXT("relay"), Relay);
+		}
+		if (Weak.IsValid())
+		{
+			Weak->FinishRelayCheck(Req.Get(), bRelay, Port);
+		}
+	});
+	RelayCheck = Request;
+	UE_LOG(LogPhoneWand, Verbose, TEXT("Checking for a relay at http://127.0.0.1:%d/status.json"), Port);
+	if (!Request->ProcessRequest() && RelayCheck.Get() == &Request.Get())
+	{
+		RelayCheck.Reset();
+		LaunchRelay(Port);
+		return false;
+	}
+	return true;
+#endif
+}
+
+void UPhoneWandSubsystem::FinishRelayCheck(const IHttpRequest* Request, bool bRelayAnswered, int32 Port)
+{
+	if (!IsInGameThread())
+	{
+		TWeakObjectPtr<UPhoneWandSubsystem> Weak(this);
+		AsyncTask(ENamedThreads::GameThread, [Weak, Request, bRelayAnswered, Port]() { if (Weak.IsValid()) { Weak->FinishRelayCheck(Request, bRelayAnswered, Port); } });
+		return;
+	}
+	if (!RelayCheck.IsValid() || RelayCheck.Get() != Request)
+	{
+		return; // cancelled, or replaced by a newer check
+	}
+	RelayCheck.Reset();
+	if (bClosedByUser)
+	{
+		return;
+	}
+	if (bRelayAnswered)
+	{
+		UE_LOG(LogPhoneWand, Log, TEXT("A relay is already running on port %d; using it."), Port);
+	}
+	else
+	{
+		LaunchRelay(Port);
+	}
+	OpenSocket();
+}
+
+void UPhoneWandSubsystem::CancelRelayCheck()
+{
+	if (RelayCheck.IsValid())
+	{
+		TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> Old = MoveTemp(RelayCheck);
+		RelayCheck.Reset();
+		Old->OnProcessRequestComplete().Unbind();
+		Old->CancelRequest();
+	}
+}
+
+void UPhoneWandSubsystem::LaunchRelay(int32 Port)
+{
+#if PHONEWAND_CAN_START_RELAY
+	const FString Exe = ResolveRelayExecutable(RelayPathSetting);
+	if (Exe.IsEmpty() || !FPaths::FileExists(Exe))
+	{
+		UE_LOG(LogPhoneWand, Warning, TEXT("Start Relay is on, but there is no relay program at %s. Put the phone-wand-relay folder in the plugin's Resources/Relay folder or set Relay Path (see docs/shipping.md). Connecting as usual."),
+			Exe.IsEmpty() ? *FString::Printf(TEXT("%s (no relay build for this platform)"), *RelayPathSetting) : *Exe);
+		return;
+	}
+
+#if PLATFORM_MAC || PLATFORM_LINUX
+	{
+		// Make sure it is executable: copying or unzipping can lose the flag. A read-only
+		// location may refuse; the file may be executable already, so carry on.
+		const FTCHARToUTF8 Utf8(*Exe);
+		struct stat Info;
+		if (stat(Utf8.Get(), &Info) == 0 && (Info.st_mode & 0111) != 0111)
+		{
+			chmod(Utf8.Get(), Info.st_mode | 0755);
+		}
+	}
+#endif
+
+	const FString LogDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectLogDir());
+	IFileManager::Get().MakeDirectory(*LogDir, true);
+	const FString LogFile = FPaths::Combine(LogDir, TEXT("phone-wand-relay.log"));
+	FString Params = FString::Printf(TEXT("--lifeline --no-open --app-port %d --log \"%s\""), Port, *LogFile);
+	const FString Extra = RelayArgumentsSetting.TrimStartAndEnd();
+	if (!Extra.IsEmpty())
+	{
+		Params += TEXT(" ");
+		Params += Extra;
+	}
+
+	// The relay's standard input is a pipe whose write end only this process holds. Closing it
+	// (or this process ending, however it ends) tells the relay to stop (--lifeline).
+	void* ChildStdin = nullptr;
+	void* OurEnd = nullptr;
+	if (!FPlatformProcess::CreatePipe(ChildStdin, OurEnd, /*bWritePipeLocal*/ true))
+	{
+		UE_LOG(LogPhoneWand, Warning, TEXT("Could not create a pipe for the relay; not starting it. Connecting as usual."));
+		return;
+	}
+	uint32 ProcessId = 0;
+	FProcHandle Proc = FPlatformProcess::CreateProc(*Exe, *Params,
+		/*bLaunchDetached*/ true, /*bLaunchHidden*/ true, /*bLaunchReallyHidden*/ true,
+		&ProcessId, /*PriorityModifier*/ 0, /*OptionalWorkingDirectory*/ nullptr,
+		/*PipeWriteChild (stdout)*/ nullptr, /*PipeReadChild (stdin)*/ ChildStdin);
+	FPlatformProcess::ClosePipe(ChildStdin, nullptr); // the child has its own copy
+	if (!Proc.IsValid())
+	{
+		FPlatformProcess::ClosePipe(nullptr, OurEnd);
+		UE_LOG(LogPhoneWand, Warning, TEXT("Could not start the relay at %s. Connecting as usual."), *Exe);
+		return;
+	}
+	RelayProc = Proc;
+	RelayStdinWrite = OurEnd;
+	RelayPort = Port;
+	RelayProcessId = ProcessId;
+	UE_LOG(LogPhoneWand, Log, TEXT("Started the relay (process %u) for app port %d: %s %s"), ProcessId, Port, *Exe, *Params);
+	UE_LOG(LogPhoneWand, Log, TEXT("The relay logs to %s"), *LogFile);
+#endif
+}
+
+void UPhoneWandSubsystem::StopRelay()
+{
+	if (RelayStdinWrite != nullptr)
+	{
+		FPlatformProcess::ClosePipe(nullptr, RelayStdinWrite);
+		RelayStdinWrite = nullptr;
+	}
+	if (!RelayProc.IsValid())
+	{
+		return;
+	}
+	const double Deadline = FPlatformTime::Seconds() + 2.0;
+	while (FPlatformProcess::IsProcRunning(RelayProc) && FPlatformTime::Seconds() < Deadline)
+	{
+		FPlatformProcess::Sleep(0.02f);
+	}
+	if (FPlatformProcess::IsProcRunning(RelayProc))
+	{
+		UE_LOG(LogPhoneWand, Warning, TEXT("The relay did not stop within two seconds of its standard input closing; ending it."));
+		FPlatformProcess::TerminateProc(RelayProc, /*KillTree*/ true);
+		const double KillDeadline = FPlatformTime::Seconds() + 1.0;
+		while (FPlatformProcess::IsProcRunning(RelayProc) && FPlatformTime::Seconds() < KillDeadline)
+		{
+			FPlatformProcess::Sleep(0.02f);
+		}
+	}
+	else
+	{
+		UE_LOG(LogPhoneWand, Log, TEXT("Stopped the relay."));
+	}
+	FPlatformProcess::CloseProc(RelayProc);
+	RelayProc.Reset();
+	RelayPort = 0;
+	RelayProcessId = 0;
 }
 
 // ---------------------------------------------------------------------- players

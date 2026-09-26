@@ -10,6 +10,10 @@
 //   PhoneWand.Client.ConnectionLost       leave and disconnect events when the relay goes away
 //   PhoneWand.Live.Relay                  connects to a running relay; only does anything when
 //                                         PHONEWAND_LIVE_URL (or -PhoneWandLiveUrl=) is set
+//   PhoneWand.ManagedRelay.Paths          URL and relay path rules for Start Relay
+//   PhoneWand.ManagedRelay.Missing        with no relay binary: a clear warning, and connecting goes on
+//   PhoneWand.ManagedRelay.Live           starts and stops a relay binary; only does anything when
+//                                         PHONEWAND_RELAY_DIR (or -PhoneWandRelayDir=) is set
 //
 // The conformance folder is found relative to the plugin (<repo>/clients/unreal/PhoneWand ->
 // <repo>/conformance). Override it with the PHONEWAND_CONFORMANCE_DIR environment variable or the
@@ -22,6 +26,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
+#include "HAL/FileManager.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "PhoneWandLibrary.h"
@@ -31,6 +36,10 @@
 #include "UObject/Package.h"
 #include "UObject/StrongObjectPtr.h"
 #include "Engine/GameInstance.h"
+#include "HttpModule.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
+#include "HAL/PlatformProcess.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -596,6 +605,317 @@ bool FPhoneWandLiveTest::RunTest(const FString& Parameters)
 	Wand->Prompt(TEXT("ignored: not connected yet"));
 
 	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandWaitForLive(State, this));
+	return true;
+}
+
+// ---------------------------------------------------------------------- managed relay
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandManagedRelayPathsTest, "PhoneWand.ManagedRelay.Paths", PhoneWandTests::Flags)
+
+bool FPhoneWandManagedRelayPathsTest::RunTest(const FString& Parameters)
+{
+	int32 Port = 0;
+	TestTrue(TEXT("127.0.0.1"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://127.0.0.1:8480/app"), Port));
+	TestEqual(TEXT("127.0.0.1 port"), Port, 8480);
+	TestTrue(TEXT("localhost"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://LocalHost:25480/app"), Port));
+	TestEqual(TEXT("localhost port"), Port, 25480);
+	TestTrue(TEXT("[::1]"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://[::1]:9000/app"), Port));
+	TestEqual(TEXT("[::1] port"), Port, 9000);
+	TestTrue(TEXT("no port"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://127.0.0.1/app"), Port));
+	TestEqual(TEXT("no port means 8480"), Port, 8480);
+	TestFalse(TEXT("LAN address"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://192.168.1.20:8480/app"), Port));
+	TestFalse(TEXT("host name"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("wss://example.com/app"), Port));
+	TestFalse(TEXT("127.0.0.1 as a subdomain"), UPhoneWandSubsystem::ParseLocalRelayUrl(TEXT("ws://127.0.0.1.example.com:8480/app"), Port));
+
+	const FString Platform = UPhoneWandSubsystem::GetRelayPlatform();
+#if PLATFORM_MAC
+	TestEqual(TEXT("platform"), Platform, FString(TEXT("macos")));
+#elif PLATFORM_WINDOWS
+	TestEqual(TEXT("platform"), Platform, FString(TEXT("windows-x64")));
+#endif
+	const FString Exe = PLATFORM_WINDOWS ? TEXT("phone-wand-relay.exe") : TEXT("phone-wand-relay");
+
+	// Default: the plugin's Resources/Relay/phone-wand-relay/<platform>/phone-wand-relay.
+	const FString Default = UPhoneWandSubsystem::ResolveRelayExecutable(FString());
+	TestTrue(TEXT("default is in the plugin's Resources/Relay"), Default.EndsWith(FString::Printf(TEXT("PhoneWand/Resources/Relay/phone-wand-relay/%s/%s"), *Platform, *Exe)));
+	TestFalse(TEXT("default is absolute"), FPaths::IsRelative(Default));
+
+	// A folder gets <platform>/<exe> added; a file is used as it is; relative is from the project.
+	const FString Folder = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectIntermediateDir(), TEXT("PhoneWandRelayPathTest")));
+	TestEqual(TEXT("folder"), UPhoneWandSubsystem::ResolveRelayExecutable(Folder), FPaths::Combine(Folder, Platform, Exe));
+	const FString File = FPaths::Combine(Folder, TEXT("my-relay"));
+	FFileHelper::SaveStringToFile(TEXT("not really"), *File);
+	TestEqual(TEXT("file"), UPhoneWandSubsystem::ResolveRelayExecutable(File), File);
+	TestEqual(TEXT("relative to the project"), UPhoneWandSubsystem::ResolveRelayExecutable(TEXT("Intermediate/PhoneWandRelayPathTest/my-relay")), File);
+	IFileManager::Get().DeleteDirectory(*Folder, false, true);
+
+	// Start Relay with a URL on another computer starts nothing and connects as usual.
+	TStrongObjectPtr<UPhoneWandSubsystem> Wand = PhoneWandTests::MakeWand();
+	Wand->SetStartRelay(true, Folder);
+	Wand->Connect(TEXT("ws://192.0.2.1:1/app"));
+	TestFalse(TEXT("nothing started for a remote relay"), Wand->IsRelayStartedByPlugin());
+	Wand->Disconnect();
+	return !HasAnyErrors();
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FPhoneWandWaitForMissingRelay, TSharedPtr<TStrongObjectPtr<UPhoneWandSubsystem>>, Wand, double, Start);
+
+bool FPhoneWandWaitForMissingRelay::Update()
+{
+	if (FPlatformTime::Seconds() - Start < 2.5)
+	{
+		return false;
+	}
+	(*Wand)->Disconnect();
+	Wand->Reset();
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandManagedRelayMissingTest, "PhoneWand.ManagedRelay.Missing", PhoneWandTests::Flags)
+
+bool FPhoneWandManagedRelayMissingTest::RunTest(const FString& Parameters)
+{
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+	// Nothing listens on this port and nothing is in the folder: the check fails, the relay is
+	// not found, a warning says where it looked, and the client keeps trying to connect.
+	const FString Folder = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectIntermediateDir(), TEXT("PhoneWandNoRelayHere")));
+	AddExpectedMessagePlain(TEXT("there is no relay program at"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);
+	TSharedPtr<TStrongObjectPtr<UPhoneWandSubsystem>> Wand = MakeShared<TStrongObjectPtr<UPhoneWandSubsystem>>(PhoneWandTests::MakeWand());
+	(*Wand)->SetStartRelay(true, Folder);
+	(*Wand)->Connect(TEXT("ws://127.0.0.1:26499/app"));
+	TestFalse(TEXT("nothing started"), (*Wand)->IsRelayStartedByPlugin());
+	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandWaitForMissingRelay(Wand, FPlatformTime::Seconds()));
+#endif
+	return true;
+}
+
+namespace PhoneWandTests
+{
+	struct FProbe
+	{
+		bool bDone = false;
+		bool bAnswered = false;
+	};
+
+	/** Ask http://127.0.0.1:<port>/status.json whether a relay is there, without blocking. */
+	TSharedPtr<FProbe> ProbeRelay(int32 Port)
+	{
+		TSharedPtr<FProbe> Probe = MakeShared<FProbe>();
+		TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+		Request->SetURL(FString::Printf(TEXT("http://127.0.0.1:%d/status.json"), Port));
+		Request->SetVerb(TEXT("GET"));
+		Request->SetTimeout(1.0f);
+		Request->OnProcessRequestComplete().BindLambda([Probe](FHttpRequestPtr, FHttpResponsePtr Response, bool bConnected)
+		{
+			Probe->bAnswered = bConnected && Response.IsValid() && Response->GetResponseCode() == 200
+				&& Response->GetContentAsString().Contains(TEXT("\"relay\""));
+			Probe->bDone = true;
+		});
+		if (!Request->ProcessRequest())
+		{
+			Probe->bDone = true;
+		}
+		return Probe;
+	}
+
+	struct FManagedRelayState
+	{
+		FString RelayDir;
+		FString RelayArgs;
+		FString Url;
+		int32 AppPort = 0;
+		int32 ExistingPort = 0; // for the second half: a relay the tester started, or 0 to start one here
+		TStrongObjectPtr<UPhoneWandSubsystem> Wand;
+		int32 Phase = 0;
+		double PhaseStart = 0.0;
+		uint32 RelayPid = 0;
+		TSharedPtr<FProbe> Probe;
+		double NextProbe = 0.0;
+		FProcHandle External;
+
+		int32 SecondPort() const { return ExistingPort != 0 ? ExistingPort : AppPort; }
+		void NextPhase(int32 P) { Phase = P; PhaseStart = FPlatformTime::Seconds(); }
+		double InPhase() const { return FPlatformTime::Seconds() - PhaseStart; }
+	};
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FPhoneWandManagedRelaySteps, TSharedPtr<PhoneWandTests::FManagedRelayState>, State, FAutomationTestBase*, Test);
+
+bool FPhoneWandManagedRelaySteps::Update()
+{
+	PhoneWandTests::FManagedRelayState& S = *State;
+	auto StopExternal = [&S]()
+	{
+		if (S.External.IsValid())
+		{
+			FPlatformProcess::TerminateProc(S.External, true);
+			const double Deadline = FPlatformTime::Seconds() + 3.0;
+			while (FPlatformProcess::IsProcRunning(S.External) && FPlatformTime::Seconds() < Deadline)
+			{
+				FPlatformProcess::Sleep(0.02f);
+			}
+			FPlatformProcess::CloseProc(S.External);
+			S.External.Reset();
+		}
+	};
+
+	switch (S.Phase)
+	{
+	case 0: // with no relay on the port: the subsystem starts one and connects
+	{
+		if (!S.Wand->IsConnected() && S.InPhase() < 20.0)
+		{
+			return false;
+		}
+		Test->AddInfo(FString::Printf(TEXT("Started case: connected=%d after %.1f s, started by plugin=%d, pid=%u"),
+			S.Wand->IsConnected(), S.InPhase(), S.Wand->IsRelayStartedByPlugin(), S.Wand->GetRelayProcessId()));
+		Test->TestTrue(TEXT("started: connected"), S.Wand->IsConnected());
+		Test->TestTrue(TEXT("started: the plugin started the relay"), S.Wand->IsRelayStartedByPlugin());
+		S.RelayPid = S.Wand->GetRelayProcessId();
+		Test->TestTrue(TEXT("started: relay process is running"), FPlatformProcess::IsApplicationRunning(S.RelayPid));
+
+		const double Before = FPlatformTime::Seconds();
+		S.Wand->Deinitialize();
+		const double StopTook = FPlatformTime::Seconds() - Before;
+		Test->AddInfo(FString::Printf(TEXT("Deinitialize took %.2f s"), StopTook));
+		Test->TestTrue(TEXT("stopped: within the lifeline wait"), StopTook < 3.5);
+		Test->TestFalse(TEXT("stopped: no longer started by plugin"), S.Wand->IsRelayStartedByPlugin());
+		Test->TestFalse(TEXT("stopped: relay process is gone"), FPlatformProcess::IsApplicationRunning(S.RelayPid));
+		S.Wand.Reset();
+		S.Probe = PhoneWandTests::ProbeRelay(S.AppPort);
+		S.NextPhase(1);
+		return false;
+	}
+	case 1: // status.json no longer answers
+	{
+		if (!S.Probe->bDone && S.InPhase() < 5.0)
+		{
+			return false;
+		}
+		Test->TestTrue(TEXT("stopped: probe finished"), S.Probe->bDone);
+		Test->TestFalse(TEXT("stopped: status.json no longer answers"), S.Probe->bAnswered);
+
+		if (S.ExistingPort == 0)
+		{
+			// Start a relay ourselves, as a developer would, without a lifeline.
+			const FString Exe = UPhoneWandSubsystem::ResolveRelayExecutable(S.RelayDir);
+			const FString Params = FString::Printf(TEXT("--no-open --app-port %d %s"), S.AppPort, *S.RelayArgs);
+			S.External = FPlatformProcess::CreateProc(*Exe, *Params, true, true, true, nullptr, 0, nullptr, nullptr, nullptr);
+			Test->TestTrue(TEXT("existing: started a relay by hand"), S.External.IsValid());
+		}
+		S.Probe.Reset();
+		S.NextPhase(2);
+		return false;
+	}
+	case 2: // wait for the hand-started relay to answer
+	{
+		if (S.Probe.IsValid() && S.Probe->bDone && S.Probe->bAnswered)
+		{
+			S.Wand = PhoneWandTests::MakeWand();
+			S.Wand->SetStartRelay(true, S.RelayDir, S.RelayArgs);
+			S.Wand->Connect(FString::Printf(TEXT("ws://127.0.0.1:%d/app"), S.SecondPort()));
+			S.NextPhase(3);
+			return false;
+		}
+		if (S.InPhase() > 20.0)
+		{
+			Test->AddError(TEXT("existing: the relay started by hand never answered"));
+			StopExternal();
+			return true;
+		}
+		if ((!S.Probe.IsValid() || S.Probe->bDone) && FPlatformTime::Seconds() >= S.NextProbe)
+		{
+			S.Probe = PhoneWandTests::ProbeRelay(S.SecondPort());
+			S.NextProbe = FPlatformTime::Seconds() + 0.25;
+		}
+		return false;
+	}
+	case 3: // with a relay already running: connect to it, start nothing
+	{
+		if (!S.Wand->IsConnected() && S.InPhase() < 15.0)
+		{
+			return false;
+		}
+		Test->AddInfo(FString::Printf(TEXT("Existing case: connected=%d after %.1f s, started by plugin=%d"),
+			S.Wand->IsConnected(), S.InPhase(), S.Wand->IsRelayStartedByPlugin()));
+		Test->TestTrue(TEXT("existing: connected"), S.Wand->IsConnected());
+		Test->TestFalse(TEXT("existing: the plugin started nothing"), S.Wand->IsRelayStartedByPlugin());
+		Test->TestEqual(TEXT("existing: no relay process of its own"), S.Wand->GetRelayProcessId(), 0u);
+		S.Wand->Deinitialize();
+		S.Wand.Reset();
+		S.Probe = PhoneWandTests::ProbeRelay(S.SecondPort());
+		S.NextPhase(4);
+		return false;
+	}
+	case 4: // and the existing relay is still there afterwards
+	{
+		if (!S.Probe->bDone && S.InPhase() < 5.0)
+		{
+			return false;
+		}
+		Test->TestTrue(TEXT("existing: still answers after the client shut down"), S.Probe->bAnswered);
+		if (S.External.IsValid())
+		{
+			Test->TestTrue(TEXT("existing: hand-started process still running"), FPlatformProcess::IsProcRunning(S.External));
+		}
+		StopExternal();
+		return true;
+	}
+	default:
+		StopExternal();
+		return true;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandManagedRelayLiveTest, "PhoneWand.ManagedRelay.Live", PhoneWandTests::Flags)
+
+bool FPhoneWandManagedRelayLiveTest::RunTest(const FString& Parameters)
+{
+	FString Dir = FPlatformMisc::GetEnvironmentVariable(TEXT("PHONEWAND_RELAY_DIR"));
+	if (Dir.IsEmpty())
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("PhoneWandRelayDir="), Dir);
+	}
+	if (Dir.IsEmpty())
+	{
+		AddInfo(TEXT("Skipped: set PHONEWAND_RELAY_DIR to a phone-wand-relay folder (holding macos, windows-x64, ...) to run."));
+		return true;
+	}
+	const FString Exe = UPhoneWandSubsystem::ResolveRelayExecutable(Dir);
+	if (!FPaths::FileExists(Exe))
+	{
+		AddError(FString::Printf(TEXT("No relay binary at %s"), *Exe));
+		return false;
+	}
+
+	// Ports away from the defaults (8480, 8443) so a developer's relay is left alone.
+	// PHONEWAND_RELAY_TEST_PORTS=<app>,<phone> overrides them.
+	int32 AppPort = 26480;
+	int32 PhonePort = 26443;
+	const FString Ports = FPlatformMisc::GetEnvironmentVariable(TEXT("PHONEWAND_RELAY_TEST_PORTS"));
+	FString A, B;
+	if (Ports.Split(TEXT(","), &A, &B))
+	{
+		AppPort = FCString::Atoi(*A);
+		PhonePort = FCString::Atoi(*B);
+	}
+
+	TSharedPtr<PhoneWandTests::FManagedRelayState> State = MakeShared<PhoneWandTests::FManagedRelayState>();
+	State->RelayDir = Dir;
+	State->AppPort = AppPort;
+	State->Url = FString::Printf(TEXT("ws://127.0.0.1:%d/app"), AppPort);
+	const FString DataDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("PhoneWandRelayTest")));
+	State->RelayArgs = FString::Printf(TEXT("--port %d --no-landing --data-dir \"%s\""), PhonePort, *DataDir);
+	// PHONEWAND_RELAY_EXISTING_PORT=<app port>: for the second half, use a relay the tester has
+	// already started on that port, instead of one this test starts by hand.
+	State->ExistingPort = FCString::Atoi(*FPlatformMisc::GetEnvironmentVariable(TEXT("PHONEWAND_RELAY_EXISTING_PORT")));
+
+	State->Wand = PhoneWandTests::MakeWand();
+	State->Wand->SetStartRelay(true, Dir, State->RelayArgs);
+	AddInfo(FString::Printf(TEXT("Relay %s; connecting to %s with Start Relay on"), *Exe, *State->Url));
+	State->NextPhase(0);
+	State->Wand->Connect(State->Url);
+	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandManagedRelaySteps(State, this));
 	return true;
 }
 

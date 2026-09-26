@@ -31,6 +31,26 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Connection")
 	bool bAutoReconnect = true;
 
+	/**
+	 * Start the Phone Wand relay from the game, hidden, when it connects to a relay on this computer
+	 * and none is running; stop it when the game stops. Windows, macOS and Linux only. The
+	 * -PhoneWandStartRelay command-line switch turns it on too. See docs/shipping.md.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Relay")
+	bool bStartRelay = false;
+
+	/**
+	 * The phone-wand-relay folder (holding macos, windows-x64, linux-x64, linux-arm64) or the relay
+	 * executable itself. Empty uses <plugin>/Resources/Relay/phone-wand-relay. A relative path is
+	 * relative to the project folder. The -PhoneWandRelayPath= switch overrides it.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Relay", meta = (EditCondition = "bStartRelay"))
+	FString RelayPath;
+
+	/** Extra relay options, for example: --max-players 8 --key party. The -PhoneWandRelayArgs="..." switch overrides it. */
+	UPROPERTY(Config, EditAnywhere, Category = "Relay", meta = (EditCondition = "bStartRelay"))
+	FString RelayArguments;
+
 	/** How the relay should smooth poses for this app. Sent every time the connection opens. */
 	UPROPERTY(Config, EditAnywhere, Category = "Smoothing")
 	EPhoneWandSmoothingMode Smoothing = EPhoneWandSmoothingMode::RelayDefault;

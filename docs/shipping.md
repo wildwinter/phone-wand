@@ -84,7 +84,7 @@ A relay the client didn't start is never stopped by it.
 |---|---|
 | Unity | `Application.persistentDataPath/phone-wand-relay.log` |
 | Godot | `user://phone-wand-relay.log` |
-| Unreal | `Saved/Logs/phone-wand-relay.log` |
+| Unreal | `phone-wand-relay.log` in the project's log folder (`FPaths::ProjectLogDir()`: `Saved/Logs` in most builds; on macOS the editor uses `~/Library/Logs/Unreal Engine/<Project>Editor/`, and a sandboxed game its container) |
 | Node | Where you say, or the system temporary folder |
 
 ## Relay options for games
@@ -134,6 +134,10 @@ codesign --force --timestamp --options runtime --entitlements relay.entitlements
 ```
 
 Your game's own entitlements are unaffected.
+
+If your game runs in the App Sandbox (Unreal's packaged Mac games do by default), the relay runs in
+it too. It works with its default data folder, but a `--data-dir` outside the sandbox container
+fails with a permissions error.
 
 ## Windows
 

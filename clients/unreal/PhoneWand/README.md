@@ -10,6 +10,8 @@ already converted to Unreal's frame.
   (Unreal 5.7 and a C++ toolchain; the plugin ships as source and compiles on first open).
 - Use: get the **Phone Wand Subsystem** from the game instance and bind **On Pose** and
   **On Button**. It connects to `ws://127.0.0.1:8480/app` by itself.
+- Ship it: turn on **Start Relay** in Project Settings, Plugins, Phone Wand, and put the relay
+  binaries in `Resources/Relay/` (see the README there): the game starts the relay itself, hidden.
 - Try it: open the `PhoneWandDemo` project that sits beside this folder in the release zip.
 
 Full documentation: [docs/clients/unreal.md](https://github.com/wildwinter/phone-wand/blob/main/docs/clients/unreal.md)

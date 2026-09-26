@@ -141,6 +141,9 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `Haptic(Pattern, Id)` | Vibrate (Android only). `Pattern` alternates on and off milliseconds. |
 | `HapticPulse(DurationMs, Id)` | One vibration. |
 | `Calibrate(Mode, Id)` | Ask a player (or everyone) to calibrate: `Screen` (two corners) or `Ray` (point at the middle and press Recentre). |
+| `SetStartRelay(bEnabled, RelayPath, RelayArguments)` | Start the relay from the game on the next `Connect` (see [Starting the relay from your game](#starting-the-relay-from-your-game)). Defaults to the project settings. |
+| `IsRelayStartedByPlugin()` | True while a relay this subsystem started is running. |
+| `StopRelay()` | Stop the relay this subsystem started, if any. `Disconnect` and shutting down do this for you. A relay it did not start is never stopped. |
 | `HandleMessage(Json)` | Feed in one relay message as a JSON string, as if it came from the socket. Used by the tests; also lets you drive the client from a recording or another transport. |
 
 Smoothing set with `SetSmoothing` or `SetRaw` is sent again each time the connection opens.
@@ -222,10 +225,77 @@ Blueprint function library, also callable from C++.
 | **Url** | `ws://127.0.0.1:8480/app` | The relay's app endpoint. |
 | **Auto Connect** | on | Connect when the game instance starts. Turn it off to call `Connect` yourself. |
 | **Auto Reconnect** | on | Keep retrying when the relay is not there or goes away. |
+| **Start Relay** | off | Start the relay from the game when none is running, and stop it when the game stops. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
+| **Relay Path** | empty | The `phone-wand-relay` folder or the relay executable. Empty uses `Resources/Relay/phone-wand-relay` in the plugin. A relative path is relative to the project folder. |
+| **Relay Arguments** | empty | Extra relay options, such as `--max-players 8 --key party`. |
 | **Smoothing** | Relay Default | `Relay Default`, `Custom` (uses **Min Cutoff**, **Beta**, **D Cutoff**) or `Raw`. |
 
-Command-line switches: `-PhoneWandUrl=ws://host:port/app` overrides the URL, and
-`-PhoneWandNoConnect` stops the automatic connection.
+Command-line switches: `-PhoneWandUrl=ws://host:port/app` overrides the URL,
+`-PhoneWandNoConnect` stops the automatic connection, `-PhoneWandStartRelay` turns on **Start
+Relay**, and `-PhoneWandRelayPath=<path>` and `-PhoneWandRelayArgs="<options>"` override **Relay
+Path** and **Relay Arguments**.
+
+## Starting the relay from your game
+
+When you ship a game, players shouldn't have to start a separate program. With **Start Relay** on
+(Project Settings, Plugins, Phone Wand), the plugin starts the relay itself, hidden, when the game
+connects, and stops it when the game stops. This works in Windows, macOS and Linux builds, in Play
+In Editor and in packaged games. On other platforms (phones, consoles) the setting is ignored, with
+a message in the log.
+
+**1. Put the binaries in the plugin.** Download `phone-wand-relay-<version>-embed.zip` from the
+[releases page](https://github.com/wildwinter/phone-wand/releases), same version as the plugin, and
+put its `phone-wand-relay` folder in the plugin's `Resources/Relay` folder:
+
+```
+Plugins/PhoneWand/Resources/Relay/phone-wand-relay/
+  macos/phone-wand-relay
+  windows-x64/phone-wand-relay.exe
+  linux-x64/phone-wand-relay
+  linux-arm64/phone-wand-relay
+```
+
+Leave out platforms you don't ship; each binary is about 100 MB. To keep them somewhere else, set
+**Relay Path** to that `phone-wand-relay` folder, or to the executable itself.
+
+**2. Turn on Start Relay.** Add relay options in **Relay Arguments** if you need them, for example
+`--max-players 8`. If you give the relay another app port, change **Url** instead: the plugin
+passes the URL's port as `--app-port`.
+
+**3. Package as usual.** The plugin's build rules (`PhoneWand.Build.cs`) add the binary for the
+platform you are packaging to the game's runtime dependencies, so it is copied into the packaged
+game next to the plugin (for example
+`YourGame.app/Contents/UE/YourGame/Plugins/PhoneWand/Resources/Relay/phone-wand-relay/macos/`).
+Only that platform's binary is staged, and nothing is staged if it isn't there, so projects without
+the binaries still build.
+
+What happens when the subsystem connects, as in every Phone Wand client (see
+[What the client libraries do](../shipping.md#what-the-client-libraries-do)):
+
+1. If **Url** isn't on this computer (`127.0.0.1`, `localhost` or `[::1]`), nothing is started.
+2. The plugin asks `http://127.0.0.1:<port>/status.json`, waiting up to a second without holding up
+   the game. If a relay answers (the Phone Wand app you run while developing, say), it uses that
+   one and will never stop it.
+3. Otherwise it starts `phone-wand-relay/<platform>/phone-wand-relay` with
+   `--lifeline --no-open --app-port <port> --log <log>` and your **Relay Arguments**, with no window
+   and a pipe as its standard input. On macOS and Linux it makes the file executable first. If the
+   binary isn't there, it logs a warning saying where it looked and connects as usual.
+4. It connects as usual; reconnecting covers the moment the relay takes to start.
+5. When the game instance shuts down (or you call `Disconnect` or `StopRelay`), it closes the
+   relay's standard input, which stops the relay, and ends the process if it is still there two
+   seconds later. If the game crashes, the pipe closes anyway and the relay stops by itself.
+
+The relay writes its output to `phone-wand-relay.log` in the project's log folder
+(`FPaths::ProjectLogDir()`): `Saved/Logs` on Windows and Linux, `~/Library/Logs/<Project>` on macOS
+(inside the app's container, `~/Library/Containers/<bundle id>/Data/Library/Logs/<Project>`, for a
+sandboxed build). The plugin logs the full command it ran to `LogPhoneWand`.
+
+A sandboxed macOS build runs the relay inside the game's sandbox, so the relay needs the
+`com.apple.security.network.server` entitlement (Unreal's default sandbox entitlements have it),
+and a `--data-dir` in **Relay Arguments** must be inside the container. Before you sign and
+notarize a macOS game, sign the relay with the relay's entitlements: see
+[Signing on macOS](../shipping.md#signing-on-macos). On Windows, see
+[Windows](../shipping.md#windows) for the firewall prompt.
 
 ## Frames and conversions
 
@@ -319,6 +389,9 @@ The plugin has automation tests, all named `PhoneWand.*`:
 | `PhoneWand.Library` | Colour, screen, direction and pose helpers. |
 | `PhoneWand.Client.ConnectionLost` | Leave and disconnect events, partial player updates, sorting, and ignoring unknown messages. |
 | `PhoneWand.Live.Relay` | Connects to a running relay and passes only if it sees the hello, joins, poses and stats. Skipped unless `PHONEWAND_LIVE_URL` (or `-PhoneWandLiveUrl=`) is set. |
+| `PhoneWand.ManagedRelay.Paths` | Which URLs count as this computer, and where **Relay Path** points. |
+| `PhoneWand.ManagedRelay.Missing` | With no relay binary, a warning says where it looked and the client keeps connecting. |
+| `PhoneWand.ManagedRelay.Live` | With no relay on the port, starts the relay, connects, and after shutdown checks that `status.json` no longer answers and the process is gone; then, with a relay already running, checks that it starts nothing and leaves that relay running. Uses app port 26480 and phone port 26443 (`PHONEWAND_RELAY_TEST_PORTS=<app>,<phone>` to change them). Skipped unless `PHONEWAND_RELAY_DIR` (or `-PhoneWandRelayDir=`) names a `phone-wand-relay` folder. |
 
 Run them in the editor from **Tools > Session Frontend > Automation** (filter on `PhoneWand`), or
 from the repository root with:
@@ -335,6 +408,14 @@ skips the build. To include the live test, start a relay with simulated players 
 ```sh
 phone-wand --simulate 3 --no-open &
 PHONEWAND_LIVE_URL=ws://127.0.0.1:8480/app scripts/check-unreal.sh
+```
+
+To include the managed relay test, point it at the relay binaries (for example after
+`bun scripts/dist.ts --only=relay,embed`, which builds them in `dist/embed`, laid out as
+`phone-wand-relay/` expects):
+
+```sh
+PHONEWAND_RELAY_DIR=dist/embed scripts/check-unreal.sh
 ```
 
 The tests find the conformance suite relative to the plugin (`clients/unreal/PhoneWand` to

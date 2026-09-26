@@ -8,6 +8,7 @@
 # Usage:  scripts/check-unreal.sh
 #         UE_ROOT=/path/to/UE_5.7 scripts/check-unreal.sh
 #         PHONEWAND_LIVE_URL=ws://127.0.0.1:8480/app scripts/check-unreal.sh   (also test a running relay)
+#         PHONEWAND_RELAY_DIR=dist/embed scripts/check-unreal.sh               (also test starting the relay)
 #         SKIP_BUILD=1 scripts/check-unreal.sh                                  (tests only)
 #
 # Exit status: 0 when everything compiles and every test passes, 1 on a failure, 2 when no
@@ -62,6 +63,11 @@ report="$out/report"
 echo "check-unreal: running PhoneWand automation tests (log: $log)"
 
 export PHONEWAND_CONFORMANCE_DIR="${PHONEWAND_CONFORMANCE_DIR:-$root/conformance}"
+# The editor runs from elsewhere, so hand it an absolute relay folder.
+if [ -n "${PHONEWAND_RELAY_DIR:-}" ]; then
+  PHONEWAND_RELAY_DIR="$(cd "$PHONEWAND_RELAY_DIR" && pwd)"
+  export PHONEWAND_RELAY_DIR
+fi
 
 set +e
 "$editor" "$project" \
