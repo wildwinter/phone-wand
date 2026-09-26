@@ -1,6 +1,6 @@
 {"type":"hello","protocol":0,"relay":"conformance","joinUrl":"https://relay.test:8443/?k=k","qrUrl":"http://127.0.0.1:8480/qr.png","maxPlayers":4,"players":[]}
-{"type":"join","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"join","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":0,"t":0,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":1,"t":33.3,"q":[-0.00103,0.00103,-0.00051,1],"yaw":0.118,"pitch":0.118,"roll":0.059,"dir":[0.00206,0.00206,1],"screen":null}
 {"type":"pose","id":"p1","seq":2,"t":66.6,"q":[-0.00328,0.00325,-0.0016,0.99999],"yaw":0.373,"pitch":0.375,"roll":0.185,"dir":[0.00651,0.00655,0.99996],"screen":null}
@@ -20,7 +20,7 @@
 {"type":"pose","id":"p1","seq":16,"t":532.8000000000001,"q":[-0.0778,0.07207,-0.03168,0.99386],"yaw":8.62,"pitch":8.632,"roll":4.303,"dir":[0.14819,0.15008,0.9775],"screen":null}
 {"type":"pose","id":"p1","seq":17,"t":566.1,"q":[-0.08327,0.07675,-0.03341,0.993],"yaw":9.21,"pitch":9.222,"roll":4.598,"dir":[0.15799,0.16025,0.97435],"screen":null}
 {"type":"calibrated","id":"p1","calibration":"ray"}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ada","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":18,"t":599.4,"q":[0,0,-0.04362,0.99905],"yaw":0,"pitch":0,"roll":5,"dir":[0,0,1],"screen":[0.5,0.5]}
 {"type":"pose","id":"p1","seq":19,"t":632.6999999999999,"q":[0.00075,0.00206,-0.04204,0.99911],"yaw":0.232,"pitch":-0.095,"roll":4.818,"dir":[0.00405,-0.00166,0.99999],"screen":[0.50556,0.50406]}
 {"type":"pose","id":"p1","seq":20,"t":665.9999999999999,"q":[0.00248,0.00676,-0.03843,0.99924],"yaw":0.763,"pitch":-0.314,"roll":4.403,"dir":[0.01331,-0.00548,0.9999],"screen":[0.51829,0.51338]}
@@ -61,9 +61,9 @@
 {"type":"pose","id":"p1","seq":52,"t":1731.5999999999985,"q":[0.10843,0.28342,0.10843,0.94666],"yaw":34.472,"pitch":-8.27,"roll":-15.638,"dir":[0.56012,-0.14383,0.81583],"screen":[1.44316,0.93057]}
 {"type":"pose","id":"p1","seq":53,"t":1764.8999999999985,"q":[0.11003,0.31022,0.11003,0.93784],"yaw":37.731,"pitch":-7.939,"roll":-16.099,"dir":[0.60608,-0.13811,0.78332],"screen":[1.56292,0.9306]}
 {"type":"button","id":"p1","button":"secondary","down":false}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"paused","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"paused","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ada2","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":54,"t":2098.1999999999985,"q":[0.08587,0.33663,0.04103,0.93682],"yaw":40.053,"pitch":-7.658,"roll":-7.81,"dir":[0.63776,-0.13326,0.75862],"screen":[1.65488,0.92901]}
 {"type":"pose","id":"p1","seq":55,"t":2131.4999999999986,"q":[0.08639,0.33452,0.0361,0.93773],"yaw":39.771,"pitch":-7.925,"roll":-7.28,"dir":[0.63361,-0.13787,0.76127],"screen":[1.64336,0.94231]}
 {"type":"pose","id":"p1","seq":56,"t":2164.799999999999,"q":[0.08847,0.33,0.03236,0.93927],"yaw":39.221,"pitch":-8.328,"roll":-6.918,"dir":[0.62565,-0.14484,0.76654],"screen":[1.62123,0.96146]}

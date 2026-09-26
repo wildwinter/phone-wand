@@ -10,6 +10,8 @@
       "calibration": "ray",
       "transport": "ws",
       "buttons": [],
+      "template": "primary-secondary",
+      "controls": {},
       "pose": {
         "seq": 29,
         "yaw": 68.259,

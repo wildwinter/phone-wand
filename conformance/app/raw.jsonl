@@ -1,6 +1,6 @@
 {"type":"hello","protocol":0,"relay":"conformance","joinUrl":"https://relay.test:8443/?k=k","qrUrl":"http://127.0.0.1:8480/qr.png","maxPlayers":4,"players":[]}
-{"type":"join","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"join","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":0,"t":0,"q":[0.17216,-0.02267,0.12854,0.97638],"yaw":0,"pitch":-20,"roll":-15,"dir":[0,-0.34202,0.93969],"screen":null}
 {"type":"pose","id":"p1","seq":1,"t":33.3,"q":[0.14386,-0.05342,0.11617,0.9813],"yaw":-4.286,"pitch":-17.143,"roll":-12.857,"dir":[-0.07141,-0.29476,0.9529],"screen":null}
 {"type":"pose","id":"p1","seq":2,"t":66.6,"q":[0.11653,-0.0854,0.10163,0.98428],"yaw":-8.571,"pitch":-14.286,"roll":-10.714,"dir":[-0.14443,-0.24676,0.95825],"screen":null}
@@ -17,7 +17,7 @@
 {"type":"pose","id":"p1","seq":13,"t":432.9000000000001,"q":[-0.07921,-0.4739,-0.16709,0.86095],"yaw":-55.714,"pitch":17.143,"roll":12.857,"dir":[-0.78953,0.29476,0.53829],"screen":null}
 {"type":"pose","id":"p1","seq":14,"t":466.2000000000001,"q":[-0.08483,-0.50782,-0.1974,0.83424],"yaw":-60,"pitch":20,"roll":15,"dir":[-0.8138,0.34202,0.46985],"screen":null}
 {"type":"calibrated","id":"p1","calibration":"ray"}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Hal","colour":"#ff4d6d","label":"","state":"active","calibration":"ray","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":15,"t":499.5000000000001,"q":[0,0,-0.13053,0.99144],"yaw":0,"pitch":0,"roll":15,"dir":[0,0,1],"screen":[0.5,0.5]}
 {"type":"pose","id":"p1","seq":16,"t":532.8000000000001,"q":[0.02079,0.03801,-0.10002,0.99404],"yaw":4.1,"pitch":-2.805,"roll":11.391,"dir":[0.07141,-0.04893,0.99625],"screen":[0.59847,0.61995]}
 {"type":"pose","id":"p1","seq":17,"t":566.1,"q":[0.04282,0.07574,-0.07106,0.99367],"yaw":8.343,"pitch":-5.501,"roll":7.779,"dir":[0.14443,-0.09587,0.98486],"screen":[0.70146,0.73772]}

@@ -43,6 +43,7 @@ player <id> state=<state> calibration=<calibration> name=<name> colour=<colour> 
 leave <id>
 pose <id> seq=<seq> screen=<yes|no>
 button <id> <button> <down|up>
+control <id> <control>
 calibrating <id> <top-left|bottom-right|cancelled>
 calibrated <id> <calibration>
 stats <id>
@@ -55,12 +56,16 @@ The log must equal `app/<name>.events.txt` line for line. Notes on when events f
 - `pose`, `button`, `calibrating`, `calibrated` and `stats` for an unknown player id fire nothing.
 - `button` updates the player's held buttons. A `player` message whose state is not `active` clears
   them.
+- `control` for a known player sets that control's value in the player's `controls` and fires
+  `control`. A `player` message replaces the player's layout and `controls` entirely.
+- `error` (sent when the relay couldn't use something the app sent) fires nothing in the log.
 - `calibrating` with `cancelled` clears the player's calibration step; `calibrated` also clears it
   and sets the player's calibration.
 
 After the whole stream, the client's players, in slot order, must match `app/<name>.state.json`:
-strings exactly, and numbers to within 0.0001. `buttons` is sorted. `pose` is the last pose
-received for the player, or `null`.
+strings exactly, and numbers to within 0.0001. `buttons` is sorted. `template` is the player's
+layout template, and `controls` their control values by id (booleans, numbers or strings). `pose`
+is the last pose received for the player, or `null`.
 
 ## Frame conversions
 

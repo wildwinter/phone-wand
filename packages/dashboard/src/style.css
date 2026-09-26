@@ -49,6 +49,7 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .prompt-form { display: flex; gap: 6px; margin-top: 8px; }
 .prompt-form input { flex: 1; min-width: 0; }
+.pick { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .slider { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
 .slider span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .check { display: flex; gap: 6px; align-items: center; }

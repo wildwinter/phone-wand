@@ -1,8 +1,8 @@
 {"type":"hello","protocol":0,"relay":"conformance","joinUrl":"https://relay.test:8443/?k=k","qrUrl":"http://127.0.0.1:8480/qr.png","maxPlayers":2,"players":[]}
-{"type":"join","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"join","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"join","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"join","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":0,"t":0,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":1,"t":33.3,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":2,"t":66.6,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
@@ -23,7 +23,7 @@
 {"type":"pose","id":"p2","seq":8,"t":566.1,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"button","id":"p2","button":"primary","down":true}
 {"type":"button","id":"p2","button":"primary","down":false}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p1","seq":9,"t":599.4,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":10,"t":632.6999999999999,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":11,"t":665.9999999999999,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
@@ -54,8 +54,8 @@
 {"type":"pose","id":"p1","seq":36,"t":1498.4999999999989,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":37,"t":1531.7999999999988,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
 {"type":"pose","id":"p1","seq":38,"t":1565.0999999999988,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"}}}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p2","seq":0,"t":1598.3999999999987,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":1,"t":1631.6999999999987,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":2,"t":1664.9999999999986,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
@@ -65,7 +65,7 @@
 {"type":"pose","id":"p2","seq":6,"t":1798.1999999999985,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":7,"t":1831.4999999999984,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":8,"t":1864.7999999999984,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Cy","colour":"#ff4d6d","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p2","seq":9,"t":1898.0999999999983,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":10,"t":1931.3999999999983,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":11,"t":1964.6999999999982,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
@@ -96,9 +96,9 @@
 {"type":"pose","id":"p2","seq":36,"t":2797.200000000002,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":37,"t":2830.5000000000023,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":38,"t":2863.8000000000025,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"paused","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"leave","id":"p1"}
-{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Dot","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"http"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"pose","id":"p2","seq":39,"t":62897.100000000006,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":40,"t":62930.40000000001,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}
 {"type":"pose","id":"p2","seq":41,"t":62963.70000000001,"q":[-0.01745,0,0,0.99985],"yaw":0,"pitch":2,"roll":0,"dir":[0,0.0349,0.99939],"screen":null}

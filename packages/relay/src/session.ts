@@ -5,8 +5,9 @@
 import {
   type AppToRelay, type ButtonName, type CalibrationKind, type PhoneToRelay, type PlayerInfo,
   type PlayerState, type Quat, type RelayToApp, type RelayToPhone, type SensorKind,
-  type SmoothingOptions, type Transport,
-  DEFAULT_SMOOTHING, PointerCalibration, PoseSmoother, PROTOCOL_VERSION, SLOT_COLOURS, derivePose,
+  type SmoothingOptions, type Transport, type Layout, type ControlValue,
+  DEFAULT_LAYOUT, DEFAULT_SMOOTHING, PointerCalibration, PoseSmoother, PROTOCOL_VERSION, SLOT_COLOURS,
+  controlValue, derivePose, layoutValues, validateLayout,
 } from "@phone-wand/core";
 
 export interface PhoneLink {
@@ -66,6 +67,8 @@ class Player {
   /** Doing two-corner calibration: the cursor is hidden so it does not distract. */
   calibratingScreen = false;
   buttons = new Set<ButtonName>();
+  layout: Layout = structuredClone(DEFAULT_LAYOUT);
+  values: Record<string, ControlValue> = layoutValues(DEFAULT_LAYOUT);
   smoothers = new Map<App, PoseSmoother>();
   // stats, reset every second
   poses = 0;
@@ -87,6 +90,8 @@ class Player {
       id: this.id, slot: this.slot, name: this.name, colour: this.colour, label: this.label,
       state: this.state, calibration: this.calibration.kind as CalibrationKind,
       device: { platform: this.platform, sensor: this.sensor, transport: this.link?.transport ?? "ws" },
+      layout: this.layout,
+      controls: { ...this.values },
     };
   }
 }
@@ -179,7 +184,46 @@ export class Session {
         for (const p of this.targets(msg.id)) p.link?.send({ type: "calibrate", mode });
         break;
       }
+      case "layout": {
+        const layout = msg.layout === null ? structuredClone(DEFAULT_LAYOUT) : validateLayout(msg.layout);
+        if (typeof layout === "string") return this.error(app, `layout: ${layout}`);
+        for (const p of this.targets(msg.id)) this.setLayout(p, structuredClone(layout));
+        break;
+      }
+      case "set": {
+        for (const p of this.targets(msg.id)) {
+          const control = p.layout.controls.find((c) => c.id === msg.control);
+          const value = control ? controlValue(control, msg.value) : undefined;
+          if (value === undefined) {
+            this.error(app, `set: ${p.id} has no control ${String(msg.control)} that takes ${JSON.stringify(msg.value)}`);
+            continue;
+          }
+          p.values[control!.id] = value;
+          p.link?.send({ type: "set", control: control!.id, value });
+          this.broadcast({ type: "control", id: p.id, control: control!.id, value });
+        }
+        break;
+      }
     }
+  }
+
+  private error(app: App, message: string): void {
+    this.options.log?.(`app error: ${message}`);
+    app.link.send({ type: "error", message });
+  }
+
+  private setLayout(p: Player, layout: Layout): void {
+    // Buttons that no longer exist are released, so apps never see one stuck down.
+    for (const b of [...p.buttons]) {
+      if (!layout.controls.some((c) => c.id === b && c.type === "button")) {
+        p.buttons.delete(b);
+        this.broadcast({ type: "button", id: p.id, button: b, down: false });
+      }
+    }
+    p.layout = layout;
+    p.values = layoutValues(layout);
+    p.link?.send({ type: "layout", layout, values: { ...p.values } });
+    this.broadcast({ type: "player", player: p.info() });
   }
 
   private targets(id: string | undefined): Player[] {
@@ -217,12 +261,21 @@ export class Session {
         this.pose(p, msg.seq, msg.q, msg.ts, t);
         break;
       case "button": {
-        if (msg.button !== "primary" && msg.button !== "secondary") return;
+        if (!p.layout.controls.some((c) => c.id === msg.button && c.type === "button")) return;
         const down = !!msg.down;
         if (down === p.buttons.has(msg.button)) return; // ignore repeats
         if (down) p.buttons.add(msg.button);
         else p.buttons.delete(msg.button);
         this.broadcast({ type: "button", id: p.id, button: msg.button, down });
+        break;
+      }
+      case "control": {
+        const control = p.layout.controls.find((c) => c.id === msg.control);
+        if (!control || control.type === "label" || control.type === "button") return;
+        const value = controlValue(control, msg.value);
+        if (value === undefined || value === p.values[control.id]) return;
+        p.values[control.id] = value;
+        this.broadcast({ type: "control", id: p.id, control: control.id, value });
         break;
       }
       case "recentre":
@@ -319,6 +372,7 @@ export class Session {
       type: "welcome", id: p.id, token: p.token, slot: p.slot, name: p.name,
       colour: p.colour, label: p.label, calibration: p.calibration.kind,
     });
+    conn.link.send({ type: "layout", layout: p.layout, values: { ...p.values } });
     if (joined) {
       this.options.log?.(`join  ${p.id} slot ${p.slot + 1} "${p.name}" (${p.platform}, ${conn.link.transport})`);
       this.broadcast({ type: "join", player: p.info() });

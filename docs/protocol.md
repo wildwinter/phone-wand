@@ -83,7 +83,9 @@ A player object appears in `hello`, `join` and `player`:
 ```json
 { "id": "p3", "slot": 0, "name": "Ian", "colour": "#ff4d6d", "label": "",
   "state": "active", "calibration": "ray",
-  "device": { "platform": "iOS", "sensor": "deviceorientation", "transport": "ws" } }
+  "device": { "platform": "iOS", "sensor": "deviceorientation", "transport": "ws" },
+  "layout": { "template": "primary-secondary", "controls": [ ... ] },
+  "controls": { } }
 ```
 
 | Field | Meaning |
@@ -98,6 +100,8 @@ A player object appears in `hello`, `join` and `player`:
 | `device.platform` | `iOS`, `Android`, or `other`. |
 | `device.sensor` | `relative-orientation-sensor` or `deviceorientation`. |
 | `device.transport` | `ws` (WebSocket) or `http` (the HTTP fallback). |
+| `layout` | The controls the phone shows (see [Layouts](#layouts)). Until an app sends one, the default: `primary-secondary` with buttons `primary` and `secondary`. |
+| `controls` | Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons have no value. |
 
 ## Relay to app
 
@@ -154,8 +158,23 @@ All values are smoothed with the app's filter settings (see `configure`).
 
 `{ "type": "button", "id": "p1", "button": "primary", "down": true }`
 
-Buttons in version 0: `primary` and `secondary`. Every `down` is followed by an `up`
-(`"down": false`), including when a phone disconnects with a button held.
+`button` is the id of a button in the player's layout: `primary` and `secondary` by default. Every
+`down` is followed by an `up` (`"down": false`), including when a phone disconnects with a button
+held, or a new layout removes a held button.
+
+### `control`
+
+`{ "type": "control", "id": "p1", "control": "power", "value": 0.8 }`
+
+A toggle (`true` or `false`), slider (0 to 1), choice (option index) or label (text) changed,
+either on the phone or because an app set it. Sent only when the value actually changes. The
+player's `controls` hold the latest values.
+
+### `error`
+
+`{ "type": "error", "message": "layout: template grid holds at most 6 controls" }`
+
+Sent only to the app whose message the relay couldn't use, saying why.
 
 ### `calibrating`
 
@@ -223,6 +242,58 @@ durations in milliseconds. Omit `id` to send to everyone.
 Asks the player to run calibration. `mode` is `screen` (two corners) or `ray` (asks them to point at
 the middle and press Recentre). Omit `id` to ask everyone.
 
+### `layout`
+
+`{ "type": "layout", "id": "p1", "layout": { "template": "grid", "controls": [ ... ] } }`
+
+Sets the controls a phone shows. Omit `id` for every phone; `"layout": null` goes back to the
+default. The relay remembers each player's layout, so a phone that reconnects gets it back, and
+sends every app a `player` message with the new layout. Held buttons that aren't in the new layout
+are released. An invalid layout gets an `error` and changes nothing.
+
+### `set`
+
+`{ "type": "set", "id": "p1", "control": "score", "value": "120" }`
+
+Changes a control's value on a phone: a toggle's `true` or `false`, a slider's 0 to 1, a choice's
+option index, or a label's text. Omit `id` for every phone. Every app gets a `control` message.
+
+## Layouts
+
+A layout is a template plus its controls, in order:
+
+```json
+{ "template": "primary-row",
+  "controls": [
+    { "id": "shoot", "type": "button", "label": "Shoot" },
+    { "id": "reload", "type": "button", "label": "Reload" },
+    { "id": "zoom", "type": "toggle", "label": "Zoom" },
+    { "id": "ammo", "type": "label", "label": "Ammo", "text": "12" } ] }
+```
+
+| Template | Controls | Placement |
+|---|---|---|
+| `primary` | 1 | One big button. |
+| `primary-secondary` | 2 | A big button where the thumb rests, a smaller control below it towards the palm. |
+| `pair` | 2 | Two equal controls side by side. |
+| `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
+| `grid` | 1 to 6 | Two columns. |
+
+In the `primary` templates the first control is the big one and must be a button. Placement mirrors
+for players who choose left-handed on their phone.
+
+Every control has an `id` (1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout), a
+`type`, and optionally a `label` (up to 24 characters) and a `colour` (`#rrggbb`; the player's
+colour when omitted).
+
+| Type | Extra fields | Value |
+|---|---|---|
+| `button` | | none: presses arrive as `button` messages |
+| `toggle` | `value`: starting state | `true` or `false` |
+| `slider` | `value`: starting position, `orientation`: `horizontal` (default) or `vertical`, `spring`: where it returns when let go (0 to 1), or `null` to stay put | 0 to 1 |
+| `choice` | `options`: 2 to 4 strings (up to 16 characters each), `value`: starting index | option index |
+| `label` | `text`: up to 80 characters | the text; only apps change it |
+
 ## Phone link
 
 The phone page and the relay talk over `wss://<relay>:8443/phone`, or over the HTTP fallback when a
@@ -238,7 +309,8 @@ Phone to relay:
 | `hello` | `key` (join key from the QR code), `token` (reconnect token, if any), `name`, `platform`, `sensor` |
 | `ready` | Motion access granted; poses follow. |
 | `pose` | `seq`, `ts` (phone clock, ms), `q` (`[x, y, z, w]`, device to sensor world, W3C `DeviceOrientation` frame) |
-| `button` | `button`, `down` |
+| `button` | `button` (a button id from the layout), `down` |
+| `control` | `control`, `value` |
 | `recentre` | |
 | `corner` | `step` (`top-left` or `bottom-right`), `q` |
 | `calibrate-start`, `calibrate-cancel` | |
@@ -258,6 +330,8 @@ Relay to phone:
 | `calibrate` | `mode` |
 | `calibration` | `calibration`, `step`, `ok` |
 | `ping` | `n` |
+| `layout` | `layout`, `values` (sent after `welcome`, and whenever an app changes it) |
+| `set` | `control`, `value` |
 
 ## Conformance
 

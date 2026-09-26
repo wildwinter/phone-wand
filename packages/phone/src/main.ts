@@ -1,14 +1,18 @@
 // The phone page: reads orientation, shows buttons, and talks to the relay over a WebSocket, or
 // over HTTP (POST up, Server-Sent Events down) when a secure WebSocket will not connect.
 
-import { type PhoneToRelay, type Quat, type RelayToPhone, type SensorKind, eulerToQuat } from "@phone-wand/core";
+import {
+  type PhoneToRelay, type Quat, type RelayToPhone, type SensorKind,
+  DEFAULT_LAYOUT, eulerToQuat, layoutValues,
+} from "@phone-wand/core";
+import { type RenderedLayout, renderLayout } from "./controls.js";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 // ------------------------------------------------------------------ storage
 
 const STORE = `phone-wand:${location.host}`;
-interface Saved { token?: string; name?: string }
+interface Saved { token?: string; name?: string; hand?: "left" | "right" }
 function load(): Saved {
   try {
     return JSON.parse(localStorage.getItem(STORE) || "{}");
@@ -244,11 +248,15 @@ function onMessage(msg: RelayToPhone): void {
       break;
     case "calibrate":
       if (!started) return;
+      closeSettings();
       if (msg.mode === "screen") startCalibration();
-      else {
-        showPrompt("Point at the middle of the screen and press Recentre", 5000);
-        flash($("recentre"));
-      }
+      else showSetup();
+      break;
+    case "layout":
+      showLayout(msg.layout, msg.values);
+      break;
+    case "set":
+      rendered.set(msg.control, msg.value);
       break;
     case "calibration":
       onCalibration(msg);
@@ -433,60 +441,70 @@ $("start-button").addEventListener("click", async () => {
   if (myCalibration === "none") showSetup();
 });
 
-// ------------------------------------------------------------------ buttons
-
-const held = new Map<HTMLElement, number>();
-
-function bindButton(el: HTMLElement, down: () => void, up: () => void): void {
-  el.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    if (held.has(el)) return;
-    el.setPointerCapture?.(e.pointerId);
-    held.set(el, e.pointerId);
-    el.classList.add("down");
-    navigator.vibrate?.(10);
-    down();
-  });
-  const release = (e: PointerEvent) => {
-    if (held.get(el) !== e.pointerId) return;
-    held.delete(el);
-    el.classList.remove("down");
-    up();
-  };
-  el.addEventListener("pointerup", release);
-  el.addEventListener("pointercancel", release);
-  el.addEventListener("contextmenu", (e) => e.preventDefault());
-}
-
-const releasers = new Map<HTMLElement, () => void>();
-function releaseAll(): void {
-  for (const el of [...held.keys()]) {
-    held.delete(el);
-    el.classList.remove("down");
-    releasers.get(el)?.();
-  }
-}
-
-for (const [id, button] of [["primary", "primary"], ["secondary", "secondary"]] as const) {
-  const up = () => send({ type: "button", button, down: false });
-  releasers.set($(id), up);
-  bindButton($(id), () => send({ type: "button", button, down: true }), up);
-}
-
-function flash(el: HTMLElement): void {
-  el.classList.add("flash");
-  setTimeout(() => el.classList.remove("flash"), 600);
-}
+// ------------------------------------------------------------------ controls
 
 // Taps that land on the play screen just after an overlay closes are the tail of the tap that
 // closed it (a "ghost click"), not a real press: without this, finishing calibration pressed Recentre.
 let ignoreTapsUntil = 0;
 const tapAllowed = () => performance.now() > ignoreTapsUntil;
 
+let rendered: RenderedLayout = renderLayout($("controls"), DEFAULT_LAYOUT, layoutValues(DEFAULT_LAYOUT), { send, tapAllowed });
+
+function showLayout(layout: typeof DEFAULT_LAYOUT, values: ReturnType<typeof layoutValues>): void {
+  rendered.releaseAll();
+  rendered = renderLayout($("controls"), layout, values, { send, tapAllowed });
+}
+
+function releaseAll(): void {
+  rendered.releaseAll();
+}
+
+// ------------------------------------------------------------------ settings
+
+function setHand(hand: "left" | "right"): void {
+  document.body.classList.toggle("left-handed", hand === "left");
+  for (const b of $("hand").querySelectorAll("button")) b.classList.toggle("on", b.dataset.hand === hand);
+  save({ hand });
+}
+setHand(load().hand ?? "right");
+$("hand").addEventListener("click", (e) => {
+  const hand = (e.target as HTMLElement).dataset.hand;
+  if (hand === "left" || hand === "right") setHand(hand);
+});
+
+function openSettings(): void {
+  releaseAll();
+  ($("settings-name") as HTMLInputElement).value = myName;
+  ($("settings-name") as HTMLInputElement).placeholder = ($("name") as HTMLInputElement).placeholder;
+  $("settings").classList.remove("hidden");
+}
+
+function closeSettings(): void {
+  if ($("settings").classList.contains("hidden")) return;
+  $("settings").classList.add("hidden");
+  ignoreTapsUntil = performance.now() + 600;
+}
+
+$("settings-open").addEventListener("click", () => {
+  if (tapAllowed()) openSettings();
+});
+$("settings-close").addEventListener("click", closeSettings);
+const settingsName = $("settings-name") as HTMLInputElement;
+settingsName.addEventListener("change", () => {
+  myName = settingsName.value.trim().slice(0, 24);
+  save({ name: myName });
+  ($("name") as HTMLInputElement).value = myName;
+  $("player-name").textContent = myName || settingsName.placeholder;
+  if (welcomed) send({ type: "name", name: myName });
+});
+settingsName.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") settingsName.blur();
+});
+
 $("recentre").addEventListener("click", () => {
-  if (!tapAllowed()) return;
   send({ type: "recentre" });
   navigator.vibrate?.(20);
+  closeSettings();
 });
 
 // ------------------------------------------------------------------ screen calibration
@@ -516,7 +534,8 @@ function endCalibration(): void {
 }
 
 $("calibrate").addEventListener("click", () => {
-  if (tapAllowed()) startCalibration();
+  closeSettings();
+  startCalibration();
 });
 $("calib-cancel").addEventListener("pointerdown", (e) => e.stopPropagation());
 $("calib-cancel").addEventListener("click", (e) => {

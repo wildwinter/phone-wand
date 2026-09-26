@@ -51,7 +51,8 @@ The phone must be on the **same network** as the relay's computer.
    bottom-right corner, tap; or point at the middle of the screen and tap the button below.
 
 Your cursor now appears on the dashboard's test screen. The **Primary** button is the big area in
-the middle; **Secondary** is below it.
+the middle; **Secondary** is below it. The small button in the top corner opens **Settings**, with
+Recentre, Calibrate screen, your name, and which hand you hold the phone in.
 
 ## 3. Calibrate to the screen
 
@@ -59,7 +60,8 @@ Recentre alone gives a cursor that crosses a 40 degree wide area. To make the cu
 where you point:
 
 1. Make the dashboard's test screen full screen (press **F**), or run your own app full screen.
-2. On the phone, press **Calibrate screen**.
+2. On the phone, open **Settings** (the small button in the top corner) and press **Calibrate
+   screen**.
 3. Point at the top-left corner of the screen and tap, then the bottom-right corner and tap.
 
 See [Calibration and precision](calibration.md) for more.

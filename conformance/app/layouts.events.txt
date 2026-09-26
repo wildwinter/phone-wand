@@ -1,0 +1,29 @@
+connected protocol=0 max=4
+join p1 slot=0 name=Ivy colour=#ff4d6d
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+join p2 slot=1 name=Jo colour=#2ec4ff
+player p2 state=active calibration=none name=Jo colour=#2ec4ff transport=ws
+pose p1 seq=0 screen=no
+pose p1 seq=1 screen=no
+pose p1 seq=2 screen=no
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p1 fire down
+button p1 fire up
+control p1 shield
+control p1 power
+control p1 power
+control p1 weapon
+control p1 score
+pose p1 seq=3 screen=no
+pose p1 seq=4 screen=no
+pose p1 seq=5 screen=no
+button p2 primary down
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p2 primary up
+player p2 state=active calibration=none name=Jo colour=#2ec4ff transport=ws
+control p2 zoom
+control p1 zoom
+control p2 zoom
+player p2 state=active calibration=none name=Jo colour=#2ec4ff transport=ws
+button p2 secondary down
+button p2 secondary up

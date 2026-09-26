@@ -21,8 +21,6 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 - **Gestures.** The phone spots a flick (to throw) or a shake from its motion sensors, and apps get
   a `gesture` event with its strength and direction.
-- **Custom button layouts.** An app tells phones which buttons to show, with labels and colours,
-  instead of the fixed Primary and Secondary.
 - **OSC output.** The relay also sends pointers, buttons and players as
   [Open Sound Control](https://opensoundcontrol.stanford.edu/) messages, so tools such as
   TouchDesigner, Max, Pure Data and lighting desks can use phones with no code.

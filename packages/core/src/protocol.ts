@@ -4,11 +4,13 @@
 import type { Quat, Vec3 } from "./math.js";
 import type { CalibrationKind } from "./pointer.js";
 import type { SmoothingOptions } from "./one-euro.js";
+import type { ControlValue, Layout } from "./layout.js";
 
 export const PROTOCOL_VERSION = 0;
 
 export type PlayerState = "waiting" | "active" | "paused";
-export type ButtonName = "primary" | "secondary";
+/** A button control's id: "primary" and "secondary" by default, or whatever the app's layout says. */
+export type ButtonName = string;
 export type CornerStep = "top-left" | "bottom-right";
 export type Transport = "ws" | "http";
 export type SensorKind = "relative-orientation-sensor" | "deviceorientation";
@@ -22,6 +24,10 @@ export interface PlayerInfo {
   state: PlayerState;
   calibration: CalibrationKind;
   device: { platform: string; sensor: SensorKind | ""; transport: Transport };
+  /** The controls the phone shows. */
+  layout: Layout;
+  /** Current values of the layout's toggles, sliders, choices and labels, by control id. */
+  controls: Record<string, ControlValue>;
 }
 
 // ---- relay -> app ----
@@ -51,13 +57,16 @@ export interface PoseMessage {
   screen: [number, number] | null;
 }
 export interface ButtonMessage { type: "button"; id: string; button: ButtonName; down: boolean }
+export interface ControlMessage { type: "control"; id: string; control: string; value: ControlValue }
 export interface CalibratingMessage { type: "calibrating"; id: string; step: CornerStep | "cancelled" }
 export interface CalibratedMessage { type: "calibrated"; id: string; calibration: CalibrationKind }
 export interface StatsMessage { type: "stats"; id: string; rtt: number; rate: number; dropped: number }
+/** Sent only to the app whose message the relay could not use, saying why. */
+export interface ErrorMessage { type: "error"; message: string }
 
 export type RelayToApp =
   | HelloMessage | JoinMessage | LeaveMessage | PlayerMessage | PoseMessage
-  | ButtonMessage | CalibratingMessage | CalibratedMessage | StatsMessage;
+  | ButtonMessage | ControlMessage | CalibratingMessage | CalibratedMessage | StatsMessage | ErrorMessage;
 
 // ---- app -> relay ----
 
@@ -66,8 +75,13 @@ export interface StyleMessage { type: "style"; id: string; colour?: string; labe
 export interface PromptMessage { type: "prompt"; id?: string; text: string; duration?: number }
 export interface HapticMessage { type: "haptic"; id?: string; pattern: number[] }
 export interface CalibrateMessage { type: "calibrate"; id?: string; mode: "screen" | "ray" }
+/** Set a phone's layout; omit id for every phone. layout null goes back to the default. */
+export interface LayoutMessage { type: "layout"; id?: string; layout: Layout | null }
+/** Change a control's value (toggle, slider, choice) or a label's text; omit id for every phone. */
+export interface SetMessage { type: "set"; id?: string; control: string; value: ControlValue }
 
-export type AppToRelay = ConfigureMessage | StyleMessage | PromptMessage | HapticMessage | CalibrateMessage;
+export type AppToRelay =
+  | ConfigureMessage | StyleMessage | PromptMessage | HapticMessage | CalibrateMessage | LayoutMessage | SetMessage;
 
 // ---- phone <-> relay ----
 
@@ -76,6 +90,7 @@ export type PhoneToRelay =
   | { type: "ready"; sensor: SensorKind }
   | { type: "pose"; seq: number; ts: number; q: Quat }
   | { type: "button"; button: ButtonName; down: boolean }
+  | { type: "control"; control: string; value: ControlValue }
   | { type: "recentre" }
   | { type: "corner"; step: CornerStep; q: Quat }
   | { type: "calibrate-start" }
@@ -93,7 +108,9 @@ export type RelayToPhone =
   | { type: "haptic"; pattern: number[] }
   | { type: "calibrate"; mode: "screen" | "ray" }
   | { type: "calibration"; calibration: CalibrationKind; step?: CornerStep | "done" | "failed"; ok: boolean }
-  | { type: "ping"; n: number };
+  | { type: "ping"; n: number }
+  | { type: "layout"; layout: Layout; values: Record<string, ControlValue> }
+  | { type: "set"; control: string; value: ControlValue };
 
 /** Slot colours: distinct, readable on dark and light backgrounds. */
 export const SLOT_COLOURS = [

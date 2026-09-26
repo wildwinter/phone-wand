@@ -174,6 +174,60 @@ const SESSIONS: Record<string, () => Line[]> = {
     return s.end();
   },
 
+  // Layouts: custom controls, values from the phone and the app, invalid input, and a layout
+  // change releasing a held button.
+  layouts: () => {
+    const s = new Script(DEFAULT).join(1, "Ivy").join(2, "Jo");
+    s.move(1, 100, () => [0, 0, 0]);
+    s.app({
+      type: "layout", id: "p1",
+      layout: {
+        template: "grid",
+        controls: [
+          { id: "fire", type: "button", label: "Fire" },
+          { id: "shield", type: "toggle", label: "Shield" },
+          { id: "power", type: "slider", label: "Power", value: 0.25 },
+          { id: "throttle", type: "slider", orientation: "vertical", spring: 0.5 },
+          { id: "weapon", type: "choice", options: ["Bow", "Sling", "Net"], value: 1 },
+          { id: "score", type: "label", label: "Score", text: "0" },
+        ],
+      },
+    });
+    s.send(1, { type: "button", button: "fire", down: true });
+    s.send(1, { type: "button", button: "fire", down: false });
+    s.send(1, { type: "button", button: "primary", down: true }); // not in this layout: ignored
+    s.send(1, { type: "control", control: "shield", value: true });
+    s.send(1, { type: "control", control: "shield", value: true }); // unchanged: no event
+    s.send(1, { type: "control", control: "power", value: 0.8 });
+    s.send(1, { type: "control", control: "power", value: 7 }); // clamped to 1
+    s.send(1, { type: "control", control: "weapon", value: 2 });
+    s.send(1, { type: "control", control: "weapon", value: 9 }); // no such option: ignored
+    s.send(1, { type: "control", control: "score", value: "999" }); // labels are the app's: ignored
+    s.app({ type: "set", id: "p1", control: "score", value: "10" });
+    s.app({ type: "set", id: "p1", control: "shield", value: "yes" }); // wrong type: error
+    s.app({ type: "layout", id: "p1", layout: { template: "primary", controls: [{ id: "x", type: "toggle" }] } }); // error
+    s.move(1, 100, () => [0, 0, 0]);
+    // Everyone gets a primary-row layout while player 2 holds the default primary button.
+    s.send(2, { type: "button", button: "primary", down: true });
+    s.app({
+      type: "layout",
+      layout: {
+        template: "primary-row",
+        controls: [
+          { id: "shoot", type: "button", label: "Shoot", colour: "#00FF88" },
+          { id: "reload", type: "button" },
+          { id: "zoom", type: "toggle", value: true },
+        ],
+      },
+    });
+    s.send(2, { type: "control", control: "zoom", value: false });
+    s.app({ type: "set", control: "zoom", value: true });
+    s.app({ type: "layout", id: "p2", layout: null }); // back to the default
+    s.send(2, { type: "button", button: "secondary", down: true });
+    s.send(2, { type: "button", button: "secondary", down: false });
+    return s.end();
+  },
+
   // The same wandering as basic, with smoothing off, so raw calibrated values are pinned too.
   raw: () => {
     const s = new Script({ maxPlayers: 4, key: "k", smoothing: false }).join(1, "Hal");
@@ -237,6 +291,8 @@ function clientTrace(stream: RelayToApp[]): { events: string[]; state: object } 
   wand.on("leave", (p) => events.push(`leave ${p.id}`));
   wand.on("pose", (pose) => events.push(`pose ${pose.id} seq=${pose.seq} screen=${pose.screen ? "yes" : "no"}`));
   wand.on("button", (e) => events.push(`button ${e.id} ${e.button} ${e.down ? "down" : "up"}`));
+  wand.on("control", (e) => events.push(`control ${e.id} ${e.control}`));
+  wand.on("error", () => {}); // errors are for the app's developer, not part of the log
   wand.on("calibrating", (step, p) => events.push(`calibrating ${p.id} ${step}`));
   wand.on("calibrated", (c, p) => events.push(`calibrated ${p.id} ${c}`));
   wand.on("stats", (s) => events.push(`stats ${s.id}`));
@@ -246,6 +302,8 @@ function clientTrace(stream: RelayToApp[]): { events: string[]; state: object } 
       id: p.id, slot: p.slot, name: p.name, colour: p.colour, label: p.label,
       state: p.state, calibration: p.calibration, transport: p.device.transport,
       buttons: [...p.buttons].sort(),
+      template: p.layout.template,
+      controls: Object.fromEntries(Object.entries(p.controls).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
       pose: p.pose && {
         seq: p.pose.seq, yaw: p.pose.yaw, pitch: p.pose.pitch, roll: p.pose.roll,
         q: p.pose.q, dir: p.pose.dir, screen: p.pose.screen,

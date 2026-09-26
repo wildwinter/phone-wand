@@ -9,7 +9,21 @@
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 export type Calibration = "none" | "ray" | "screen";
-export type ButtonName = "primary" | "secondary";
+/** A button's id: "primary" and "secondary" by default, or the ids in your layout. */
+export type ButtonName = string;
+
+export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid";
+export type ControlValue = boolean | number | string;
+export type Control =
+  | { id: string; type: "button"; label?: string; colour?: string }
+  | { id: string; type: "toggle"; label?: string; colour?: string; value?: boolean }
+  | { id: string; type: "slider"; label?: string; colour?: string; value?: number; orientation?: "horizontal" | "vertical"; spring?: number | null }
+  | { id: string; type: "choice"; label?: string; colour?: string; options: string[]; value?: number }
+  | { id: string; type: "label"; label?: string; colour?: string; text?: string };
+export interface Layout {
+  template: Template;
+  controls: Control[];
+}
 
 export interface PlayerInfo {
   id: string;
@@ -20,6 +34,10 @@ export interface PlayerInfo {
   state: "waiting" | "active" | "paused";
   calibration: Calibration;
   device: { platform: string; sensor: string; transport: "ws" | "http" };
+  /** The controls this player's phone shows. */
+  layout: Layout;
+  /** Current values of the layout's toggles, sliders, choices and labels, by control id. */
+  controls: Record<string, ControlValue>;
 }
 
 export interface Pose {
@@ -39,6 +57,7 @@ export interface Pose {
 }
 
 export interface ButtonEvent { id: string; button: ButtonName; down: boolean }
+export interface ControlEvent { id: string; control: string; value: ControlValue }
 export interface Stats { id: string; rtt: number; rate: number; dropped: number }
 export interface Smoothing { minCutoff: number; beta: number; dCutoff: number }
 
@@ -67,6 +86,9 @@ export interface PhoneWandEvents {
   player: [player: Player];
   pose: [pose: Pose, player: Player];
   button: [event: ButtonEvent, player: Player];
+  control: [event: ControlEvent, player: Player];
+  /** The relay could not use something this app sent; the message says why. */
+  error: [message: string];
   calibrating: [step: "top-left" | "bottom-right" | "cancelled", player: Player];
   calibrated: [calibration: Calibration, player: Player];
   stats: [stats: Stats, player: Player];
@@ -195,6 +217,19 @@ export class PhoneWand {
     this.send({ type: "calibrate", mode, ...options });
   }
 
+  /**
+   * Choose the controls a phone shows (or every phone when id is omitted); null goes back to the
+   * default Primary and Secondary. See docs/layouts.md.
+   */
+  layout(layout: Layout | null, options: { id?: string } = {}): void {
+    this.send({ type: "layout", layout, ...options });
+  }
+
+  /** Change a toggle, slider or choice's value, or a label's text, on a phone (or every phone). */
+  set(control: string, value: ControlValue, options: { id?: string } = {}): void {
+    this.send({ type: "set", control, value, ...options });
+  }
+
   private send(msg: object): void {
     if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(msg));
   }
@@ -265,6 +300,17 @@ export class PhoneWand {
         this.emit("button", { id: msg.id, button: msg.button, down: !!msg.down }, p);
         break;
       }
+      case "control": {
+        const p = this.players.get(msg.id);
+        if (!p) return;
+        p.controls = { ...p.controls, [msg.control]: msg.value };
+        this.emit("control", { id: msg.id, control: msg.control, value: msg.value }, p);
+        break;
+      }
+      case "error":
+        if (this.listeners.get("error")?.size) this.emit("error", String(msg.message));
+        else console.warn(`phone-wand: ${msg.message}`);
+        break;
       case "calibrating": {
         const p = this.players.get(msg.id);
         if (!p) return;

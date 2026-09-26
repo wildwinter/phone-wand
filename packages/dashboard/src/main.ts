@@ -1,7 +1,7 @@
 // The relay dashboard: status, QR code, players and a test screen with live cursors. It is an
 // ordinary Phone Wand app built on the JavaScript client, so it doubles as the JS sample.
 
-import { PhoneWand, type Player } from "phone-wand";
+import { type Layout, PhoneWand, type Player } from "phone-wand";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const wand = new PhoneWand({ url: `ws://${location.host}/app` });
@@ -108,6 +108,48 @@ $("stop").addEventListener("click", async () => {
     // it may already be gone
   }
 });
+
+// Sample layouts, to try templates and controls on real phones without writing an app.
+const LAYOUTS: Record<string, Layout | null> = {
+  default: null,
+  primary: { template: "primary", controls: [{ id: "go", type: "button", label: "Go" }] },
+  pair: {
+    template: "pair",
+    controls: [{ id: "left", type: "button", label: "Left" }, { id: "right", type: "button", label: "Right" }],
+  },
+  row: {
+    template: "primary-row",
+    controls: [
+      { id: "shoot", type: "button", label: "Shoot" },
+      { id: "reload", type: "button", label: "Reload" },
+      { id: "zoom", type: "toggle", label: "Zoom" },
+      { id: "ammo", type: "label", label: "Ammo", text: "12" },
+    ],
+  },
+  grid: {
+    template: "grid",
+    controls: [
+      { id: "fire", type: "button", label: "Fire" },
+      { id: "shield", type: "toggle", label: "Shield" },
+      { id: "power", type: "slider", label: "Power", value: 0.5 },
+      { id: "throttle", type: "slider", label: "Throttle", orientation: "vertical", spring: 0.5 },
+      { id: "weapon", type: "choice", label: "Weapon", options: ["Bow", "Sling", "Net"] },
+      { id: "score", type: "label", label: "Score", text: "0" },
+    ],
+  },
+};
+$<HTMLSelectElement>("layout-pick").addEventListener("change", (e) => {
+  wand.layout(LAYOUTS[(e.target as HTMLSelectElement).value] ?? null);
+});
+// Show control changes on the test screen, briefly, so they're easy to check.
+wand.on("control", (e, p) => {
+  ripples.push({ x: 0.5, y: 0.08, colour: p.colour, start: performance.now(), big: false });
+  lastControl = { text: `${p.name}: ${e.control} = ${JSON.stringify(e.value)}`, colour: p.colour, at: performance.now() };
+});
+wand.on("error", (message) => {
+  lastControl = { text: `Relay error: ${message}`, colour: "#ff5c6c", at: performance.now() };
+});
+let lastControl: { text: string; colour: string; at: number } | null = null;
 
 $("all-screen").addEventListener("click", () => wand.calibrate("screen"));
 $("all-ray").addEventListener("click", () => wand.calibrate("ray"));
@@ -253,6 +295,15 @@ function draw(now: number): void {
 
   for (const p of wand.list) drawCursor(p, w, h, unit);
   drawWaiting(w, h, unit);
+  if (lastControl && now - lastControl.at < 2500) {
+    ctx.globalAlpha = 1 - (now - lastControl.at) / 2500;
+    ctx.fillStyle = lastControl.colour;
+    ctx.font = `600 ${Math.round(unit * 0.03)}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(lastControl.text, w / 2, unit * 0.03);
+    ctx.globalAlpha = 1;
+  }
   requestAnimationFrame(draw);
 }
 

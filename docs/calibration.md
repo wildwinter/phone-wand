@@ -30,7 +30,7 @@ After a Recentre alone, the screen position assumes a screen 40 degrees wide and
 
 ## Recentre
 
-Pressing **Recentre** makes the direction the phone points right now the new forward, including its
+Pressing **Recentre** (in the phone's **Settings**, the small button in the top corner) makes the direction the phone points right now the new forward, including its
 up or down tilt. Point at the middle of the screen (or, for a surround rig, the middle of the centre
 screen) and press it.
 
@@ -44,7 +44,8 @@ For a single monitor or projection, the two-corner calibration makes the cursor 
 player points:
 
 1. Show your app (or the dashboard's test screen) full screen.
-2. On the phone, press **Calibrate screen** (or have your app send `calibrate` in `screen` mode).
+2. On the phone, open **Settings** and press **Calibrate screen** (or have your app send
+   `calibrate` in `screen` mode).
 3. Point at the top-left corner and tap anywhere on the phone. Then the bottom-right corner, and tap.
 
 While the player calibrates, the relay stops sending their screen position, so apps hide their

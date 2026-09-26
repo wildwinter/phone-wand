@@ -1,0 +1,51 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Ivy",
+      "colour": "#ff4d6d",
+      "label": "",
+      "state": "active",
+      "calibration": "none",
+      "transport": "ws",
+      "buttons": [],
+      "template": "primary-row",
+      "controls": {
+        "zoom": true
+      },
+      "pose": {
+        "seq": 5,
+        "yaw": 0,
+        "pitch": 0,
+        "roll": 0,
+        "q": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "dir": [
+          0,
+          0,
+          1
+        ],
+        "screen": null
+      }
+    },
+    {
+      "id": "p2",
+      "slot": 1,
+      "name": "Jo",
+      "colour": "#2ec4ff",
+      "label": "",
+      "state": "active",
+      "calibration": "none",
+      "transport": "ws",
+      "buttons": [],
+      "template": "primary-secondary",
+      "controls": {},
+      "pose": null
+    }
+  ]
+}

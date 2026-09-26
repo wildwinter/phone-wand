@@ -1,0 +1,157 @@
+// Phone layouts: which controls a phone shows, and where. Apps choose a template and fill in its
+// controls; the phone page places them for the player's thumb. See docs/layouts.md.
+
+export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid";
+
+interface ControlBase {
+  /** The app's name for this control. Button presses and value changes carry it. */
+  id: string;
+  /** Text on the control. */
+  label?: string;
+  /** #rrggbb; the player's colour when omitted. */
+  colour?: string;
+}
+
+export interface ButtonControl extends ControlBase { type: "button" }
+export interface ToggleControl extends ControlBase { type: "toggle"; value?: boolean }
+export interface SliderControl extends ControlBase {
+  type: "slider";
+  /** 0 to 1. */
+  value?: number;
+  orientation?: "horizontal" | "vertical";
+  /** Where the slider returns when released (0 to 1), or null to stay put. */
+  spring?: number | null;
+}
+export interface ChoiceControl extends ControlBase {
+  type: "choice";
+  /** Two to four options. */
+  options: string[];
+  /** Index of the selected option. */
+  value?: number;
+}
+export interface LabelControl extends ControlBase { type: "label"; text?: string }
+
+export type Control = ButtonControl | ToggleControl | SliderControl | ChoiceControl | LabelControl;
+export type ControlValue = boolean | number | string;
+
+export interface Layout {
+  template: Template;
+  controls: Control[];
+}
+
+/** How many controls each template holds. The first control of a primary template is the big one. */
+export const TEMPLATE_SLOTS: Record<Template, number> = {
+  primary: 1,
+  "primary-secondary": 2,
+  pair: 2,
+  "primary-row": 4,
+  grid: 6,
+};
+
+/** What a phone shows until an app sends a layout. */
+export const DEFAULT_LAYOUT: Layout = {
+  template: "primary-secondary",
+  controls: [
+    { id: "primary", type: "button", label: "Primary" },
+    { id: "secondary", type: "button", label: "Secondary" },
+  ],
+};
+
+const ID = /^[A-Za-z0-9_.-]{1,32}$/;
+const HEX = /^#[0-9a-fA-F]{6}$/;
+
+const text = (v: unknown, max: number): string | undefined =>
+  typeof v === "string" ? v.replace(/[\u0000-\u001f]/g, "").slice(0, max) : undefined;
+const unit = (v: unknown): number | undefined =>
+  typeof v === "number" && isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
+
+/**
+ * Check and tidy a layout from an app. Returns the clean layout, or a sentence saying what is wrong.
+ * Unknown fields are dropped; text is trimmed to sensible lengths.
+ */
+export function validateLayout(raw: unknown): Layout | string {
+  if (!raw || typeof raw !== "object") return "layout must be an object";
+  const r = raw as { template?: unknown; controls?: unknown };
+  const template = r.template as Template;
+  if (!(template in TEMPLATE_SLOTS)) return `unknown template ${String(r.template)}; expected one of ${Object.keys(TEMPLATE_SLOTS).join(", ")}`;
+  if (!Array.isArray(r.controls) || r.controls.length === 0) return "layout needs at least one control";
+  if (r.controls.length > TEMPLATE_SLOTS[template]) return `template ${template} holds at most ${TEMPLATE_SLOTS[template]} controls`;
+  const seen = new Set<string>();
+  const controls: Control[] = [];
+  for (const c of r.controls as Record<string, unknown>[]) {
+    if (!c || typeof c !== "object") return "each control must be an object";
+    const id = c.id;
+    if (typeof id !== "string" || !ID.test(id)) return `control id ${String(id)} must be 1 to 32 letters, digits, _ . or -`;
+    if (seen.has(id)) return `control id ${id} is used twice`;
+    seen.add(id);
+    const base: ControlBase = { id };
+    const label = text(c.label, 24);
+    if (label) base.label = label;
+    if (typeof c.colour === "string" && HEX.test(c.colour)) base.colour = c.colour.toLowerCase();
+    switch (c.type) {
+      case "button":
+        controls.push({ ...base, type: "button" });
+        break;
+      case "toggle":
+        controls.push({ ...base, type: "toggle", value: c.value === true });
+        break;
+      case "slider": {
+        const spring = c.spring === null || c.spring === undefined ? null : unit(c.spring) ?? null;
+        controls.push({
+          ...base, type: "slider",
+          value: unit(c.value) ?? spring ?? 0,
+          orientation: c.orientation === "vertical" ? "vertical" : "horizontal",
+          spring,
+        });
+        break;
+      }
+      case "choice": {
+        const options = Array.isArray(c.options) ? c.options.map((o) => text(o, 16) ?? "").filter(Boolean) : [];
+        if (options.length < 2 || options.length > 4) return `choice ${id} needs 2 to 4 options`;
+        const value = typeof c.value === "number" && Number.isInteger(c.value) && c.value >= 0 && c.value < options.length ? c.value : 0;
+        controls.push({ ...base, type: "choice", options, value });
+        break;
+      }
+      case "label":
+        controls.push({ ...base, type: "label", text: text(c.text, 80) ?? "" });
+        break;
+      default:
+        return `control ${id} has unknown type ${String(c.type)}; expected button, toggle, slider, choice or label`;
+    }
+  }
+  if (template.startsWith("primary") && controls[0].type !== "button") {
+    return `the first control of template ${template} is the big primary button, so it must be a button`;
+  }
+  return { template, controls };
+}
+
+/** The current value of every control that has one. Buttons have none. */
+export function layoutValues(layout: Layout): Record<string, ControlValue> {
+  const values: Record<string, ControlValue> = {};
+  for (const c of layout.controls) {
+    if (c.type === "toggle") values[c.id] = c.value ?? false;
+    else if (c.type === "slider") values[c.id] = c.value ?? 0;
+    else if (c.type === "choice") values[c.id] = c.value ?? 0;
+    else if (c.type === "label") values[c.id] = c.text ?? "";
+  }
+  return values;
+}
+
+/**
+ * Tidy a value for a control, or return undefined if it doesn't fit (wrong type, or a button).
+ * Labels take text; toggles booleans; sliders 0 to 1; choices an option index.
+ */
+export function controlValue(control: Control, value: unknown): ControlValue | undefined {
+  switch (control.type) {
+    case "toggle":
+      return typeof value === "boolean" ? value : undefined;
+    case "slider":
+      return unit(value);
+    case "choice":
+      return typeof value === "number" && Number.isInteger(value) && value >= 0 && value < control.options.length ? value : undefined;
+    case "label":
+      return text(value, 80);
+    default:
+      return undefined;
+  }
+}

@@ -7,6 +7,23 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- **Layouts**: apps choose the controls each phone shows, from five templates (`primary`,
+  `primary-secondary`, `pair`, `primary-row`, `grid`) placed for the player's thumb, with buttons,
+  toggles, sliders, choices and labels. New `layout` and `set` messages for apps, a `control` event
+  for value changes, and an `error` message when the relay can't use something an app sent. The
+  relay remembers each player's layout and values through reconnects. See `docs/layouts.md`.
+- A settings button on the phone, in the top corner away from the thumb: which hand the player
+  uses (the layout mirrors for the left hand), Recentre, Calibrate screen, and their name.
+- The dashboard can send sample layouts to every phone, and shows control changes.
+
+### Changed
+
+- Recentre and Calibrate screen moved from the main phone screen into settings, so the game's
+  controls get the space. Button names can be any id from the layout, not just `primary` and
+  `secondary` (which remain the default).
+
 ## [0.3.1] - 2026-09-26
 
 ### Added

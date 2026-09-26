@@ -29,20 +29,34 @@
 
 <main id="play" class="screen hidden">
   <header class="bar">
+    <button id="settings-open" class="gear" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.5 7.5 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.5 7.5 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.6h4l.4-2.6c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></svg>
+    </button>
     <span class="slot" id="slot">1</span>
     <span class="who"><span id="player-name">Player</span><span class="label" id="player-label"></span></span>
     <span class="net" id="net"><span class="led"></span><span id="net-text"></span></span>
   </header>
-  <button id="primary" class="pad">
-    <span class="pad-ring"></span>
-    <span class="pad-text">Primary</span>
-  </button>
-  <div class="row">
-    <button id="secondary" class="small">Secondary</button>
-    <button id="recentre" class="small">Recentre</button>
-    <button id="calibrate" class="small">Calibrate screen</button>
-  </div>
+  <div id="controls" class="controls"></div>
 </main>
+
+<div id="settings" class="overlay hidden">
+  <div class="panel">
+    <p class="message-title">Settings</p>
+    <div class="setting">
+      <span>Holding the phone in your</span>
+      <div class="seg" id="hand">
+        <button data-hand="left">Left hand</button>
+        <button data-hand="right">Right hand</button>
+      </div>
+    </div>
+    <button id="recentre" class="small wide">Recentre: point at the middle of the screen, then tap</button>
+    <button id="calibrate" class="small wide">Calibrate screen</button>
+    <label class="field">Your name
+      <input id="settings-name" maxlength="24" autocomplete="nickname" autocapitalize="words" enterkeyhint="done">
+    </label>
+    <button id="settings-close" class="big">Done</button>
+  </div>
+</div>
 
 <div id="calib" class="overlay hidden">
   <div class="calib-box">

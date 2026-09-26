@@ -1,0 +1,31 @@
+{"type":"hello","protocol":0,"relay":"conformance","joinUrl":"https://relay.test:8443/?k=k","qrUrl":"http://127.0.0.1:8480/qr.png","maxPlayers":4,"players":[]}
+{"type":"join","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"join","player":{"id":"p2","slot":1,"name":"Jo","colour":"#2ec4ff","label":"","state":"waiting","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Jo","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"pose","id":"p1","seq":0,"t":0,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"pose","id":"p1","seq":1,"t":33.3,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"pose","id":"p1","seq":2,"t":66.6,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"grid","controls":[{"id":"fire","label":"Fire","type":"button"},{"id":"shield","label":"Shield","type":"toggle","value":false},{"id":"power","label":"Power","type":"slider","value":0.25,"orientation":"horizontal","spring":null},{"id":"throttle","type":"slider","value":0.5,"orientation":"vertical","spring":0.5},{"id":"weapon","type":"choice","options":["Bow","Sling","Net"],"value":1},{"id":"score","label":"Score","type":"label","text":"0"}]},"controls":{"shield":false,"power":0.25,"throttle":0.5,"weapon":1,"score":"0"}}}
+{"type":"button","id":"p1","button":"fire","down":true}
+{"type":"button","id":"p1","button":"fire","down":false}
+{"type":"control","id":"p1","control":"shield","value":true}
+{"type":"control","id":"p1","control":"power","value":0.8}
+{"type":"control","id":"p1","control":"power","value":1}
+{"type":"control","id":"p1","control":"weapon","value":2}
+{"type":"control","id":"p1","control":"score","value":"10"}
+{"type":"error","message":"set: p1 has no control shield that takes \"yes\""}
+{"type":"error","message":"layout: the first control of template primary is the big primary button, so it must be a button"}
+{"type":"pose","id":"p1","seq":3,"t":99.89999999999999,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"pose","id":"p1","seq":4,"t":133.2,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"pose","id":"p1","seq":5,"t":166.5,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}
+{"type":"button","id":"p2","button":"primary","down":true}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-row","controls":[{"id":"shoot","label":"Shoot","colour":"#00ff88","type":"button"},{"id":"reload","type":"button"},{"id":"zoom","type":"toggle","value":true}]},"controls":{"zoom":true}}}
+{"type":"button","id":"p2","button":"primary","down":false}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Jo","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-row","controls":[{"id":"shoot","label":"Shoot","colour":"#00ff88","type":"button"},{"id":"reload","type":"button"},{"id":"zoom","type":"toggle","value":true}]},"controls":{"zoom":true}}}
+{"type":"control","id":"p2","control":"zoom","value":false}
+{"type":"control","id":"p1","control":"zoom","value":true}
+{"type":"control","id":"p2","control":"zoom","value":true}
+{"type":"player","player":{"id":"p2","slot":1,"name":"Jo","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
+{"type":"button","id":"p2","button":"secondary","down":true}
+{"type":"button","id":"p2","button":"secondary","down":false}
