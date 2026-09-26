@@ -17,7 +17,8 @@ export interface ServerOptions {
   appPort: number;
   appHost: string;
   httpPort: number; // plain HTTP for phones; 0 = off
-  landingPort: number; // plain HTTP welcome page the QR code opens; 0 = off
+  /** Ports to try, in order, for the plain HTTP welcome page the QR code opens. Empty = off. */
+  landingPorts: number[];
   tls: TlsMaterial;
   /** Extra web origins allowed to connect to /app, or "*" for any. */
   allowOrigins: string[];
@@ -43,8 +44,8 @@ export function originAllowed(origin: string | null, allowed: string[], requestH
 
 export interface RunningServers {
   stop(): void;
-  /** Whether the welcome page is being served (its port may have been taken). */
-  landing: boolean;
+  /** The port the welcome page is served on, or 0 if none (off, or every port was taken). */
+  landingPort: number;
 }
 
 function parse<T>(raw: string | Buffer): T | null {
@@ -247,11 +248,11 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
   // The QR code opens this plain-HTTP page, which shows no warning. It explains the certificate
   // warning before the phone shows it, or goes straight on if the phone already trusts the relay.
   let landingServer: ReturnType<typeof Bun.serve> | null = null;
-  if (opts.landingPort) {
-    const landing = LANDING_HTML.replace("__PHONE_PORT__", String(opts.phonePort));
+  const landing = LANDING_HTML.replace("__PHONE_PORT__", String(opts.phonePort));
+  for (const port of opts.landingPorts) {
     try {
       landingServer = Bun.serve({
-        port: opts.landingPort,
+        port,
         hostname: "0.0.0.0",
         fetch(req) {
           const url = new URL(req.url);
@@ -262,8 +263,9 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
           return new Response("Not found", { status: 404 });
         },
       });
-    } catch (e) {
-      console.warn(`Could not serve the welcome page on port ${opts.landingPort} (${(e as Error).message}); the QR code goes straight to the secure page.`);
+      break;
+    } catch {
+      // taken by another program: try the next one
     }
   }
 
@@ -317,7 +319,7 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
   });
 
   return {
-    landing: landingServer !== null,
+    landingPort: landingServer?.port ?? 0,
     stop() {
       clearInterval(sweep);
       phoneServer.stop(true);

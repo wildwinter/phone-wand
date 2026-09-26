@@ -27,7 +27,7 @@ Phones:
   --key <text>          Join key carried by the QR code (default: a saved random key)
   --no-key              Let any phone on the network join without the QR code
   --landing-port <n>    Port for the welcome page the QR code opens, which explains the certificate
-                        warning before the phone shows it (default 8080)
+                        warning before the phone shows it (default: the first free port from 8440)
   --no-landing          QR code goes straight to the secure page (the default with --tls-cert)
   --http-port <n>       Also serve phones over plain HTTP on this port (Android over USB, development)
 
@@ -138,10 +138,12 @@ async function main() {
   const host = values.host ?? lan[0]?.address ?? "localhost";
   const query = key ? `?k=${encodeURIComponent(key)}` : "";
   const secureUrl = `https://${host}${phonePort === 443 ? "" : `:${phonePort}`}/${query}`;
-  const landingPort = values["no-landing"] || (values["tls-cert"] && !values["landing-port"])
-    ? 0
-    : int(values["landing-port"], "--landing-port", 8080);
-  const landingUrl = `http://${host}${landingPort === 80 ? "" : `:${landingPort}`}/${query}`;
+  // A port given explicitly is used as given; the default takes the first free one from 8440.
+  const landingPorts = values["no-landing"] || (values["tls-cert"] && !values["landing-port"])
+    ? []
+    : values["landing-port"]
+      ? [int(values["landing-port"], "--landing-port", 8440)]
+      : Array.from({ length: 10 }, (_, i) => 8440 + i);
   const dashboardUrl = `http://${appHost === "0.0.0.0" ? "127.0.0.1" : appHost}:${appPort}/`;
 
   if (!!values["tls-cert"] !== !!values["tls-key"]) fail("--tls-cert and --tls-key go together");
@@ -164,7 +166,7 @@ async function main() {
   let servers;
   try {
     servers = startServers(session, {
-      phonePort, appPort, appHost, httpPort, landingPort, tls,
+      phonePort, appPort, appHost, httpPort, landingPorts, tls,
       allowOrigins: (values["allow-origin"] ?? []).flatMap((o) => o.split(",")).map((o) => o.trim().replace(/\/$/, "")),
     });
   } catch (e) {
@@ -172,12 +174,22 @@ async function main() {
     fail(/in use|EADDRINUSE/i.test(msg) ? `a port is already in use (${msg}). Is another relay running?` : msg);
   }
 
-  if (servers.landing) session.options.joinUrl = landingUrl;
+  if (servers.landingPort) {
+    const lp = servers.landingPort;
+    session.options.joinUrl = `http://${host}${lp === 80 ? "" : `:${lp}`}/${query}`;
+  }
   const joinUrl = session.options.joinUrl;
 
   const tick = setInterval(() => session.tick(), 100);
   const second = setInterval(() => session.second(), 1000);
 
+  if (landingPorts.length && !servers.landingPort) {
+    console.warn(
+      `\nphone-wand: the welcome page could not start (port ${landingPorts.length === 1 ? landingPorts[0] : `${landingPorts[0]} to ${landingPorts.at(-1)}`} in use),` +
+        "\nso the QR code goes straight to the secure page and phones see the certificate warning unexplained." +
+        "\nChoose a free port with --landing-port.",
+    );
+  }
   if (!quiet) {
     console.log(`\nphone-wand ${VERSION}\n`);
     console.log((await QRCode.toString(joinUrl, { type: "terminal", small: true })).trimEnd());

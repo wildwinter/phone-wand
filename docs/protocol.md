@@ -102,7 +102,7 @@ Sent once, immediately after connecting.
 
 ```json
 { "type": "hello", "protocol": 0, "relay": "0.1.0",
-  "joinUrl": "http://192.168.1.20:8080/?k=7f3a", "qrUrl": "http://127.0.0.1:8480/qr.png",
+  "joinUrl": "http://192.168.1.20:8440/?k=7f3a", "qrUrl": "http://127.0.0.1:8480/qr.png",
   "maxPlayers": 4, "players": [ { "id": "p1", ... } ] }
 ```
 
