@@ -20,6 +20,7 @@ the protocol.
   trust the relay skip it.
 - While a player does screen calibration, their cursor is hidden (poses have no screen position),
   and the phone says clearly to aim at the physical corners.
+- Starting a relay while another is running on the same computer stops the old one and takes over.
 - An HTTP fallback (POST up, Server-Sent Events down) for browsers that refuse a secure WebSocket to
   a self-signed server.
 - Calibration and cursor maths in the relay: Recentre sets forward, two-corner calibration maps a flat

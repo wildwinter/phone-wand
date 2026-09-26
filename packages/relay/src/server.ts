@@ -22,6 +22,8 @@ export interface ServerOptions {
   tls: TlsMaterial;
   /** Extra web origins allowed to connect to /app, or "*" for any. */
   allowOrigins: string[];
+  /** Called when a newer relay on this computer asks this one to stop, so it can take over. */
+  onShutdownRequest: () => void;
 }
 
 /**
@@ -309,6 +311,18 @@ export function startServers(session: Session, opts: ServerOptions): RunningServ
         }
         case "/status.json":
           return Response.json(session.status(), { headers: { "access-control-allow-origin": "*" } });
+        case "/shutdown": {
+          // A new relay starting on this computer asks the old one to make way. Only from this
+          // computer, and only with a custom header, which a web page cannot send without a CORS
+          // preflight that the relay never approves.
+          const ip = server.requestIP(req)?.address ?? "";
+          const local = ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+          if (req.method !== "POST" || !local || req.headers.get("x-phone-wand") !== "shutdown") {
+            return new Response(null, { status: 403 });
+          }
+          setTimeout(opts.onShutdownRequest, 50);
+          return new Response(null, { status: 202 });
+        }
         case "/ca.crt":
           return phoneFetch(req, server);
         default:

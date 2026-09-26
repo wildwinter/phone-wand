@@ -62,6 +62,13 @@ Run `phone-wand --help` for this list.
 | `http://127.0.0.1:8480/phone-wand.js` | The JavaScript client, for a `<script>` tag. |
 | `wss://127.0.0.1:8443/app` | The app WebSocket over TLS, on the phone port, for web pages served over HTTPS. Only answers connections from this computer. |
 
+## Starting a relay when one is already running
+
+Only one relay can use the same ports. If you start a relay while another is still running on this
+computer (left open in another terminal, say), the new one asks the old one to stop, takes over
+its ports and carries on. Phones reconnect by themselves. If a port is held by some other program,
+the relay says which port and stops, and you can choose another with `--port` or `--app-port`.
+
 ## Which apps may connect
 
 Native apps (Unity, Unreal and Godot desktop builds, Node) can always connect. Web pages can connect

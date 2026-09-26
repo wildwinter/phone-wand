@@ -68,6 +68,49 @@ function int(value: string | undefined, name: string, fallback: number): number 
   return n;
 }
 
+/** Whether nothing is listening on a TCP port. */
+function portFree(port: number, hostname = "0.0.0.0"): boolean {
+  try {
+    const s = Bun.listen({ hostname, port, socket: { data() {} } });
+    s.stop(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * If a relay is already running on this computer (say, one left running in another terminal), ask
+ * it to stop so this one can take over. Anything else holding our ports is left alone.
+ */
+async function takeOver(phonePort: number, appPort: number, appHost: string, log: (line: string) => void): Promise<void> {
+  if (portFree(phonePort) && portFree(appPort, appHost)) return;
+  let version = "";
+  try {
+    const r = await fetch(`http://127.0.0.1:${appPort}/status.json`, { signal: AbortSignal.timeout(1500) });
+    const status = (await r.json()) as { relay?: string; protocol?: number };
+    if (typeof status.relay === "string" && typeof status.protocol === "number") version = status.relay;
+  } catch {
+    // not a relay, or not answering
+  }
+  if (version) {
+    try {
+      await fetch(`http://127.0.0.1:${appPort}/shutdown`, {
+        method: "POST", headers: { "x-phone-wand": "shutdown" }, signal: AbortSignal.timeout(1500),
+      });
+    } catch {
+      // it may already be going
+    }
+    for (let i = 0; i < 40 && !(portFree(phonePort) && portFree(appPort, appHost)); i++) await Bun.sleep(100);
+    log(`Stopped the relay that was already running (version ${version}) and took over.`);
+  }
+  for (const [port, host, what] of [[phonePort, "0.0.0.0", "--port"], [appPort, appHost, "--app-port"]] as const) {
+    if (!portFree(port, host)) {
+      fail(`port ${port} is in use by another program${version ? "" : " (or a relay started with a different --app-port)"}. Choose another with ${what}.`);
+    }
+  }
+}
+
 function openBrowser(url: string): void {
   const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
   const args = process.platform === "win32" ? ["/c", "start", "", url] : [url];
@@ -163,11 +206,19 @@ async function main() {
       : undefined,
   });
 
-  let servers;
+  await takeOver(phonePort, appPort, appHost, log);
+
+  let servers: ReturnType<typeof startServers>;
+  // Set once the timers exist; a takeover request can only arrive after that.
+  let shutdown = () => process.exit(0);
   try {
     servers = startServers(session, {
       phonePort, appPort, appHost, httpPort, landingPorts, tls,
       allowOrigins: (values["allow-origin"] ?? []).flatMap((o) => o.split(",")).map((o) => o.trim().replace(/\/$/, "")),
+      onShutdownRequest: () => {
+        log("\nAnother relay started on this computer and took over. Stopping.");
+        shutdown();
+      },
     });
   } catch (e) {
     const msg = (e as Error).message;
@@ -212,7 +263,7 @@ async function main() {
   const stopSim = values.simulate ? simulate(session, int(values.simulate, "--simulate", 0), key) : null;
   const stopReplay = values.replay ? replay(session, readRecording(values.replay), key, !!values.loop) : null;
 
-  const shutdown = () => {
+  shutdown = () => {
     clearInterval(tick);
     clearInterval(second);
     stopSim?.();
