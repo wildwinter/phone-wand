@@ -59,6 +59,10 @@ namespace StoryTools.PhoneWand.TestHost
             Console.WriteLine((conversionFailures.Count == 0 ? "pass  " : "FAIL  ") + "conversions (" + cases + " cases)");
             failures.AddRange(conversionFailures.Select(f => "conversions: " + f));
 
+            var relayFailures = CheckManagedRelay();
+            Console.WriteLine((relayFailures.Count == 0 ? "pass  " : "FAIL  ") + "managed relay helpers");
+            failures.AddRange(relayFailures.Select(f => "managed relay: " + f));
+
             if (failures.Count == 0)
             {
                 Console.WriteLine("ALL PASS");
@@ -249,6 +253,41 @@ namespace StoryTools.PhoneWand.TestHost
                 var rup = rq.Up;
                 Near("case " + i + " rig q.Up", rig["up"], new[] { rup.Right, rup.Up, rup.Forward }, failures);
             }
+            return failures;
+        }
+
+        // The parts of ManagedRelay that need no relay: which URLs count, the port, the command
+        // line, and what happens when there is nothing to start. The live test is PhoneWandChecks.ManagedRelay.
+        static List<string> CheckManagedRelay()
+        {
+            var failures = new List<string>();
+            void Expect(string what, object want, object got)
+            {
+                if (!Equals(want, got)) failures.Add(what + ": expected " + Show(want) + ", got " + Show(got));
+            }
+            Expect("IsLocal 127.0.0.1", true, ManagedRelay.IsLocal("ws://127.0.0.1:8480/app"));
+            Expect("IsLocal localhost", true, ManagedRelay.IsLocal("ws://localhost:9000/app"));
+            Expect("IsLocal [::1]", true, ManagedRelay.IsLocal("ws://[::1]:8480/app"));
+            Expect("IsLocal remote", false, ManagedRelay.IsLocal("ws://192.168.1.20:8480/app"));
+            Expect("IsLocal garbage", false, ManagedRelay.IsLocal("not a url"));
+            Expect("AppPortOf explicit", 23480, ManagedRelay.AppPortOf("ws://127.0.0.1:23480/app"));
+            Expect("AppPortOf none", 8480, ManagedRelay.AppPortOf("ws://127.0.0.1/app"));
+            Expect("BuildArguments", "--lifeline --no-open --app-port 23480 --log \"/a b/phone-wand-relay.log\" --port 23443 --key x",
+                ManagedRelay.BuildArguments(23480, "/a b/phone-wand-relay.log", " --port 23443 --key x "));
+            Expect("BuildArguments no extra", "--lifeline --no-open --app-port 8480 --log /tmp/r.log",
+                ManagedRelay.BuildArguments(8480, "/tmp/r.log", null));
+            Expect("Platform known here", true, ManagedRelay.Platform() != null);
+
+            string missing = Path.Combine(Path.GetTempPath(), "phone-wand-no-such-folder-" + Guid.NewGuid().ToString("N"));
+            Expect("FindExecutable missing", null, ManagedRelay.FindExecutable(missing, out string looked));
+            Expect("FindExecutable says where", true, looked != null && looked.StartsWith(Path.Combine(missing, ManagedRelay.Platform() ?? "")));
+
+            var logged = new List<string>();
+            Expect("Start remote", null, ManagedRelay.Start(new ManagedRelayOptions { Url = "ws://10.0.0.1:8480/app", Path = missing }, logged.Add));
+            Expect("Start remote logs nothing", 0, logged.Count);
+            // An unused port, so no relay answers and it looks for the (missing) program.
+            Expect("Start missing", null, ManagedRelay.Start(new ManagedRelayOptions { Url = "ws://127.0.0.1:1/app", Path = missing }, logged.Add));
+            Expect("Start missing logs where it looked", true, logged.Count == 1 && logged[0].Contains(missing));
             return failures;
         }
 

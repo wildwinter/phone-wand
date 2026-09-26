@@ -7,6 +7,9 @@
 //
 // Messages arrive on a background thread and are delivered in Update, so every event fires on
 // the main thread and you can touch the scene from any handler.
+//
+// With Start Relay on, the client starts the relay itself (hidden) unless one is already running,
+// and stops it when the client stops: see docs/shipping.md.
 
 using System;
 using System.Collections.Generic;
@@ -54,7 +57,20 @@ namespace StoryTools.PhoneWand
         [Tooltip("Log connections, joins and leaves to the console.")]
         [SerializeField] bool logEvents = false;
 
+        [Header("Managed relay")]
+        [Tooltip("Start the relay, hidden, when connecting (unless one is already running) and stop it when this client stops. " +
+            "Windows, macOS and Linux only. See docs/shipping.md.")]
+        [SerializeField] bool startRelay = false;
+
+        [Tooltip("A phone-wand-relay folder, or the relay program itself. Empty means StreamingAssets/phone-wand-relay.")]
+        [SerializeField] string relayPath = "";
+
+        [Tooltip("Extra relay options, for example: --max-players 8 --key party")]
+        [SerializeField] string relayArguments = "";
+
         readonly PhoneWandConnection connection = new PhoneWandConnection();
+        ManagedRelay relay;
+        bool warnedRelayPlatform;
 
         // ------------------------------------------------------------------ settings
 
@@ -70,6 +86,42 @@ namespace StoryTools.PhoneWand
             get { return autoReconnect; }
             set { autoReconnect = value; connection.AutoReconnect = value; }
         }
+
+        /// <summary>
+        /// Start the relay when connecting, unless one is already running, and stop it when this
+        /// client stops. Windows, macOS and Linux only. Takes effect on the next connect.
+        /// </summary>
+        public bool StartRelay
+        {
+            get { return startRelay; }
+            set { startRelay = value; }
+        }
+
+        /// <summary>A phone-wand-relay folder or the relay program. Null or empty means DefaultRelayPath.</summary>
+        public string RelayPath
+        {
+            get { return relayPath; }
+            set { relayPath = value; }
+        }
+
+        /// <summary>Extra relay options, as on a command line, e.g. "--max-players 8 --key party".</summary>
+        public string RelayArguments
+        {
+            get { return relayArguments; }
+            set { relayArguments = value; }
+        }
+
+        /// <summary>Where the client looks for the relay by default: StreamingAssets/phone-wand-relay.</summary>
+        public static string DefaultRelayPath => Application.streamingAssetsPath + "/phone-wand-relay";
+
+        /// <summary>The log file of a relay the client starts: persistentDataPath/phone-wand-relay.log.</summary>
+        public static string RelayLogFile => Application.persistentDataPath + "/phone-wand-relay.log";
+
+        /// <summary>The relay this client started, or null if it started none (or has stopped it).</summary>
+        public ManagedRelay Relay => relay;
+
+        /// <summary>True while a relay this client started is running.</summary>
+        public bool StartedRelay => relay != null && relay.IsRunning;
 
         /// <summary>The engine-free core: state, events and message handling.</summary>
         public PhoneWandCore Core => connection.Core;
@@ -181,6 +233,17 @@ namespace StoryTools.PhoneWand
         void OnDisable()
         {
             connection.Close();
+            StopRelay();
+        }
+
+        void OnDestroy()
+        {
+            StopRelay();
+        }
+
+        void OnApplicationQuit()
+        {
+            StopRelay();
         }
 
         void Update()
@@ -204,6 +267,7 @@ namespace StoryTools.PhoneWand
         /// <summary>Connect (and keep reconnecting, if AutoReconnect is on).</summary>
         public void Connect()
         {
+            if (startRelay) EnsureRelay();
             connection.Url = url;
             connection.AutoReconnect = autoReconnect;
             connection.Smoothing = SmoothingFromSettings();
@@ -214,6 +278,62 @@ namespace StoryTools.PhoneWand
         public void Disconnect()
         {
             connection.Close();
+        }
+
+        /// <summary>
+        /// Stop the relay this client started, if any: close its input, wait up to two seconds, then
+        /// end it. A relay the client didn't start is never stopped. Disabling or destroying the
+        /// component, or quitting, calls this.
+        /// </summary>
+        public void StopRelay()
+        {
+            var r = relay;
+            relay = null;
+            if (r == null) return;
+            r.Stop();
+            Log("stopped the relay");
+        }
+
+        // Start the relay for the current Url unless one is running (see docs/shipping.md).
+        void EnsureRelay()
+        {
+            if (!CanStartRelay)
+            {
+                if (!warnedRelayPlatform)
+                    Debug.LogWarning("[Phone Wand] Start Relay is ignored on " + Application.platform +
+                        ": only Windows, macOS and Linux can run the relay. Run it separately.", this);
+                warnedRelayPlatform = true;
+                return;
+            }
+            int port = ManagedRelay.AppPortOf(url);
+            if (relay != null && relay.IsRunning && relay.AppPort == port) return;
+            StopRelay();
+            relay = ManagedRelay.Start(new ManagedRelayOptions
+            {
+                Url = url,
+                Path = string.IsNullOrEmpty(relayPath) ? DefaultRelayPath : relayPath,
+                Arguments = relayArguments,
+                LogFile = RelayLogFile,
+            }, message => Debug.LogWarning("[Phone Wand] " + message, this));
+            if (relay != null) Log("started the relay on app port " + port + "; its log is " + RelayLogFile);
+        }
+
+        static bool CanStartRelay
+        {
+            get
+            {
+                switch (Application.platform)
+                {
+                    case RuntimePlatform.WebGLPlayer:
+                    case RuntimePlatform.IPhonePlayer:
+                    case RuntimePlatform.Android:
+                    case RuntimePlatform.tvOS:
+                    case RuntimePlatform.VisionOS:
+                        return false;
+                    default:
+                        return true;
+                }
+            }
         }
 
         Smoothing SmoothingFromSettings()

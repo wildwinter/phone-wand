@@ -125,6 +125,9 @@ Inspector settings:
 | Smoothing | Relay Default | `Relay Default`, `Custom` (uses Min Cutoff, Beta and D Cutoff) or `Raw`. |
 | Min Cutoff, Beta, D Cutoff | 1, 5, 1 | One Euro filter settings for `Custom`. |
 | Log Events | off | Log connections, joins and leaves to the console. |
+| Start Relay | off | Start the relay yourself, hidden, and stop it with the game. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
+| Relay Path | empty | A `phone-wand-relay` folder or the relay program. Empty means `Application.streamingAssetsPath/phone-wand-relay`. |
+| Relay Arguments | empty | Extra relay options, for example `--max-players 8 --key party`. |
 
 Properties and methods:
 
@@ -142,6 +145,10 @@ Properties and methods:
 | `Prompt(text, id, duration)` | Show text on a phone, or on every phone when `id` is null. `duration` in ms (relay default 3000); 0 keeps it until the next prompt; empty text clears it. |
 | `Haptic(ms, id)`, `Haptic(int[] pattern, id)` | Vibrate one phone, or all when `id` is null. The pattern alternates on and off milliseconds. Android only: iPhones do not allow it. |
 | `Calibrate(mode, id)` | Ask a player (or everyone) to calibrate: `CalibrationMode.Screen` (two corners) or `CalibrationMode.Ray` (point at the middle and press Recentre). |
+| `bool StartRelay`, `string RelayPath`, `string RelayArguments` | As in the inspector. They take effect on the next `Connect()`. |
+| `ManagedRelay Relay`, `bool StartedRelay` | The relay this client started (null if it started none), and whether it is still running. |
+| `StopRelay()` | Stop the relay this client started, if any. Disabling or destroying the component, or quitting, does this for you. `Disconnect()` does not. |
+| `PhoneWandClient.DefaultRelayPath`, `PhoneWandClient.RelayLogFile` | Where the client looks for the relay by default, and where a relay it starts writes its log. |
 | `PhoneWandCore Core` | The engine-free core behind the component (see below). |
 
 Static helpers:
@@ -247,6 +254,41 @@ Screen positions are normalised with the origin at the top-left, like the web. U
 space has its origin at the bottom-left, which `ScreenPosition` handles. `GuiPosition` is for
 `OnGUI`, which uses the top-left.
 
+## Starting the relay from your game
+
+For a finished game you probably don't want players to start the relay themselves. Turn on
+**Start Relay** on the Phone Wand Client component (or set `StartRelay = true` before it connects)
+and put the relay binaries in `Assets/StreamingAssets/phone-wand-relay/`. [Shipping the relay with
+your game](../shipping.md) says where to get them, which folders to keep, and how to sign the
+macOS binary when you sign your game. Then, each time the client connects:
+
+- If the URL isn't on this computer (`127.0.0.1`, `localhost` or `[::1]`), nothing is started.
+- If a relay already answers on the URL's port, for example the one you run while developing, the
+  client just uses it, and never stops it.
+- Otherwise it starts `phone-wand-relay/<platform>/phone-wand-relay` (`.exe` on Windows) from
+  **Relay Path**, hidden, with `--lifeline --no-open --app-port <the URL's port>`, a log at
+  `Application.persistentDataPath/phone-wand-relay.log`, and your **Relay Arguments**. If the
+  program isn't there, the console says where it looked and the client carries on trying to
+  connect as usual.
+- The client connects as usual; its reconnecting covers the moment the relay takes to start.
+
+When the component is disabled or destroyed, or the game quits, the client stops the relay it
+started: it closes the relay's input, which makes it stop cleanly, and ends it if it is still
+running two seconds later. If the game crashes, the relay stops by itself.
+
+If you change the relay's ports in **Relay Arguments**, keep the Url in step: the client passes the
+Url's port as `--app-port`, so set the app port through the Url, and the phones' port with
+`--port`.
+
+Start Relay works in the editor and in Windows, macOS and Linux builds. WebGL, iOS and Android
+builds can't run programs, so there it logs a warning and does nothing; run the relay separately.
+The demo project has Start Relay on: with the binaries in its `Assets/StreamingAssets/phone-wand-relay/`
+(which git ignores) it starts its own relay, and without them it uses one you run.
+
+The logic lives in the engine-free `ManagedRelay` class (`Runtime/Core`), which you can also call
+yourself: `ManagedRelay.Start(new ManagedRelayOptions { Url = ..., Path = ..., Arguments = ..., LogFile = ... }, log)`
+returns the relay it started, or null, and `relay.Stop()` stops it.
+
 ## WebGL
 
 WebGL builds cannot use .NET's `ClientWebSocket`, so the package switches to the browser's
@@ -329,3 +371,15 @@ The package is tested three ways. See [Testing](../testing.md) for the conforman
   mode. It connects for three seconds and passes only if it saw the relay's hello, at least one
   player join and at least one pose. Pass a URL after `--live` for a relay on another port, for
   example `scripts/check-unity.sh --live ws://127.0.0.1:19480/app`.
+
+- **Start Relay.** With the relay binaries in the demo project's
+  `Assets/StreamingAssets/phone-wand-relay/`, `PhoneWandChecks.ManagedRelay` checks the whole cycle
+  in batch mode. With no relay on the URL's port, the client must start one, get its hello, and
+  stop it again (status.json no longer answers and the process has gone). With a relay already
+  running there, it must start none and leave that one running.
+
+  ```
+  Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+    -executeMethod PhoneWandChecks.ManagedRelay -phoneWandUrl ws://127.0.0.1:23480/app \
+    -phoneWandRelayArgs "--port 23443 --no-landing" -logFile -
+  ```

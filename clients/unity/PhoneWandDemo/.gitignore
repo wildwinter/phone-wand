@@ -6,3 +6,7 @@ obj/
 # Copied in by scripts/check-unity.sh for the duration of a run.
 Assets/Samples/
 Assets/Samples.meta
+# Relay binaries for Start Relay (see docs/shipping.md). Put them here to try it; they stay local.
+Assets/StreamingAssets/phone-wand-relay/
+Assets/StreamingAssets/phone-wand-relay.meta
+Assets/StreamingAssets.meta

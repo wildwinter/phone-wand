@@ -5,6 +5,9 @@
 //     -executeMethod PhoneWandChecks.Conversions
 //   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
 //     -executeMethod PhoneWandChecks.Live -phoneWandUrl ws://127.0.0.1:8480/app -phoneWandSeconds 3
+//   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+//     -executeMethod PhoneWandChecks.ManagedRelay -phoneWandUrl ws://127.0.0.1:23480/app \
+//     -phoneWandRelayArgs "--port 23443 --no-landing"
 //
 // Each exits the editor with 0 on success and 1 on failure, and logs a line starting with
 // "PhoneWandChecks:".
@@ -126,6 +129,110 @@ public static class PhoneWandChecks
         catch (Exception e)
         {
             Debug.LogError("PhoneWandChecks: live FAIL: " + e);
+        }
+        EditorApplication.Exit(code);
+    }
+
+    /// <summary>
+    /// Start Relay on a PhoneWandClient. With no relay answering on the URL's port, the client must
+    /// start one from StreamingAssets/phone-wand-relay, connect and get a hello, and stopping the
+    /// client (its OnDisable) must stop that relay: status.json no longer answers and the process
+    /// has exited. With a relay already running there, the client must start none, connect to it,
+    /// and leave it running when it stops. -phoneWandRelayArgs are the extra relay options.
+    /// </summary>
+    public static void ManagedRelay()
+    {
+        int code = 1;
+        GameObject go = null;
+        StoryTools.PhoneWand.ManagedRelay started = null;
+        try
+        {
+            string url = Arg("-phoneWandUrl") ?? "ws://127.0.0.1:23480/app";
+            string relayArgs = Arg("-phoneWandRelayArgs") ?? "";
+            double seconds = double.Parse(Arg("-phoneWandSeconds") ?? "20", CultureInfo.InvariantCulture);
+            int port = StoryTools.PhoneWand.ManagedRelay.AppPortOf(url);
+            bool existing = StoryTools.PhoneWand.ManagedRelay.RelayAnswers(port);
+            Debug.Log("PhoneWandChecks: managed relay for " + url + (existing
+                ? ": a relay is already running, so the client must use it and leave it alone"
+                : ": no relay running, so the client must start one from " + PhoneWandClient.DefaultRelayPath));
+
+            // In edit mode the component's Awake and OnEnable don't run, so this drives it by hand:
+            // Connect() as OnEnable does, Pump() as Update does, and OnDisable as disabling does.
+            go = new GameObject("PhoneWandChecks.ManagedRelay");
+            var wand = go.AddComponent<PhoneWandClient>();
+            wand.Url = url;
+            wand.AutoReconnect = true;
+            wand.StartRelay = true;
+            wand.RelayArguments = relayArgs;
+            wand.Connect();
+            started = wand.Relay;
+            var failures = new List<string>();
+            int pid = -1;
+            if (existing && started != null) failures.Add("the client started a relay although one was running");
+            if (!existing)
+            {
+                if (started == null) failures.Add("the client did not start a relay");
+                else
+                {
+                    pid = started.Process.Id;
+                    Debug.Log("PhoneWandChecks: the client started relay process " + pid + "; its log is " + PhoneWandClient.RelayLogFile);
+                }
+            }
+
+            RelayHello hello = null;
+            var clock = Stopwatch.StartNew();
+            while (clock.Elapsed.TotalSeconds < seconds && (hello = wand.Hello) == null)
+            {
+                wand.Connection.Pump();
+                Thread.Sleep(20);
+            }
+            if (hello == null) failures.Add("no hello within " + seconds + " s");
+            else Debug.Log("PhoneWandChecks: hello from relay " + hello.Relay + " after " +
+                clock.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture) + " s; phones join at " + hello.JoinUrl);
+
+            // Connecting again must not start a second relay.
+            wand.Connect();
+            if (wand.Relay != started) failures.Add("connecting again replaced the relay");
+
+            var stopping = Stopwatch.StartNew();
+            typeof(PhoneWandClient).GetMethod("OnDisable", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(wand, null);
+            // Under two seconds means the relay stopped by itself when its input closed (--lifeline).
+            Debug.Log("PhoneWandChecks: OnDisable took " + stopping.Elapsed.TotalSeconds.ToString("0.00", CultureInfo.InvariantCulture) + " s");
+            if (wand.Relay != null) failures.Add("OnDisable left the client holding a relay");
+            bool answers = StoryTools.PhoneWand.ManagedRelay.RelayAnswers(port);
+            if (existing && !answers) failures.Add("the relay that was already running stopped");
+            if (!existing && answers) failures.Add("the relay still answers status.json after the client stopped");
+            if (pid > 0)
+            {
+                bool gone;
+                try { gone = Process.GetProcessById(pid).HasExited; }
+                catch (ArgumentException) { gone = true; }
+                if (!gone) failures.Add("relay process " + pid + " is still running");
+                else Debug.Log("PhoneWandChecks: relay process " + pid + " has exited");
+            }
+            Debug.Log("PhoneWandChecks: after stopping, status.json " + (answers ? "answers" : "does not answer"));
+
+            foreach (var f in failures) Debug.LogError("PhoneWandChecks: " + f);
+            if (failures.Count == 0)
+            {
+                Debug.Log("PhoneWandChecks: managed relay PASS (" + (existing ? "used the running relay" : "started and stopped its own") + ")");
+                code = 0;
+            }
+            else
+            {
+                Debug.LogError("PhoneWandChecks: managed relay FAIL");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("PhoneWandChecks: managed relay FAIL: " + e);
+        }
+        finally
+        {
+            // Never leave a relay behind, even when the check fails.
+            if (started != null) started.Stop();
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
         }
         EditorApplication.Exit(code);
     }

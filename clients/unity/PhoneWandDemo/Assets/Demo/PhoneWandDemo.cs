@@ -8,8 +8,10 @@
 //   R: ask every player to recentre (point at the middle and press Recentre)
 //   Tab: show or hide the panel
 //
-// Start the relay first (bun run relay, or bun run sim for three simulated players), then press
-// Play. The PhoneWandClient on the same GameObject holds the relay address.
+// Press Play. The PhoneWandClient on the same GameObject holds the relay address, and has Start
+// Relay on: it uses a relay that is already running (bun run relay, or bun run sim for three
+// simulated players), or starts one from Assets/StreamingAssets/phone-wand-relay if you have put
+// the relay binaries there (see docs/shipping.md).
 
 using System.Collections;
 using System.Collections.Generic;
@@ -18,6 +20,9 @@ using StoryTools.PhoneWand;
 using UnityEngine;
 using UnityEngine.Networking;
 
+// Before the client (-1000), so a -phoneWandUrl on the command line is set before it connects
+// (and before it starts a relay for that address).
+[DefaultExecutionOrder(-1001)]
 public class PhoneWandDemo : MonoBehaviour
 {
     [Tooltip("Cursor diameter in pixels, at a 1080 pixel high screen.")]
@@ -46,7 +51,8 @@ public class PhoneWandDemo : MonoBehaviour
     void Awake()
     {
         wand = GetComponent<PhoneWandClient>();
-        if (wand == null) wand = gameObject.AddComponent<PhoneWandClient>();
+        bool added = wand == null;
+        if (added) wand = gameObject.AddComponent<PhoneWandClient>();
 
         // A built player can be pointed at another relay: PhoneWandDemo -phoneWandUrl ws://host:port/app
         string[] args = System.Environment.GetCommandLineArgs();
@@ -54,7 +60,10 @@ public class PhoneWandDemo : MonoBehaviour
         {
             if (args[i] != "-phoneWandUrl") continue;
             wand.Url = args[i + 1];
+            if (!added) continue;
+            // An added client has already connected (and maybe started a relay) for the old address.
             wand.Disconnect();
+            wand.StopRelay();
             wand.Connect();
         }
 

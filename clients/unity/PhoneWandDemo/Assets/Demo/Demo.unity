@@ -254,6 +254,9 @@ MonoBehaviour:
   beta: 5
   dCutoff: 1
   logEvents: 0
+  startRelay: 1
+  relayPath: 
+  relayArguments: 
 --- !u!4 &772728617
 Transform:
   m_ObjectHideFlags: 0
