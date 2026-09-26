@@ -1,0 +1,32 @@
+{
+  "name": "se.storytools.phonewand",
+  "version": "0.1.0",
+  "displayName": "Phone Wand",
+  "description": "Use phones as pointers for a shared screen. Connects to a Phone Wand relay and gives you every player's orientation, pointing direction, screen position and button presses, with events on the main thread.",
+  "unity": "2021.3",
+  "author": {
+    "name": "Ian Thomas (storytools.se)",
+    "url": "https://storytools.se"
+  },
+  "license": "MIT",
+  "documentationUrl": "https://github.com/wildwinter/phone-wand",
+  "changelogUrl": "https://github.com/wildwinter/phone-wand/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/wildwinter/phone-wand/blob/main/LICENSE",
+  "keywords": [
+    "phone",
+    "pointer",
+    "controller",
+    "gyroscope",
+    "multiplayer",
+    "installation",
+    "websocket"
+  ],
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Cursors",
+      "description": "Draws each player's coloured cursor where they point, with their name, a ripple when they press the main button, and an arrow at the edge when they point off the screen.",
+      "path": "Samples~/Cursors"
+    }
+  ]
+}

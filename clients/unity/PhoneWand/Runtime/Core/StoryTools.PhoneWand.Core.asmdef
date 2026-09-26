@@ -1,0 +1,14 @@
+{
+    "name": "StoryTools.PhoneWand.Core",
+    "rootNamespace": "StoryTools.PhoneWand",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

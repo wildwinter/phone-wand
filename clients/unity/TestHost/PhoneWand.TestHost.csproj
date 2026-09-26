@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A plain dotnet console that replays the conformance suite through the C# core, so the
+       Unity client's behaviour is checked outside Unity. It compiles the same Runtime/Core/*.cs
+       the package ships, at LangVersion 9 so nothing newer than Unity accepts slips in. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>PhoneWand.TestHost</AssemblyName>
+    <RootNamespace>StoryTools.PhoneWand.TestHost</RootNamespace>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../PhoneWand/Runtime/Core/**/*.cs" />
+  </ItemGroup>
+
+</Project>
