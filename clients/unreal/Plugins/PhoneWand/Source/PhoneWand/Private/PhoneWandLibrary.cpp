@@ -7,6 +7,9 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "PhoneWandSubsystem.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonWriter.h"
 
 UPhoneWandSubsystem* UPhoneWandLibrary::GetPhoneWand(const UObject* WorldContextObject)
 {
@@ -78,4 +81,74 @@ FString UPhoneWandLibrary::PlayerStateToString(EPhoneWandPlayerState State)
 FString UPhoneWandLibrary::CalibrationToString(EPhoneWandCalibration Calibration)
 {
 	return PhoneWand::ToString(Calibration);
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeButton(const FString& Id, const FString& Label)
+{
+	FPhoneWandControl C;
+	C.Id = Id;
+	C.Type = EPhoneWandControlType::Button;
+	C.Label = Label;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeToggle(const FString& Id, const FString& Label, bool bValue)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Toggle;
+	C.bValue = bValue;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeSlider(const FString& Id, const FString& Label, double Value, bool bVertical, bool bSpring, double Spring)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Slider;
+	C.Value = Value;
+	C.bVertical = bVertical;
+	C.bSpring = bSpring;
+	C.Spring = Spring;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeChoice(const FString& Id, const TArray<FString>& Options, const FString& Label, int32 Index)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Choice;
+	C.Options = Options;
+	C.Index = Index;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeLabel(const FString& Id, const FString& Label, const FString& Text)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Label;
+	C.Text = Text;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::WithColour(const FPhoneWandControl& Control, FLinearColor Colour)
+{
+	FPhoneWandControl C = Control;
+	C.bHasColour = true;
+	C.Colour = Colour;
+	return C;
+}
+
+FPhoneWandLayout UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate Template, const TArray<FPhoneWandControl>& Controls)
+{
+	FPhoneWandLayout Layout;
+	Layout.Template = Template;
+	Layout.Controls = Controls;
+	return Layout;
+}
+
+FString UPhoneWandLibrary::LayoutToJson(const FPhoneWandLayout& Layout)
+{
+	FString Out;
+	TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer =
+		TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&Out);
+	FJsonSerializer::Serialize(PhoneWand::LayoutToJson(Layout), Writer);
+	return Out;
 }

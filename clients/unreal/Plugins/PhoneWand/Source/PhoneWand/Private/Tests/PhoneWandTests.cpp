@@ -8,8 +8,12 @@
 //   PhoneWand.Conformance.Conversions     checks conformance/conversions.json
 //   PhoneWand.Library                     colour, screen and direction helpers
 //   PhoneWand.Client.ConnectionLost       leave and disconnect events when the relay goes away
+//   PhoneWand.Layouts.Json                the layout and set messages the plugin sends
+//   PhoneWand.Layouts.Client              layouts, control values and errors from the relay
 //   PhoneWand.Live.Relay                  connects to a running relay; only does anything when
 //                                         PHONEWAND_LIVE_URL (or -PhoneWandLiveUrl=) is set
+//   PhoneWand.Live.Layouts                sends layouts through a running relay to a scripted phone;
+//                                         only does anything when PHONEWAND_LAYOUT_LIVE_URL is set
 //   PhoneWand.ManagedRelay.Paths          URL and relay path rules for Start Relay
 //   PhoneWand.ManagedRelay.Missing        with no relay binary: a clear warning, and connecting goes on
 //   PhoneWand.ManagedRelay.Live           starts and stops a relay binary; only does anything when
@@ -139,6 +143,12 @@ namespace PhoneWandTests
 		{
 			Log.Add(FString::Printf(TEXT("stats %s"), *P.Id));
 		});
+		Wand->OnControlChangedNative.AddLambda([&Log](const FPhoneWandPlayer& P, const FString& Control, const FPhoneWandControlValue&)
+		{
+			Log.Add(FString::Printf(TEXT("control %s %s"), *P.Id, *Control));
+		});
+		// error fires nothing in the log; bound so the replay does not log warnings.
+		Wand->OnRelayErrorNative.AddLambda([](const FString&) {});
 	}
 
 	TSharedPtr<FJsonValue> Numbers(std::initializer_list<double> Values)
@@ -169,6 +179,13 @@ namespace PhoneWandTests
 			Buttons.Add(MakeShared<FJsonValueString>(B));
 		}
 		O->SetArrayField(TEXT("buttons"), Buttons);
+		O->SetStringField(TEXT("template"), PhoneWand::ToString(P.Layout.Template));
+		TSharedRef<FJsonObject> Controls = MakeShared<FJsonObject>();
+		for (const TPair<FString, FPhoneWandControlValue>& Pair : P.Controls)
+		{
+			Controls->SetField(Pair.Key, PhoneWand::ControlValueToJson(Pair.Value));
+		}
+		O->SetObjectField(TEXT("controls"), Controls);
 		if (P.bHasPose)
 		{
 			const FPhoneWandPose& Pose = P.Pose;
@@ -198,7 +215,8 @@ namespace PhoneWandTests
 	}
 
 	/** Compares every field of Expected with Actual: strings exactly, numbers to Tolerance. */
-	void CompareJson(FAutomationTestBase& Test, const FString& Path, const TSharedPtr<FJsonValue>& Expected, const TSharedPtr<FJsonValue>& Actual)
+	/** With bStrict, fields Actual has and Expected lacks are errors too. */
+	void CompareJson(FAutomationTestBase& Test, const FString& Path, const TSharedPtr<FJsonValue>& Expected, const TSharedPtr<FJsonValue>& Actual, bool bStrict = false)
 	{
 		if (!Actual.IsValid())
 		{
@@ -243,7 +261,7 @@ namespace PhoneWandTests
 			}
 			for (int32 i = 0; i < E.Num(); ++i)
 			{
-				CompareJson(Test, FString::Printf(TEXT("%s[%d]"), *Path, i), E[i], A[i]);
+				CompareJson(Test, FString::Printf(TEXT("%s[%d]"), *Path, i), E[i], A[i], bStrict);
 			}
 			break;
 		}
@@ -253,7 +271,19 @@ namespace PhoneWandTests
 			const TSharedPtr<FJsonObject> A = Actual->AsObject();
 			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : E->Values)
 			{
-				CompareJson(Test, Path + TEXT(".") + Pair.Key, Pair.Value, A->TryGetField(Pair.Key));
+				CompareJson(Test, Path + TEXT(".") + Pair.Key, Pair.Value, A->TryGetField(Pair.Key), bStrict);
+			}
+			// A player's control values must match exactly, with nothing extra. (Elsewhere the
+			// client may hold more than the recording, such as a pose's time.)
+			if (bStrict || Path.EndsWith(TEXT(".controls")))
+			{
+				for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : A->Values)
+				{
+					if (!E->HasField(Pair.Key))
+					{
+						Test.AddError(FString::Printf(TEXT("%s.%s: unexpected"), *Path, *Pair.Key));
+					}
+				}
 			}
 			break;
 		}
@@ -532,6 +562,201 @@ bool FPhoneWandConnectionLostTest::RunTest(const FString& Parameters)
 	return !HasAnyErrors();
 }
 
+// ---------------------------------------------------------------------- layouts
+
+namespace PhoneWandTests
+{
+	TSharedPtr<FJsonValue> ParseValue(const FString& Json)
+	{
+		TSharedPtr<FJsonValue> Value;
+		TSharedRef<TJsonReader<TCHAR>> Reader = TJsonReaderFactory<TCHAR>::Create(Json);
+		return FJsonSerializer::Deserialize(Reader, Value) ? Value : nullptr;
+	}
+
+	/** Parses Actual and Expected and compares them strictly: same fields, same values. */
+	void ExpectJson(FAutomationTestBase& Test, const FString& What, const FString& Actual, const FString& Expected)
+	{
+		const TSharedPtr<FJsonValue> A = ParseValue(Actual);
+		const TSharedPtr<FJsonValue> E = ParseValue(Expected);
+		if (!Test.TestTrue(What + TEXT(": sent valid JSON"), A.IsValid()) || !Test.TestTrue(What + TEXT(": expected JSON parses"), E.IsValid()))
+		{
+			return;
+		}
+		const bool bBefore = Test.HasAnyErrors();
+		CompareJson(Test, What, E, A, /*bStrict*/ true);
+		if (!bBefore && Test.HasAnyErrors())
+		{
+			Test.AddInfo(FString::Printf(TEXT("%s sent: %s"), *What, *Actual));
+		}
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandLayoutJsonTest, "PhoneWand.Layouts.Json", PhoneWandTests::Flags)
+
+bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
+{
+	TStrongObjectPtr<UPhoneWandSubsystem> Wand = PhoneWandTests::MakeWand();
+	TArray<FString> Sent;
+	Wand->SetSendOverride([&Sent](const FString& Json) { Sent.Add(Json); });
+
+	// The example from docs/protocol.md ("Layouts"), plus a colour.
+	const FPhoneWandLayout Shooter = UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::PrimaryRow, {
+		UPhoneWandLibrary::WithColour(UPhoneWandLibrary::MakeButton(TEXT("shoot"), TEXT("Shoot")), UPhoneWandLibrary::ColourFromHex(TEXT("#00ff88"))),
+		UPhoneWandLibrary::MakeButton(TEXT("reload"), TEXT("Reload")),
+		UPhoneWandLibrary::MakeToggle(TEXT("zoom"), TEXT("Zoom")),
+		UPhoneWandLibrary::MakeLabel(TEXT("ammo"), TEXT("Ammo"), TEXT("12")),
+	});
+	Wand->SetLayout(Shooter, TEXT("p1"));
+
+	// Every other control type and option.
+	const FPhoneWandLayout Grid = UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::Grid, {
+		UPhoneWandLibrary::MakeButton(TEXT("fire")),
+		UPhoneWandLibrary::MakeToggle(TEXT("shield"), TEXT("Shield"), true),
+		UPhoneWandLibrary::MakeSlider(TEXT("power"), TEXT("Power"), 0.25),
+		UPhoneWandLibrary::MakeSlider(TEXT("throttle"), FString(), 0.5, /*bVertical*/ true, /*bSpring*/ true, 0.5),
+		UPhoneWandLibrary::MakeChoice(TEXT("weapon"), { TEXT("Bow"), TEXT("Sling"), TEXT("Net") }, FString(), 1),
+		UPhoneWandLibrary::MakeLabel(TEXT("score"), TEXT("Score"), TEXT("0")),
+	});
+	Wand->SetLayout(Grid);
+
+	Wand->ResetLayout(TEXT("p2"));
+	Wand->ResetLayout();
+	Wand->SetControlBool(TEXT("zoom"), false, TEXT("p1"));
+	Wand->SetControlNumber(TEXT("power"), 0.8);
+	Wand->SetControlChoice(TEXT("weapon"), 2, TEXT("p1"));
+	Wand->SetControlText(TEXT("ammo"), TEXT("11"), TEXT("p1"));
+	Wand->SetControl(TEXT("shield"), UPhoneWandLibrary::MakeControlBool(true));
+
+	const TCHAR* Expected[] = {
+		TEXT("{\"type\":\"layout\",\"id\":\"p1\",\"layout\":{\"template\":\"primary-row\",\"controls\":[")
+			TEXT("{\"id\":\"shoot\",\"type\":\"button\",\"label\":\"Shoot\",\"colour\":\"#00ff88\"},")
+			TEXT("{\"id\":\"reload\",\"type\":\"button\",\"label\":\"Reload\"},")
+			TEXT("{\"id\":\"zoom\",\"type\":\"toggle\",\"label\":\"Zoom\",\"value\":false},")
+			TEXT("{\"id\":\"ammo\",\"type\":\"label\",\"label\":\"Ammo\",\"text\":\"12\"}]}}"),
+		TEXT("{\"type\":\"layout\",\"layout\":{\"template\":\"grid\",\"controls\":[")
+			TEXT("{\"id\":\"fire\",\"type\":\"button\"},")
+			TEXT("{\"id\":\"shield\",\"type\":\"toggle\",\"label\":\"Shield\",\"value\":true},")
+			TEXT("{\"id\":\"power\",\"type\":\"slider\",\"label\":\"Power\",\"value\":0.25,\"orientation\":\"horizontal\",\"spring\":null},")
+			TEXT("{\"id\":\"throttle\",\"type\":\"slider\",\"value\":0.5,\"orientation\":\"vertical\",\"spring\":0.5},")
+			TEXT("{\"id\":\"weapon\",\"type\":\"choice\",\"options\":[\"Bow\",\"Sling\",\"Net\"],\"value\":1},")
+			TEXT("{\"id\":\"score\",\"type\":\"label\",\"label\":\"Score\",\"text\":\"0\"}]}}"),
+		TEXT("{\"type\":\"layout\",\"id\":\"p2\",\"layout\":null}"),
+		TEXT("{\"type\":\"layout\",\"layout\":null}"),
+		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"zoom\",\"value\":false}"),
+		TEXT("{\"type\":\"set\",\"control\":\"power\",\"value\":0.8}"),
+		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"weapon\",\"value\":2}"),
+		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"ammo\",\"value\":\"11\"}"),
+		TEXT("{\"type\":\"set\",\"control\":\"shield\",\"value\":true}"),
+	};
+	if (TestEqual(TEXT("messages sent"), Sent.Num(), (int32)UE_ARRAY_COUNT(Expected)))
+	{
+		for (int32 i = 0; i < Sent.Num(); ++i)
+		{
+			PhoneWandTests::ExpectJson(*this, FString::Printf(TEXT("message %d"), i + 1), Sent[i], Expected[i]);
+		}
+	}
+	// A choice's index is a whole number on the wire.
+	if (Sent.Num() > 6)
+	{
+		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[6]);
+		TestTrue(TEXT("choice index is an integer"), Set.IsValid() && FMath::IsNearlyEqual(Set->AsObject()->GetNumberField(TEXT("value")), 2.0));
+	}
+
+	// Reading a layout back gives the same layout, and the same JSON again.
+	for (const FPhoneWandLayout& Layout : { Shooter, Grid, PhoneWand::DefaultLayout() })
+	{
+		const FString Json = UPhoneWandLibrary::LayoutToJson(Layout);
+		const TSharedPtr<FJsonValue> Parsed = PhoneWandTests::ParseValue(Json);
+		if (TestTrue(TEXT("layout JSON parses"), Parsed.IsValid() && Parsed->Type == EJson::Object))
+		{
+			const FPhoneWandLayout Back = PhoneWand::LayoutFromJson(*Parsed->AsObject());
+			TestEqual(TEXT("round trip template"), Back.Template, Layout.Template);
+			TestEqual(TEXT("round trip control count"), Back.Controls.Num(), Layout.Controls.Num());
+			PhoneWandTests::ExpectJson(*this, TEXT("round trip"), UPhoneWandLibrary::LayoutToJson(Back), Json);
+		}
+	}
+	PhoneWandTests::ExpectJson(*this, TEXT("default layout"), UPhoneWandLibrary::LayoutToJson(PhoneWand::DefaultLayout()),
+		TEXT("{\"template\":\"primary-secondary\",\"controls\":[{\"id\":\"primary\",\"type\":\"button\",\"label\":\"Primary\"},{\"id\":\"secondary\",\"type\":\"button\",\"label\":\"Secondary\"}]}"));
+
+	TestEqual(TEXT("primary constant"), UPhoneWandLibrary::PrimaryButton(), FString(TEXT("primary")));
+	TestEqual(TEXT("secondary constant"), UPhoneWandLibrary::SecondaryButton(), FString(TEXT("secondary")));
+	TestEqual(TEXT("template names"), UPhoneWandLibrary::TemplateToString(EPhoneWandTemplate::PrimaryRow), FString(TEXT("primary-row")));
+	TestEqual(TEXT("value to string"), UPhoneWandLibrary::ControlValueToString(UPhoneWandLibrary::MakeControlNumber(0.8)), FString(TEXT("0.8")));
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandLayoutClientTest, "PhoneWand.Layouts.Client", PhoneWandTests::Flags)
+
+bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
+{
+	TStrongObjectPtr<UPhoneWandSubsystem> Wand = PhoneWandTests::MakeWand();
+	TArray<FString> Changes;
+	Wand->OnControlChangedNative.AddLambda([&Changes](const FPhoneWandPlayer& P, const FString& Control, const FPhoneWandControlValue& Value)
+	{
+		// The player passed in already holds the new value.
+		Changes.Add(FString::Printf(TEXT("%s %s=%s held=%s"), *P.Id, *Control, *Value.ToString(), *P.GetControl(Control).ToString()));
+	});
+
+	// A relay that predates layouts sends no layout: the player gets the default.
+	Wand->HandleMessage(TEXT("{\"type\":\"hello\",\"protocol\":0,\"maxPlayers\":4,\"players\":[{\"id\":\"p1\",\"slot\":0,\"name\":\"A\",\"colour\":\"#ff4d6d\",\"state\":\"active\"}]}"));
+	FPhoneWandPlayer P;
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("default template"), P.Layout.Template, EPhoneWandTemplate::PrimarySecondary);
+	TestTrue(TEXT("default controls"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Id == TEXT("primary") && P.Layout.Controls[1].Id == TEXT("secondary"));
+
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"state\":\"active\",")
+		TEXT("\"layout\":{\"template\":\"grid\",\"controls\":[{\"id\":\"fire\",\"type\":\"button\",\"colour\":\"#00ff88\"},{\"id\":\"power\",\"type\":\"slider\",\"value\":0.25,\"orientation\":\"vertical\",\"spring\":0.5},")
+		TEXT("{\"id\":\"weapon\",\"type\":\"choice\",\"options\":[\"Bow\",\"Sling\"],\"value\":1},{\"id\":\"future\",\"type\":\"dial\"}]},")
+		TEXT("\"controls\":{\"power\":0.25,\"weapon\":1}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("grid"), P.Layout.Template, EPhoneWandTemplate::Grid);
+	TestEqual(TEXT("unknown control type skipped"), P.Layout.Controls.Num(), 3);
+	if (const FPhoneWandControl* Power = P.Layout.FindControl(TEXT("power")))
+	{
+		TestEqual(TEXT("slider type"), Power->Type, EPhoneWandControlType::Slider);
+		TestTrue(TEXT("slider vertical, springs to 0.5"), Power->bVertical && Power->bSpring && FMath::IsNearlyEqual(Power->Spring, 0.5));
+	}
+	else
+	{
+		AddError(TEXT("no power control"));
+	}
+	TestTrue(TEXT("button colour"), P.Layout.Controls[0].bHasColour && UPhoneWandLibrary::ColourToHex(P.Layout.Controls[0].Colour) == TEXT("#00ff88"));
+	TestEqual(TEXT("two values"), P.Controls.Num(), 2);
+	TestEqual(TEXT("weapon index"), P.GetControl(TEXT("weapon")).Index, 1);
+
+	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":true}"));
+	TestTrue(TEXT("custom button held"), Wand->IsButtonHeld(TEXT("p1"), TEXT("fire")));
+	Wand->HandleMessage(TEXT("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"power\",\"value\":0.8}"));
+	Wand->HandleMessage(TEXT("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"weapon\",\"value\":0}"));
+	Wand->HandleMessage(TEXT("{\"type\":\"control\",\"id\":\"nobody\",\"control\":\"power\",\"value\":1}"));
+	TestEqual(TEXT("control events"), Changes, TArray<FString>({ TEXT("p1 power=0.8 held=0.8"), TEXT("p1 weapon=0 held=0") }));
+	FPhoneWandControlValue V;
+	TestTrue(TEXT("GetControlValue"), Wand->GetControlValue(TEXT("p1"), TEXT("power"), V) && V.Type == EPhoneWandValueType::Number && FMath::IsNearlyEqual(V.Number, 0.8));
+	TestFalse(TEXT("GetControlValue for a button"), Wand->GetControlValue(TEXT("p1"), TEXT("fire"), V));
+
+	// A partial player message leaves the layout alone; one with a layout replaces layout and values.
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"name\":\"B\"}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("partial keeps layout"), P.Layout.Template, EPhoneWandTemplate::Grid);
+	TestEqual(TEXT("partial keeps values"), P.Controls.Num(), 2);
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"primary\",\"controls\":[{\"id\":\"go\",\"type\":\"button\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("replaced template"), P.Layout.Template, EPhoneWandTemplate::Primary);
+	TestEqual(TEXT("replaced values"), P.Controls.Num(), 0);
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":null}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("null layout is the default"), P.Layout.Template, EPhoneWandTemplate::PrimarySecondary);
+
+	// error: a warning when nothing is bound, the delegate otherwise.
+	AddExpectedMessagePlain(TEXT("layout: template grid holds at most 6 controls"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);
+	Wand->HandleMessage(TEXT("{\"type\":\"error\",\"message\":\"layout: template grid holds at most 6 controls\"}"));
+	TArray<FString> Errors;
+	Wand->OnRelayErrorNative.AddLambda([&Errors](const FString& Message) { Errors.Add(Message); });
+	Wand->HandleMessage(TEXT("{\"type\":\"error\",\"message\":\"set: p1 has no control x that takes 1\"}"));
+	TestEqual(TEXT("error delegate"), Errors, TArray<FString>({ TEXT("set: p1 has no control x that takes 1") }));
+	return !HasAnyErrors();
+}
+
 // ---------------------------------------------------------------------- live relay
 
 namespace PhoneWandTests
@@ -605,6 +830,194 @@ bool FPhoneWandLiveTest::RunTest(const FString& Parameters)
 	Wand->Prompt(TEXT("ignored: not connected yet"));
 
 	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandWaitForLive(State, this));
+	return true;
+}
+
+// ---------------------------------------------------------------------- live layouts
+//
+// Needs a relay and a phone that reacts to layouts, such as clients/unreal/Scripts/fake-phone.ts:
+// when its layout gains a "fire" button it presses and releases it and moves the "power" slider
+// to 0.7. The test sends that layout, waits for the button and control events, sets a label,
+// sends an invalid layout (which must fire OnRelayError) and finally goes back to the default.
+
+namespace PhoneWandTests
+{
+	struct FLayoutLiveState
+	{
+		TStrongObjectPtr<UPhoneWandSubsystem> Wand;
+		FString PlayerId;
+		int32 Phase = 0;
+		double PhaseStart = 0.0;
+		TArray<FString> Buttons;
+		TArray<FString> Controls;
+		TArray<FString> Errors;
+		TArray<FString> Templates;
+
+		void NextPhase(int32 P) { Phase = P; PhaseStart = FPlatformTime::Seconds(); }
+		double InPhase() const { return FPlatformTime::Seconds() - PhaseStart; }
+	};
+
+	FPhoneWandLayout LiveLayout()
+	{
+		return UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::Grid, {
+			UPhoneWandLibrary::MakeButton(TEXT("fire"), TEXT("Fire")),
+			UPhoneWandLibrary::MakeSlider(TEXT("power"), TEXT("Power")),
+			UPhoneWandLibrary::MakeToggle(TEXT("shield"), TEXT("Shield")),
+			UPhoneWandLibrary::MakeLabel(TEXT("score"), TEXT("Score"), TEXT("0")),
+		});
+	}
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FPhoneWandLayoutLiveSteps, TSharedPtr<PhoneWandTests::FLayoutLiveState>, State, FAutomationTestBase*, Test);
+
+bool FPhoneWandLayoutLiveSteps::Update()
+{
+	PhoneWandTests::FLayoutLiveState& S = *State;
+	UPhoneWandSubsystem* Wand = S.Wand.Get();
+	auto Finish = [&S, Wand]()
+	{
+		Wand->Disconnect();
+		S.Wand.Reset();
+		return true;
+	};
+	auto TimedOut = [&S, this, &Finish](double Seconds, const TCHAR* What)
+	{
+		if (S.InPhase() < Seconds)
+		{
+			return false;
+		}
+		Test->AddError(FString::Printf(TEXT("Timed out after %.0f s waiting for %s (buttons: %s; controls: %s; errors: %s; templates: %s)"), Seconds, What,
+			*FString::Join(S.Buttons, TEXT(", ")), *FString::Join(S.Controls, TEXT(", ")), *FString::Join(S.Errors, TEXT(", ")), *FString::Join(S.Templates, TEXT(", "))));
+		return true;
+	};
+
+	switch (S.Phase)
+	{
+	case 0: // an active player
+	{
+		for (const FPhoneWandPlayer& P : Wand->GetPlayers())
+		{
+			if (P.State == EPhoneWandPlayerState::Active)
+			{
+				S.PlayerId = P.Id;
+			}
+		}
+		if (S.PlayerId.IsEmpty())
+		{
+			return TimedOut(20.0, TEXT("a connected, active phone")) ? Finish() : false;
+		}
+		Test->AddInfo(FString::Printf(TEXT("Player %s is active; sending the layout to every phone"), *S.PlayerId));
+		Wand->SetLayout(PhoneWandTests::LiveLayout());
+		S.NextPhase(1);
+		return false;
+	}
+	case 1: // the layout arrives back as a player message; the phone presses fire and moves power
+	{
+		FPhoneWandPlayer P;
+		Wand->GetPlayer(S.PlayerId, P);
+		const bool bDone = P.Layout.Template == EPhoneWandTemplate::Grid && S.Buttons.Contains(TEXT("fire down")) && S.Buttons.Contains(TEXT("fire up"))
+			&& S.Controls.Contains(TEXT("power=0.7"));
+		if (!bDone)
+		{
+			return TimedOut(15.0, TEXT("the layout, the fire button and the power slider")) ? Finish() : false;
+		}
+		Test->TestEqual(TEXT("layout held: 4 controls"), P.Layout.Controls.Num(), 4);
+		Test->TestTrue(TEXT("power held at 0.7"), P.GetControl(TEXT("power")).Type == EPhoneWandValueType::Number && FMath::IsNearlyEqual(P.GetControl(TEXT("power")).Number, 0.7, 1e-6));
+		Test->TestTrue(TEXT("shield held, off"), P.GetControl(TEXT("shield")).Type == EPhoneWandValueType::Bool && !P.GetControl(TEXT("shield")).bValue);
+		Test->TestFalse(TEXT("fire released"), P.IsButtonHeld(TEXT("fire")));
+		Test->AddInfo(FString::Printf(TEXT("Layout applied; buttons: %s; controls: %s"), *FString::Join(S.Buttons, TEXT(", ")), *FString::Join(S.Controls, TEXT(", "))));
+		Wand->SetControlText(TEXT("score"), TEXT("42"), S.PlayerId);
+		S.NextPhase(2);
+		return false;
+	}
+	case 2: // setting a label comes back as a control event
+	{
+		if (!S.Controls.Contains(TEXT("score=42")))
+		{
+			return TimedOut(10.0, TEXT("the score label change")) ? Finish() : false;
+		}
+		FPhoneWandControlValue V;
+		Test->TestTrue(TEXT("score held"), Wand->GetControlValue(S.PlayerId, TEXT("score"), V) && V.Type == EPhoneWandValueType::Text && V.Text == TEXT("42"));
+		// Invalid: the first control of a primary template must be a button.
+		Wand->SetLayout(UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::Primary, { UPhoneWandLibrary::MakeToggle(TEXT("nope")) }), S.PlayerId);
+		S.NextPhase(3);
+		return false;
+	}
+	case 3: // the invalid layout fires OnRelayError and changes nothing
+	{
+		if (S.Errors.Num() == 0)
+		{
+			return TimedOut(10.0, TEXT("OnRelayError for an invalid layout")) ? Finish() : false;
+		}
+		Test->AddInfo(FString::Printf(TEXT("OnRelayError: %s"), *S.Errors[0]));
+		Test->TestTrue(TEXT("error names the problem"), S.Errors[0].Contains(TEXT("must be a button")));
+		FPhoneWandPlayer P;
+		Wand->GetPlayer(S.PlayerId, P);
+		Test->TestEqual(TEXT("invalid layout changed nothing"), P.Layout.Template, EPhoneWandTemplate::Grid);
+		Wand->ResetLayout();
+		S.NextPhase(4);
+		return false;
+	}
+	case 4: // back to the default
+	{
+		FPhoneWandPlayer P;
+		Wand->GetPlayer(S.PlayerId, P);
+		if (P.Layout.Template != EPhoneWandTemplate::PrimarySecondary)
+		{
+			return TimedOut(10.0, TEXT("the default layout")) ? Finish() : false;
+		}
+		Test->TestTrue(TEXT("default buttons"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Id == TEXT("primary"));
+		Test->TestEqual(TEXT("default has no values"), P.Controls.Num(), 0);
+		Test->AddInfo(FString::Printf(TEXT("Back to the default layout. Templates seen: %s"), *FString::Join(S.Templates, TEXT(", "))));
+		return Finish();
+	}
+	default:
+		return Finish();
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandLayoutLiveTest, "PhoneWand.Live.Layouts", PhoneWandTests::Flags)
+
+bool FPhoneWandLayoutLiveTest::RunTest(const FString& Parameters)
+{
+	FString Url = FPlatformMisc::GetEnvironmentVariable(TEXT("PHONEWAND_LAYOUT_LIVE_URL"));
+	if (Url.IsEmpty())
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("PhoneWandLayoutLiveUrl="), Url);
+	}
+	if (Url.IsEmpty())
+	{
+		AddInfo(TEXT("Skipped: set PHONEWAND_LAYOUT_LIVE_URL to a relay's app URL, with a phone that reacts to layouts connected (clients/unreal/Scripts/fake-phone.ts)."));
+		return true;
+	}
+
+	TSharedPtr<PhoneWandTests::FLayoutLiveState> State = MakeShared<PhoneWandTests::FLayoutLiveState>();
+	State->Wand = PhoneWandTests::MakeWand();
+	UPhoneWandSubsystem* Wand = State->Wand.Get();
+	PhoneWandTests::FLayoutLiveState* S = State.Get();
+	Wand->OnButtonNative.AddLambda([S](const FPhoneWandPlayer&, const FString& Button, bool bDown)
+	{
+		S->Buttons.Add(Button + (bDown ? TEXT(" down") : TEXT(" up")));
+	});
+	Wand->OnControlChangedNative.AddLambda([S](const FPhoneWandPlayer& P, const FString& Control, const FPhoneWandControlValue& Value)
+	{
+		// Rounded, so 0.7 sent by the phone reads as 0.7.
+		const FString Shown = Value.Type == EPhoneWandValueType::Number ? FString::Printf(TEXT("%g"), FMath::RoundToDouble(Value.Number * 1000.0) / 1000.0) : Value.ToString();
+		S->Controls.Add(Control + TEXT("=") + Shown);
+	});
+	Wand->OnRelayErrorNative.AddLambda([S](const FString& Message) { S->Errors.Add(Message); });
+	Wand->OnPlayerChangedNative.AddLambda([S](const FPhoneWandPlayer& P)
+	{
+		const FString Name = PhoneWand::ToString(P.Layout.Template);
+		if (S->Templates.Num() == 0 || S->Templates.Last() != Name)
+		{
+			S->Templates.Add(Name);
+		}
+	});
+	AddInfo(FString::Printf(TEXT("Connecting to %s"), *Url));
+	State->NextPhase(0);
+	Wand->Connect(Url);
+	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandLayoutLiveSteps(State, this));
 	return true;
 }
 

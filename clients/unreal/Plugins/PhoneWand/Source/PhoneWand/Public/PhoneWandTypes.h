@@ -9,6 +9,9 @@
 #include "CoreMinimal.h"
 #include "PhoneWandTypes.generated.h"
 
+class FJsonObject;
+class FJsonValue;
+
 /** The protocol version this plugin speaks. */
 #define PHONEWAND_PROTOCOL_VERSION 0
 
@@ -71,6 +74,170 @@ enum class EPhoneWandSmoothingMode : uint8
 	Custom,
 	/** No smoothing at all: raw sensor data. */
 	Raw,
+};
+
+/** Where a layout's controls go on the phone. See docs/layouts.md. */
+UENUM(BlueprintType)
+enum class EPhoneWandTemplate : uint8
+{
+	/** One big button (1 control, a button). */
+	Primary,
+	/** A big button where the thumb rests and a smaller control below it (2 controls). The default. */
+	PrimarySecondary,
+	/** Two equal controls side by side (2 controls). */
+	Pair,
+	/** A big button with up to three smaller controls in a row below (1 to 4 controls). */
+	PrimaryRow,
+	/** Two columns (1 to 6 controls). */
+	Grid,
+};
+
+/** The kind of a control on the phone. */
+UENUM(BlueprintType)
+enum class EPhoneWandControlType : uint8
+{
+	/** Pressed and released: arrives as OnButton with the control's id. */
+	Button,
+	/** On or off: a Bool value. */
+	Toggle,
+	/** 0 to 1: a Number value. */
+	Slider,
+	/** One of 2 to 4 options: a Number value holding the option index (also in Index). */
+	Choice,
+	/** Text only apps change: a Text value. */
+	Label,
+};
+
+/** What a control value holds. */
+UENUM(BlueprintType)
+enum class EPhoneWandValueType : uint8
+{
+	/** No value (a button, or a control that does not exist). */
+	None,
+	/** A toggle: bValue. */
+	Bool,
+	/** A slider (0 to 1) or a choice (the option index, also in Index): Number. */
+	Number,
+	/** A label's text: Text. */
+	Text,
+};
+
+/**
+ * One control in a layout. Build them with the Make Button / Make Toggle / Make Slider / Make Choice
+ * / Make Label nodes (UPhoneWandLibrary), or fill the fields yourself. Only the fields for the
+ * control's Type are sent.
+ */
+USTRUCT(BlueprintType)
+struct PHONEWAND_API FPhoneWandControl
+{
+	GENERATED_BODY()
+
+	/** Your name for the control: 1 to 32 letters, digits, _ . or -, unique in the layout. Button presses and value changes carry it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	FString Id;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	EPhoneWandControlType Type = EPhoneWandControlType::Button;
+
+	/** Text on the control (up to 24 characters). Optional. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	FString Label;
+
+	/** When true, the control is drawn in Colour; otherwise in the player's colour. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	bool bHasColour = false;
+
+	/** The control's colour, sent as #rrggbb. Only used when bHasColour is true. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand", meta = (EditCondition = "bHasColour"))
+	FLinearColor Colour = FLinearColor::White;
+
+	/** Toggle: its starting state. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Toggle", meta = (ScriptName = "ToggleValue"))
+	bool bValue = false;
+
+	/** Slider: its starting position, 0 to 1. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Slider", meta = (ClampMin = "0", ClampMax = "1"))
+	double Value = 0.0;
+
+	/** Slider: vertical instead of horizontal. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Slider")
+	bool bVertical = false;
+
+	/** Slider: springs back to Spring when let go (a throttle). Otherwise it stays put. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Slider", meta = (ScriptName = "Springs"))
+	bool bSpring = false;
+
+	/** Slider: where it returns when let go, 0 to 1. Only used when bSpring is true. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Slider", meta = (EditCondition = "bSpring", ClampMin = "0", ClampMax = "1"))
+	double Spring = 0.0;
+
+	/** Choice: 2 to 4 options, up to 16 characters each. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Choice")
+	TArray<FString> Options;
+
+	/** Choice: the index of the starting option. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Choice")
+	int32 Index = 0;
+
+	/** Label: its text, up to 80 characters. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand|Label")
+	FString Text;
+};
+
+/** The controls a phone shows: a template plus its controls, in order. See docs/layouts.md. */
+USTRUCT(BlueprintType)
+struct PHONEWAND_API FPhoneWandLayout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	EPhoneWandTemplate Template = EPhoneWandTemplate::PrimarySecondary;
+
+	/** In order. In the Primary templates the first is the big one and must be a button. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	TArray<FPhoneWandControl> Controls;
+
+	/** The control with this id, or null. */
+	const FPhoneWandControl* FindControl(const FString& ControlId) const
+	{
+		return Controls.FindByPredicate([&ControlId](const FPhoneWandControl& C) { return C.Id == ControlId; });
+	}
+};
+
+/**
+ * A control's value: a toggle's Bool, a slider's Number (0 to 1), a choice's Number (the option
+ * index, also in Index), or a label's Text. Type says which field holds it.
+ */
+USTRUCT(BlueprintType)
+struct PHONEWAND_API FPhoneWandControlValue
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	EPhoneWandValueType Type = EPhoneWandValueType::None;
+
+	/** A toggle's state, when Type is Bool. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	bool bValue = false;
+
+	/** A slider's position (0 to 1) or a choice's option index, when Type is Number. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	double Number = 0.0;
+
+	/** Number rounded to a whole number: a choice's option index. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	int32 Index = 0;
+
+	/** A label's text, when Type is Text. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	FString Text;
+
+	static FPhoneWandControlValue MakeBool(bool bIn) { FPhoneWandControlValue V; V.Type = EPhoneWandValueType::Bool; V.bValue = bIn; return V; }
+	static FPhoneWandControlValue MakeNumber(double In) { FPhoneWandControlValue V; V.Type = EPhoneWandValueType::Number; V.Number = In; V.Index = FMath::RoundToInt32(In); return V; }
+	static FPhoneWandControlValue MakeText(const FString& In) { FPhoneWandControlValue V; V.Type = EPhoneWandValueType::Text; V.Text = In; return V; }
+
+	/** For display and logs: "true", "0.8", "2" or the text; empty for None. */
+	FString ToString() const;
 };
 
 /** The relay's greeting, received when the connection is ready. */
@@ -241,7 +408,7 @@ struct PHONEWAND_API FPhoneWandPlayer
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	FPhoneWandPose Pose;
 
-	/** Buttons held down right now ("primary", "secondary"), sorted. */
+	/** Ids of the buttons held down right now ("primary", "secondary", or your layout's button ids), sorted. */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	TArray<FString> Buttons;
 
@@ -252,11 +419,51 @@ struct PHONEWAND_API FPhoneWandPlayer
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	FPhoneWandStats Stats;
 
+	/** The controls this player's phone shows. Until an app sends one, the default: PrimarySecondary with buttons "primary" and "secondary". */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	FPhoneWandLayout Layout;
+
+	/** Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons have no value. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	TMap<FString, FPhoneWandControlValue> Controls;
+
 	bool IsButtonHeld(const FString& Button) const { return Buttons.Contains(Button); }
+
+	/** The value of a control, or a value of type None when there is none. */
+	FPhoneWandControlValue GetControl(const FString& ControlId) const
+	{
+		const FPhoneWandControlValue* V = Controls.Find(ControlId);
+		return V ? *V : FPhoneWandControlValue();
+	}
 };
 
 namespace PhoneWand
 {
+	/** The default layout's big button id. */
+	inline const TCHAR* const PrimaryButton = TEXT("primary");
+	/** The default layout's smaller button id. */
+	inline const TCHAR* const SecondaryButton = TEXT("secondary");
+
+	/** Protocol spelling of a template ("primary", "primary-secondary", "pair", "primary-row", "grid"). */
+	PHONEWAND_API FString ToString(EPhoneWandTemplate Template);
+	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label"). */
+	PHONEWAND_API FString ToString(EPhoneWandControlType Type);
+	/** Template from its protocol spelling. Returns false for an unknown one. */
+	PHONEWAND_API bool ParseTemplate(const FString& Name, EPhoneWandTemplate& Out);
+	/** The layout a phone shows until an app sends one: PrimarySecondary with buttons "primary" and "secondary". */
+	PHONEWAND_API FPhoneWandLayout DefaultLayout();
+
+	/** A layout as the protocol's JSON object: { "template": ..., "controls": [ ... ] }. */
+	PHONEWAND_API TSharedRef<FJsonObject> LayoutToJson(const FPhoneWandLayout& Layout);
+	/** One control as the protocol's JSON object. Only the fields for its type are written. */
+	PHONEWAND_API TSharedRef<FJsonObject> ControlToJson(const FPhoneWandControl& Control);
+	/** A layout from the protocol's JSON. Controls of unknown types are skipped. */
+	PHONEWAND_API FPhoneWandLayout LayoutFromJson(const FJsonObject& Json);
+	/** A control value as JSON: a boolean, number or string (null for None). */
+	PHONEWAND_API TSharedRef<FJsonValue> ControlValueToJson(const FPhoneWandControlValue& Value);
+	/** A control value from JSON: booleans, numbers and strings; anything else gives None. */
+	PHONEWAND_API FPhoneWandControlValue ControlValueFromJson(const TSharedPtr<FJsonValue>& Json);
+
 	/** Protocol spelling of a player state ("waiting", "active", "paused"). */
 	PHONEWAND_API FString ToString(EPhoneWandPlayerState State);
 	/** Protocol spelling of a calibration ("none", "ray", "screen"). */

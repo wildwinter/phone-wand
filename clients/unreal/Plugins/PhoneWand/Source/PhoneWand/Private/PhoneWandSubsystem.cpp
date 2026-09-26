@@ -728,10 +728,28 @@ bool UPhoneWandSubsystem::IsButtonHeld(const FString& Id, const FString& Button)
 	return P != nullptr && P->Buttons.Contains(Button);
 }
 
+bool UPhoneWandSubsystem::GetControlValue(const FString& Id, const FString& ControlId, FPhoneWandControlValue& Value) const
+{
+	Value = FPhoneWandControlValue();
+	const FPhoneWandPlayer* P = Players.Find(Id);
+	const FPhoneWandControlValue* V = P ? P->Controls.Find(ControlId) : nullptr;
+	if (!V)
+	{
+		return false;
+	}
+	Value = *V;
+	return true;
+}
+
 // ---------------------------------------------------------------------- app to relay
 
 void UPhoneWandSubsystem::SendJson(const TSharedRef<FJsonObject>& Msg)
 {
+	if (SendOverride)
+	{
+		SendOverride(ToJsonString(Msg));
+		return;
+	}
 	if (Socket.IsValid() && bSocketOpen && Socket->IsConnected())
 	{
 		Socket->Send(ToJsonString(Msg));
@@ -853,6 +871,65 @@ void UPhoneWandSubsystem::Calibrate(EPhoneWandCalibrateMode Mode, const FString&
 	SendJson(Msg);
 }
 
+// ---------------------------------------------------------------------- layouts
+
+void UPhoneWandSubsystem::SetLayout(const FPhoneWandLayout& Layout, const FString& Id)
+{
+	TSharedRef<FJsonObject> Msg = MakeShared<FJsonObject>();
+	Msg->SetStringField(TEXT("type"), TEXT("layout"));
+	if (!Id.IsEmpty())
+	{
+		Msg->SetStringField(TEXT("id"), Id);
+	}
+	Msg->SetObjectField(TEXT("layout"), PhoneWand::LayoutToJson(Layout));
+	SendJson(Msg);
+}
+
+void UPhoneWandSubsystem::ResetLayout(const FString& Id)
+{
+	TSharedRef<FJsonObject> Msg = MakeShared<FJsonObject>();
+	Msg->SetStringField(TEXT("type"), TEXT("layout"));
+	if (!Id.IsEmpty())
+	{
+		Msg->SetStringField(TEXT("id"), Id);
+	}
+	Msg->SetField(TEXT("layout"), MakeShared<FJsonValueNull>());
+	SendJson(Msg);
+}
+
+void UPhoneWandSubsystem::SetControl(const FString& ControlId, const FPhoneWandControlValue& Value, const FString& Id)
+{
+	TSharedRef<FJsonObject> Msg = MakeShared<FJsonObject>();
+	Msg->SetStringField(TEXT("type"), TEXT("set"));
+	if (!Id.IsEmpty())
+	{
+		Msg->SetStringField(TEXT("id"), Id);
+	}
+	Msg->SetStringField(TEXT("control"), ControlId);
+	Msg->SetField(TEXT("value"), PhoneWand::ControlValueToJson(Value));
+	SendJson(Msg);
+}
+
+void UPhoneWandSubsystem::SetControlBool(const FString& ControlId, bool bValue, const FString& Id)
+{
+	SetControl(ControlId, FPhoneWandControlValue::MakeBool(bValue), Id);
+}
+
+void UPhoneWandSubsystem::SetControlNumber(const FString& ControlId, double Value, const FString& Id)
+{
+	SetControl(ControlId, FPhoneWandControlValue::MakeNumber(Value), Id);
+}
+
+void UPhoneWandSubsystem::SetControlChoice(const FString& ControlId, int32 Index, const FString& Id)
+{
+	SetControl(ControlId, FPhoneWandControlValue::MakeNumber(Index), Id);
+}
+
+void UPhoneWandSubsystem::SetControlText(const FString& ControlId, const FString& Text, const FString& Id)
+{
+	SetControl(ControlId, FPhoneWandControlValue::MakeText(Text), Id);
+}
+
 // ---------------------------------------------------------------------- relay to app
 
 void UPhoneWandSubsystem::HandleConnectionLost()
@@ -890,7 +967,13 @@ FPhoneWandPlayer& UPhoneWandSubsystem::Upsert(const FJsonObject& Info)
 {
 	FString Id;
 	Info.TryGetStringField(TEXT("id"), Id);
-	FPhoneWandPlayer& P = Players.FindOrAdd(Id);
+	FPhoneWandPlayer* Existing = Players.Find(Id);
+	FPhoneWandPlayer& P = Existing ? *Existing : Players.Add(Id);
+	if (!Existing)
+	{
+		// What a relay that predates layouts means: the default layout.
+		P.Layout = PhoneWand::DefaultLayout();
+	}
 	P.Id = Id;
 
 	// Only fields present in the message change, like Object.assign in the reference client.
@@ -912,6 +995,22 @@ FPhoneWandPlayer& UPhoneWandSubsystem::Upsert(const FJsonObject& Info)
 		if ((*Device)->TryGetStringField(TEXT("platform"), S)) P.Platform = S;
 		if ((*Device)->TryGetStringField(TEXT("sensor"), S)) P.Sensor = S;
 		if ((*Device)->TryGetStringField(TEXT("transport"), S)) P.Transport = S;
+	}
+	// The layout and control values, when present, replace the old ones entirely.
+	if (const TSharedPtr<FJsonValue> Layout = Info.TryGetField(TEXT("layout")))
+	{
+		const TSharedPtr<FJsonObject>* LayoutObj = nullptr;
+		P.Layout = Layout->TryGetObject(LayoutObj) && LayoutObj != nullptr && LayoutObj->IsValid()
+			? PhoneWand::LayoutFromJson(**LayoutObj) : PhoneWand::DefaultLayout();
+	}
+	const TSharedPtr<FJsonObject>* Controls = nullptr;
+	if (Info.TryGetObjectField(TEXT("controls"), Controls) && Controls != nullptr && Controls->IsValid())
+	{
+		P.Controls.Reset();
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Controls)->Values)
+		{
+			P.Controls.Add(Pair.Key, PhoneWand::ControlValueFromJson(Pair.Value));
+		}
 	}
 	return P;
 }
@@ -1039,6 +1138,35 @@ void UPhoneWandSubsystem::HandleMessageObject(const FJsonObject& Msg)
 		const FPhoneWandPlayer P = *Live;
 		OnButton.Broadcast(P, Button, bDown);
 		OnButtonNative.Broadcast(P, Button, bDown);
+	}
+	else if (Type == TEXT("control"))
+	{
+		FPhoneWandPlayer* Live = FindById();
+		if (!Live)
+		{
+			return;
+		}
+		FString ControlId;
+		Msg.TryGetStringField(TEXT("control"), ControlId);
+		const FPhoneWandControlValue Value = PhoneWand::ControlValueFromJson(Msg.TryGetField(TEXT("value")));
+		Live->Controls.Add(ControlId, Value);
+		const FPhoneWandPlayer P = *Live;
+		OnControlChanged.Broadcast(P, ControlId, Value);
+		OnControlChangedNative.Broadcast(P, ControlId, Value);
+	}
+	else if (Type == TEXT("error"))
+	{
+		FString Message;
+		Msg.TryGetStringField(TEXT("message"), Message);
+		if (OnRelayError.IsBound() || OnRelayErrorNative.IsBound())
+		{
+			OnRelayError.Broadcast(Message);
+			OnRelayErrorNative.Broadcast(Message);
+		}
+		else
+		{
+			UE_LOG(LogPhoneWand, Warning, TEXT("The relay says: %s"), *Message);
+		}
 	}
 	else if (Type == TEXT("calibrating"))
 	{

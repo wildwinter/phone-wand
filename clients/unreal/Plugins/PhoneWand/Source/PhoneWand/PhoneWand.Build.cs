@@ -14,13 +14,13 @@ public class PhoneWand : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"DeveloperSettings",
+			"Json", // PhoneWandTypes.h: layouts to and from the protocol's JSON
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"WebSockets",
 			"HTTP",
-			"Json",
 			"Projects",
 		});
 

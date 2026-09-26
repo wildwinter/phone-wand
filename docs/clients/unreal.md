@@ -46,8 +46,9 @@ itself if the relay is restarted. You only need to listen to it.
 3. Break the pose. **Screen** is the cursor position from (0, 0) top-left to (1, 1) bottom-right,
    valid when **Has Screen** is true. **Direction** and **Rotation** are the phone's aim in world
    terms. **Player** carries the **Name**, **Linear Colour** and **Slot**.
-4. Add **Assign On Button** for clicks: **Button** is `primary` or `secondary`, and **Down** is
-   true on press and false on release.
+4. Add **Assign On Button** for clicks: **Button** is the button's id (`primary` or `secondary`
+   by default, or the ids in your [layout](#layouts)), and **Down** is true on press and false on
+   release.
 
 To draw a cursor in a HUD's **Draw HUD** event, loop over **Get Players**, and for each player
 with **Has Pose** use **Pose To Viewport Pixels** to get the pixel position.
@@ -111,6 +112,79 @@ Wand->OnPoseNative.AddLambda([this](const FPhoneWandPlayer& Player, const FPhone
 });
 ```
 
+## Layouts
+
+By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
+can choose other controls, for every phone or for each player: pick a template and list the
+controls. Buttons, toggles, sliders, choices and labels are available; the phone places them for
+the player's thumb. [Layouts](../layouts.md) explains the templates and controls.
+
+Button ids are plain strings (`FString`) everywhere in the plugin: `primary` and `secondary` in the
+default layout, or the ids you give your buttons. `UPhoneWandLibrary::PrimaryButton()` and
+`SecondaryButton()` (Blueprint: **Primary Button**, **Secondary Button**), or
+`PhoneWand::PrimaryButton` and `PhoneWand::SecondaryButton` in C++, spell the default two.
+
+### Blueprint
+
+1. Build the controls with **Make Button**, **Make Toggle**, **Make Slider**, **Make Choice** and
+   **Make Label** (in **Phone Wand > Layouts**), and give one its own colour with **With Colour**.
+2. Put them in an array, in order, and pass it with a template to **Make Layout**.
+3. Call **Set Layout** on the subsystem. Leave **Id** empty for every phone, or give a player's id.
+   **Reset Layout** goes back to the default.
+4. Bind **Assign On Button** for the buttons (the **Button** is your id) and **Assign On Control
+   Changed** for the rest: it gives the **Player**, the **Control Id** and the **Value**. Break the
+   value: **Type** says which field holds it (**Value** for a toggle, **Number** for a slider,
+   **Index** for a choice, **Text** for a label).
+5. Change a value on the phone with **Set Control Bool**, **Set Control Number**, **Set Control
+   Choice** or **Set Control Text** (a label's text, such as a score).
+
+If a layout or value doesn't fit (too many controls for the template, a toggle set to text), the
+relay changes nothing and sends an error. Bind **Assign On Relay Error** to handle it; with nothing
+bound, the plugin logs it as a warning in `LogPhoneWand`.
+
+### C++
+
+```cpp
+#include "PhoneWandLibrary.h"
+#include "PhoneWandSubsystem.h"
+
+void AMyGame::BeginPlay()
+{
+    Super::BeginPlay();
+    UPhoneWandSubsystem* Wand = GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>();
+
+    // A shooter: a big Shoot button, then Reload, a Zoom toggle and an ammo count below.
+    Wand->SetLayout(UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::PrimaryRow, {
+        UPhoneWandLibrary::MakeButton(TEXT("shoot"), TEXT("Shoot")),
+        UPhoneWandLibrary::MakeButton(TEXT("reload"), TEXT("Reload")),
+        UPhoneWandLibrary::MakeToggle(TEXT("zoom"), TEXT("Zoom")),
+        UPhoneWandLibrary::MakeLabel(TEXT("ammo"), TEXT("Ammo"), TEXT("12")),
+    }));
+
+    Wand->OnButtonNative.AddLambda([this](const FPhoneWandPlayer& Player, const FString& Button, bool bDown)
+    {
+        if (Button == TEXT("shoot") && bDown) Shoot(Player);
+        if (Button == TEXT("reload") && bDown) Reload(Player);
+    });
+    Wand->OnControlChangedNative.AddLambda([this](const FPhoneWandPlayer& Player, const FString& Control, const FPhoneWandControlValue& Value)
+    {
+        if (Control == TEXT("zoom")) SetZoom(Player, Value.bValue);
+    });
+    Wand->OnRelayErrorNative.AddLambda([](const FString& Message)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Phone Wand: %s"), *Message);
+    });
+}
+
+// Later, for one player:
+Wand->SetControlText(TEXT("ammo"), TEXT("11"), Player.Id);
+```
+
+A player that joins later gets the layout you sent to everyone only if you send it again: the
+relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if players come and
+go. Each player's current layout and values are in `FPhoneWandPlayer::Layout` and `Controls`, and
+`GetControlValue(Id, ControlId, Value)` reads one value.
+
 ## API reference
 
 ### UPhoneWandSubsystem
@@ -130,7 +204,8 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `GetPlayer(Id, Player)` | One player by id. Returns false if there is none. |
 | `GetPlayerInSlot(Slot, Player)` | The player in a slot. Returns false if it is empty. |
 | `GetPlayerCount()` | Number of players. |
-| `IsButtonHeld(Id, Button)` | True while the player holds `primary` (the default) or `secondary`. |
+| `IsButtonHeld(Id, Button)` | True while the player holds the button: `primary` (the default), `secondary`, or a button id from your layout. |
+| `GetControlValue(Id, ControlId, Value)` | A toggle, slider, choice or label's current value for a player. Returns false if there is no such player or control. |
 | `FindPlayer(Id)` | C++ only: a pointer to the live player, or null. |
 | `SetSmoothing(MinCutoff, Beta, DCutoff)` | Set the One Euro filter the relay applies to this app's poses. Lower `MinCutoff` is steadier when still; higher `Beta` is quicker when moving. |
 | `SetRaw()` | Turn smoothing off for this app. |
@@ -141,6 +216,11 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `Haptic(Pattern, Id)` | Vibrate (Android only). `Pattern` alternates on and off milliseconds. |
 | `HapticPulse(DurationMs, Id)` | One vibration. |
 | `Calibrate(Mode, Id)` | Ask a player (or everyone) to calibrate: `Screen` (two corners) or `Ray` (point at the middle and press Recentre). |
+| `SetLayout(Layout, Id)` | Choose the controls a phone shows, or every phone when `Id` is empty (see [Layouts](#layouts)). The relay remembers it per player and sends `OnPlayerChanged` with the new layout. Held buttons that aren't in the new layout are released. An invalid layout fires `OnRelayError` and changes nothing. |
+| `ResetLayout(Id)` | Back to the default layout (Primary and Secondary), for one phone or every phone. |
+| `SetControl(ControlId, Value, Id)` | Change a control's value on a phone (or every phone): a toggle's Bool, a slider's Number (0 to 1), a choice's option index (Number) or a label's Text. Every app then gets `OnControlChanged`. |
+| `SetControlBool` / `SetControlNumber` / `SetControlChoice` / `SetControlText` `(ControlId, Value, Id)` | The same, one per kind of value. |
+| `SetSendOverride(Send)` | C++ only: send messages to the relay through a function instead of the socket. Used by the tests; with `HandleMessage`, lets you drive the client over another transport. |
 | `SetStartRelay(bEnabled, RelayPath, RelayArguments)` | Start the relay from the game on the next `Connect` (see [Starting the relay from your game](#starting-the-relay-from-your-game)). Defaults to the project settings. |
 | `IsRelayStartedByPlugin()` | True while a relay this subsystem started is running. |
 | `StopRelay()` | Stop the relay this subsystem started, if any. `Disconnect` and shutting down do this for you. A relay it did not start is never stopped. |
@@ -161,13 +241,17 @@ Each event is a Blueprint-assignable delegate (`OnPose`) with a native twin for 
 | `OnPlayerLeft` | `Player` | A player left (60 seconds after their phone disconnected, or when the relay went away). |
 | `OnPlayerChanged` | `Player` | State, name, colour, label, calibration or transport changed. |
 | `OnPose` | `Player`, `Pose` | A new pose, typically 60 a second per player. |
-| `OnButton` | `Player`, `Button`, `bDown` | A button went down or up. Every down is followed by an up. |
+| `OnButton` | `Player`, `Button`, `bDown` | A button went down or up. `Button` is its id: `primary` or `secondary` by default, or an id from your layout. Every down is followed by an up, including when a new layout removes a held button. |
+| `OnControlChanged` | `Player`, `ControlId`, `Value` | A toggle, slider, choice or label changed, on the phone or because an app set it. `Player.Controls` already holds the new value. |
+| `OnRelayError` | `Message` | The relay couldn't use something this app sent, such as an invalid layout; the message says why. With nothing bound (Blueprint or native), it is logged as a warning instead. |
 | `OnCalibrating` | `Player`, `Step` | The player is pointing at `TopLeft` or `BottomRight` during screen calibration, or `Cancelled` it. |
 | `OnCalibrated` | `Player`, `Calibration` | The player pressed Recentre (`Ray`) or finished screen calibration (`Screen`). |
 | `OnStats` | `Player`, `Stats` | Once a second per player: `Rtt` (ms), `Rate` (poses a second), `Dropped`. |
 
-A `pose`, `button`, `calibrating`, `calibrated` or `stats` message for a player the client does
-not know fires nothing. A player whose state stops being `Active` has their held buttons cleared.
+A `pose`, `button`, `control`, `calibrating`, `calibrated` or `stats` message for a player the
+client does not know fires nothing. A player whose state stops being `Active` has their held
+buttons cleared. A player message carrying a layout replaces the player's `Layout` and `Controls`
+entirely.
 
 ### FPhoneWandPlayer
 
@@ -183,7 +267,9 @@ not know fires nothing. A player whose state stops being `Active` has their held
 | `Calibrating` | The corner being calibrated right now, or `None`. |
 | `Platform`, `Sensor`, `Transport` | `iOS`/`Android`/`other`; `relative-orientation-sensor`/`deviceorientation`; `ws`/`http`. |
 | `bHasPose`, `Pose` | The latest pose, once one has arrived. |
-| `Buttons` | Buttons held now, sorted. |
+| `Buttons` | Ids of the buttons held now, sorted. |
+| `Layout` | The `FPhoneWandLayout` the phone shows. The default until an app sends one. |
+| `Controls` | Current values of the layout's toggles, sliders, choices and labels, by control id (`TMap<FString, FPhoneWandControlValue>`). Buttons have none. `GetControl(ControlId)` in C++. |
 | `bHasStats`, `Stats` | The latest stats. |
 
 ### FPhoneWandPose
@@ -198,6 +284,40 @@ not know fires nothing. A player whose state stops being `Active` has their held
 | `Rotation`, `Rotator` | The phone's orientation in Unreal's frame. Rotating +X gives `Direction`; +Z points out of the phone's screen. |
 | `bHasScreen`, `Screen` | Normalised screen position, (0, 0) top-left to (1, 1) bottom-right. Values outside 0..1 mean the player is pointing off the screen. `bHasScreen` is false when the phone points more than about 87 degrees away from forward. |
 | `RigDirection`, `RigQuat` | The raw rig-frame values from the relay, for anyone who needs them. |
+
+### FPhoneWandLayout and FPhoneWandControl
+
+`FPhoneWandLayout` is a `Template` (`Primary`, `PrimarySecondary`, `Pair`, `PrimaryRow` or `Grid`)
+and `Controls`, an array of `FPhoneWandControl` in order. `FindControl(Id)` finds one in C++.
+
+| `FPhoneWandControl` field | Meaning |
+|---|---|
+| `Id` | Your name for it: 1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout. |
+| `Type` | `Button`, `Toggle`, `Slider`, `Choice` or `Label`. |
+| `Label` | Text on the control (up to 24 characters). Optional. |
+| `bHasColour`, `Colour` | The control's own colour (sent as `#rrggbb`); the player's colour when `bHasColour` is false. |
+| `bValue` | Toggle: its starting state. |
+| `Value` | Slider: its starting position, 0 to 1. |
+| `bVertical` | Slider: vertical instead of horizontal. |
+| `bSpring`, `Spring` | Slider: returns to `Spring` (0 to 1) when let go. Otherwise it stays put. |
+| `Options`, `Index` | Choice: 2 to 4 options (up to 16 characters each) and the starting index. |
+| `Text` | Label: its text, up to 80 characters. |
+
+Only the fields for the control's type are sent. `PhoneWand::LayoutToJson` and `LayoutFromJson`
+convert to and from the protocol's JSON in C++.
+
+### FPhoneWandControlValue
+
+| Field | Meaning |
+|---|---|
+| `Type` | `None`, `Bool` (a toggle), `Number` (a slider's 0 to 1, or a choice's option index) or `Text` (a label). |
+| `bValue` | The toggle's state. |
+| `Number` | The slider's position or the choice's index. |
+| `Index` | `Number` rounded: the choice's option index. |
+| `Text` | The label's text. |
+
+In C++, `FPhoneWandControlValue::MakeBool`, `MakeNumber` and `MakeText` build one, and `ToString()`
+gives `true`, `0.8`, `2` or the text.
 
 ### UPhoneWandLibrary
 
@@ -214,6 +334,18 @@ Blueprint function library, also callable from C++.
 | `PoseToViewportPixels(WorldContext, Pose, Pixels)` | A pose's screen position in pixels of the game viewport. |
 | `IsOnScreen(Pose)` | True when the pose has a screen position inside 0..1. |
 | `ColourFromHex(Hex)` / `ColourToHex(Colour)` | `#rrggbb` to `FLinearColor` and back (sRGB). |
+| `PrimaryButton()` / `SecondaryButton()` | `primary` and `secondary`, the default layout's button ids. |
+| `MakeButton(Id, Label)` | A button control. |
+| `MakeToggle(Id, Label, bValue)` | A toggle control. |
+| `MakeSlider(Id, Label, Value, bVertical, bSpring, Spring)` | A slider control. |
+| `MakeChoice(Id, Options, Label, Index)` | A choice control. |
+| `MakeLabel(Id, Label, Text)` | A label control. |
+| `WithColour(Control, Colour)` | The control with a colour of its own. |
+| `MakeLayout(Template, Controls)` | A layout. |
+| `DefaultLayout()` | The default layout. |
+| `LayoutToJson(Layout)` | The layout as the JSON the relay receives, for logs. |
+| `MakeControlBool` / `MakeControlNumber` / `MakeControlText` | Values for `SetControl`. |
+| `TemplateToString(Template)` / `ControlValueToString(Value)` | Text for display. |
 
 ### Project settings
 
@@ -327,11 +459,15 @@ repository) is a small C++ project with no content of its own. It opens the engi
 which draws:
 
 - a disc in each player's colour at their screen position, with their name,
-- a ripple when a player presses the primary button,
+- a ripple when a player presses a button,
 - an arrow at the edge of the screen, pointing the right way, when a player points off the screen,
 - a line for each player who hasn't set up their aim yet ("Player 2, Bea: set up your aim on your
   phone"), since they have no cursor until they do,
-- the join URL, the QR code (fetched from the relay's `qrUrl`) and a player list.
+- the join URL, the QR code (fetched from the relay's `qrUrl`) and a player list,
+- the latest control change, briefly, at the top of the screen.
+
+Press **L** to cycle every phone through three sample layouts: the default, a `primary-row` with a
+Fire button, a Zoom toggle and a label, and a `grid` with every kind of control.
 
 To run it: start the relay, open `PhoneWandDemo.uproject`, let it build, and press **Play**. Its
 `.uproject` finds the plugin through `AdditionalPluginDirectories: ["../Plugins"]`, so keep
@@ -388,8 +524,11 @@ The plugin has automation tests, all named `PhoneWand.*`:
 | `PhoneWand.Conformance.Session.<name>` | Replays each recorded session in `conformance/app/` through `HandleMessage`, and compares the event log with `<name>.events.txt` line for line and the final players with `<name>.state.json`. |
 | `PhoneWand.Conformance.Conversions` | Every case in `conformance/conversions.json`: vector and quaternion conversion, and that rotating +X and +Z by the converted quaternion gives the expected direction and up. |
 | `PhoneWand.Library` | Colour, screen, direction and pose helpers. |
+| `PhoneWand.Layouts.Json` | The exact `layout` and `set` messages the plugin sends, compared field by field with the protocol's shape, and layouts read back from JSON. |
+| `PhoneWand.Layouts.Client` | Layouts and control values from `player` and `control` messages, the default layout, and `error` going to `OnRelayError` or a warning. |
 | `PhoneWand.Client.ConnectionLost` | Leave and disconnect events, partial player updates, sorting, and ignoring unknown messages. |
 | `PhoneWand.Live.Relay` | Connects to a running relay and passes only if it sees the hello, joins, poses and stats. Skipped unless `PHONEWAND_LIVE_URL` (or `-PhoneWandLiveUrl=`) is set. |
+| `PhoneWand.Live.Layouts` | Sends a layout through a running relay to a scripted phone, which presses a custom `fire` button and moves a slider; checks the events and held values, sets a label, checks an invalid layout fires `OnRelayError`, and resets the layout. Skipped unless `PHONEWAND_LAYOUT_LIVE_URL` (or `-PhoneWandLayoutLiveUrl=`) is set. |
 | `PhoneWand.ManagedRelay.Paths` | Which URLs count as this computer, and where **Relay Path** points. |
 | `PhoneWand.ManagedRelay.Missing` | With no relay binary, a warning says where it looked and the client keeps connecting. |
 | `PhoneWand.ManagedRelay.Live` | With no relay on the port, starts the relay, connects, and after shutdown checks that `status.json` no longer answers and the process is gone; then, with a relay already running, checks that it starts nothing and leaves that relay running. Uses app port 26480 and phone port 26443 (`PHONEWAND_RELAY_TEST_PORTS=<app>,<phone>` to change them). Skipped unless `PHONEWAND_RELAY_DIR` (or `-PhoneWandRelayDir=`) names a `phone-wand-relay` folder. |
@@ -409,6 +548,16 @@ skips the build. To include the live test, start a relay with simulated players 
 ```sh
 phone-wand --simulate 3 --no-open &
 PHONEWAND_LIVE_URL=ws://127.0.0.1:8480/app scripts/check-unreal.sh
+```
+
+To include the live layouts test, start a relay and the scripted phone in
+`clients/unreal/Scripts/fake-phone.ts`, which joins over the relay's plain HTTP port:
+
+```sh
+bun scripts/build-assets.ts
+bun packages/relay/src/main.ts --no-open --no-key --port 32443 --app-port 32480 --http-port 32080 --no-landing &
+bun clients/unreal/Scripts/fake-phone.ts ws://127.0.0.1:32080/phone &
+PHONEWAND_LAYOUT_LIVE_URL=ws://127.0.0.1:32480/app scripts/check-unreal.sh
 ```
 
 To include the managed relay test, point it at the relay binaries (for example after

@@ -28,6 +28,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPhoneWandButtonEvent, const FPho
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratingEvent, const FPhoneWandPlayer&, Player, EPhoneWandCalibrationStep, Step);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratedEvent, const FPhoneWandPlayer&, Player, EPhoneWandCalibration, Calibration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandStatsEvent, const FPhoneWandPlayer&, Player, const FPhoneWandStats&, Stats);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPhoneWandControlEvent, const FPhoneWandPlayer&, Player, const FString&, ControlId, const FPhoneWandControlValue&, Value);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPhoneWandErrorEvent, const FString&, Message);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FPhoneWandConnectedNative, const FPhoneWandHello&);
 DECLARE_MULTICAST_DELEGATE(FPhoneWandDisconnectedNative);
@@ -37,6 +39,8 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FPhoneWandButtonNative, const FPhoneWandP
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratingNative, const FPhoneWandPlayer&, EPhoneWandCalibrationStep);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratedNative, const FPhoneWandPlayer&, EPhoneWandCalibration);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandStatsNative, const FPhoneWandPlayer&, const FPhoneWandStats&);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FPhoneWandControlNative, const FPhoneWandPlayer&, const FString&, const FPhoneWandControlValue&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FPhoneWandErrorNative, const FString&);
 
 /**
  * Phone Wand client. One per game instance; get it with Get Game Instance Subsystem (Blueprint)
@@ -141,9 +145,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand")
 	int32 GetPlayerCount() const { return Players.Num(); }
 
-	/** True while the player holds the button ("primary" or "secondary"). */
+	/** True while the player holds the button: "primary" or "secondary" by default, or a button id from your layout. */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand")
 	bool IsButtonHeld(const FString& Id, const FString& Button = TEXT("primary")) const;
+
+	/**
+	 * A control's current value for a player (a toggle, slider, choice or label in their layout).
+	 * Returns false when there is no such player or control.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	bool GetControlValue(const FString& Id, const FString& ControlId, FPhoneWandControlValue& Value) const;
 
 	/** Direct access for C++: the player by id, or null. Valid until the next event. */
 	const FPhoneWandPlayer* FindPlayer(const FString& Id) const { return Players.Find(Id); }
@@ -189,6 +200,45 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Commands")
 	void Calibrate(EPhoneWandCalibrateMode Mode = EPhoneWandCalibrateMode::Screen, const FString& Id = TEXT(""));
 
+	// ------------------------------------------------------------------ layouts (docs/layouts.md)
+
+	/**
+	 * Choose the controls a phone shows, or every phone when Id is empty. The relay remembers it
+	 * (a phone that reconnects gets it back) and sends OnPlayerChanged with the new layout. Held
+	 * buttons that aren't in the new layout are released. An invalid layout changes nothing and
+	 * fires OnRelayError.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetLayout(const FPhoneWandLayout& Layout, const FString& Id = TEXT(""));
+
+	/** Go back to the default layout (Primary and Secondary buttons), on one phone or every phone when Id is empty. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void ResetLayout(const FString& Id = TEXT(""));
+
+	/**
+	 * Change a control's value on a phone (or every phone when Id is empty): a toggle's Bool, a
+	 * slider's Number (0 to 1), a choice's option index (Number) or a label's Text. Every app then
+	 * gets OnControlChanged. A value that doesn't fit the control fires OnRelayError.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetControl(const FString& ControlId, const FPhoneWandControlValue& Value, const FString& Id = TEXT(""));
+
+	/** Turn a toggle on or off. Empty Id means every phone. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetControlBool(const FString& ControlId, bool bValue, const FString& Id = TEXT(""));
+
+	/** Move a slider (0 to 1). Empty Id means every phone. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetControlNumber(const FString& ControlId, double Value, const FString& Id = TEXT(""));
+
+	/** Pick a choice's option by index. Empty Id means every phone. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetControlChoice(const FString& ControlId, int32 Index, const FString& Id = TEXT(""));
+
+	/** Change a label's text. Empty Id means every phone. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Layouts")
+	void SetControlText(const FString& ControlId, const FString& Text, const FString& Id = TEXT(""));
+
 	// ------------------------------------------------------------------ events (Blueprint)
 
 	/** The relay said hello. Players already present follow as OnPlayerJoined. */
@@ -213,7 +263,7 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
 	FPhoneWandPoseEvent OnPose;
 
-	/** A button went down or up. Every down is followed by an up. */
+	/** A button went down or up: "primary" or "secondary" by default, or a button id from your layout. Every down is followed by an up. */
 	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
 	FPhoneWandButtonEvent OnButton;
 
@@ -229,6 +279,20 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
 	FPhoneWandStatsEvent OnStats;
 
+	/**
+	 * A toggle, slider, choice or label changed, on the phone or because an app set it. The
+	 * player's Controls already hold the new value.
+	 */
+	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
+	FPhoneWandControlEvent OnControlChanged;
+
+	/**
+	 * The relay couldn't use something this app sent (an invalid layout, a value that doesn't fit a
+	 * control); the message says why. When nothing is bound, it is logged as a warning.
+	 */
+	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
+	FPhoneWandErrorEvent OnRelayError;
+
 	// ------------------------------------------------------------------ events (C++)
 
 	FPhoneWandConnectedNative OnConnectedNative;
@@ -241,6 +305,8 @@ public:
 	FPhoneWandCalibratingNative OnCalibratingNative;
 	FPhoneWandCalibratedNative OnCalibratedNative;
 	FPhoneWandStatsNative OnStatsNative;
+	FPhoneWandControlNative OnControlChangedNative;
+	FPhoneWandErrorNative OnRelayErrorNative;
 
 	// ------------------------------------------------------------------ message handling
 
@@ -259,6 +325,13 @@ public:
 	 * relay had said hello. Used internally when the socket closes; public for replays and tests.
 	 */
 	void HandleConnectionLost();
+
+	/**
+	 * C++: send messages to the relay through this function instead of the socket (each is one JSON
+	 * object as a string). For tests, and for driving the client over another transport. An unbound
+	 * function goes back to the socket.
+	 */
+	void SetSendOverride(TFunction<void(const FString&)> Send) { SendOverride = MoveTemp(Send); }
 
 private:
 	void OpenSocket();
@@ -307,4 +380,5 @@ private:
 	bool bHasHello = false;
 	FPhoneWandHello Hello;
 	TMap<FString, FPhoneWandPlayer> Players;
+	TFunction<void(const FString&)> SendOverride;
 };

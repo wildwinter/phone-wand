@@ -77,4 +77,73 @@ public:
 	/** Protocol name of a calibration ("none", "ray", "screen"). */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand", meta = (DisplayName = "To String (Calibration)", CompactNodeTitle = "->", BlueprintAutocast))
 	static FString CalibrationToString(EPhoneWandCalibration Calibration);
+
+	// ------------------------------------------------------------------ buttons and layouts
+
+	/** "primary": the default layout's big button. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FString PrimaryButton() { return PhoneWand::PrimaryButton; }
+
+	/** "secondary": the default layout's smaller button. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FString SecondaryButton() { return PhoneWand::SecondaryButton; }
+
+	/** A button. Presses arrive as On Button with this id. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeButton(const FString& Id, const FString& Label = TEXT(""));
+
+	/** A toggle: on or off. Changes arrive as On Control Changed with a Bool value. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeToggle(const FString& Id, const FString& Label = TEXT(""), bool bValue = false);
+
+	/**
+	 * A slider, 0 to 1. With bSpring it returns to Spring when let go (a throttle). Changes arrive
+	 * as On Control Changed with a Number value, about 30 times a second while dragging.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (AdvancedDisplay = "bVertical,bSpring,Spring"))
+	static FPhoneWandControl MakeSlider(const FString& Id, const FString& Label = TEXT(""), double Value = 0.0, bool bVertical = false, bool bSpring = false, double Spring = 0.0);
+
+	/** A choice of 2 to 4 options. Changes arrive as On Control Changed with the option index. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeChoice(const FString& Id, const TArray<FString>& Options, const FString& Label = TEXT(""), int32 Index = 0);
+
+	/** A label showing text, such as a score. Change it with Set Control Text. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeLabel(const FString& Id, const FString& Label = TEXT(""), const FString& Text = TEXT(""));
+
+	/** The same control drawn in a colour of its own instead of the player's. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl WithColour(const FPhoneWandControl& Control, FLinearColor Colour);
+
+	/** A layout: a template plus its controls, in order. Send it with Set Layout. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandLayout MakeLayout(EPhoneWandTemplate Template, const TArray<FPhoneWandControl>& Controls);
+
+	/** The layout phones show until an app sends one: Primary Secondary with buttons "primary" and "secondary". */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandLayout DefaultLayout() { return PhoneWand::DefaultLayout(); }
+
+	/** A layout as the JSON the relay receives, for logs and debugging. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FString LayoutToJson(const FPhoneWandLayout& Layout);
+
+	/** Protocol name of a template ("primary", "primary-secondary", "pair", "primary-row", "grid"). */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (DisplayName = "To String (Template)", CompactNodeTitle = "->", BlueprintAutocast))
+	static FString TemplateToString(EPhoneWandTemplate Template) { return PhoneWand::ToString(Template); }
+
+	/** A Bool control value, for Set Control. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControlValue MakeControlBool(bool bValue) { return FPhoneWandControlValue::MakeBool(bValue); }
+
+	/** A Number control value (a slider's 0 to 1, or a choice's option index), for Set Control. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControlValue MakeControlNumber(double Number) { return FPhoneWandControlValue::MakeNumber(Number); }
+
+	/** A Text control value (a label's text), for Set Control. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControlValue MakeControlText(const FString& Text) { return FPhoneWandControlValue::MakeText(Text); }
+
+	/** A control value as text: "true", "0.8", "2" or the label's text; empty for None. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (DisplayName = "To String (Control Value)", CompactNodeTitle = "->", BlueprintAutocast))
+	static FString ControlValueToString(const FPhoneWandControlValue& Value) { return Value.ToString(); }
 };

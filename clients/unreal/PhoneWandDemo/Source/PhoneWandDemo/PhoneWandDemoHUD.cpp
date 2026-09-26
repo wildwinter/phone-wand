@@ -8,6 +8,8 @@
 #include "Engine/Font.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Texture2D.h"
+#include "GameFramework/PlayerController.h"
+#include "InputCoreTypes.h"
 #include "HttpModule.h"
 #include "ImageUtils.h"
 #include "Interfaces/IHttpRequest.h"
@@ -24,6 +26,40 @@ namespace
 	constexpr double RippleSeconds = 0.6;
 	constexpr float EdgeMargin = 36.0f;
 	const FLinearColor Panel(0.0f, 0.0f, 0.0f, 0.55f);
+	constexpr double LastChangeSeconds = 2.5;
+
+	// The sample layouts L cycles through. Index 0 is the default (Primary and Secondary).
+	constexpr int32 SampleLayoutCount = 3;
+
+	FString SampleLayoutName(int32 Index)
+	{
+		switch (Index)
+		{
+		case 1: return TEXT("primary-row: Fire, Zoom toggle, label");
+		case 2: return TEXT("grid: every kind of control");
+		default: return TEXT("default: Primary and Secondary");
+		}
+	}
+
+	FPhoneWandLayout SampleLayout(int32 Index)
+	{
+		if (Index == 1)
+		{
+			return UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::PrimaryRow, {
+				UPhoneWandLibrary::MakeButton(TEXT("fire"), TEXT("Fire")),
+				UPhoneWandLibrary::MakeToggle(TEXT("zoom"), TEXT("Zoom")),
+				UPhoneWandLibrary::MakeLabel(TEXT("info"), TEXT("Layout"), TEXT("primary-row")),
+			});
+		}
+		return UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::Grid, {
+			UPhoneWandLibrary::MakeButton(TEXT("fire"), TEXT("Fire")),
+			UPhoneWandLibrary::MakeToggle(TEXT("shield"), TEXT("Shield")),
+			UPhoneWandLibrary::MakeSlider(TEXT("power"), TEXT("Power"), 0.25),
+			UPhoneWandLibrary::MakeSlider(TEXT("throttle"), TEXT("Throttle"), 0.5, /*bVertical*/ true, /*bSpring*/ true, 0.5),
+			UPhoneWandLibrary::MakeChoice(TEXT("weapon"), { TEXT("Bow"), TEXT("Sling"), TEXT("Net") }, TEXT("Weapon"), 0),
+			UPhoneWandLibrary::MakeLabel(TEXT("score"), TEXT("Score"), TEXT("0")),
+		});
+	}
 
 	// True for a player who still has to do something before they get a cursor.
 	bool IsWaiting(const FPhoneWandPlayer& Player)
@@ -53,6 +89,8 @@ void APhoneWandDemoHUD::BeginPlay()
 	Wand = Subsystem;
 	ConnectedHandle = Subsystem->OnConnectedNative.AddUObject(this, &APhoneWandDemoHUD::OnConnected);
 	ButtonHandle = Subsystem->OnButtonNative.AddUObject(this, &APhoneWandDemoHUD::OnButton);
+	ControlHandle = Subsystem->OnControlChangedNative.AddUObject(this, &APhoneWandDemoHUD::OnControlChanged);
+	ErrorHandle = Subsystem->OnRelayErrorNative.AddUObject(this, &APhoneWandDemoHUD::OnRelayError);
 	if (Subsystem->IsConnected())
 	{
 		OnConnected(Subsystem->GetHello());
@@ -65,6 +103,8 @@ void APhoneWandDemoHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		Subsystem->OnConnectedNative.Remove(ConnectedHandle);
 		Subsystem->OnButtonNative.Remove(ButtonHandle);
+		Subsystem->OnControlChangedNative.Remove(ControlHandle);
+		Subsystem->OnRelayErrorNative.Remove(ErrorHandle);
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -79,10 +119,65 @@ void APhoneWandDemoHUD::OnConnected(const FPhoneWandHello& Hello)
 
 void APhoneWandDemoHUD::OnButton(const FPhoneWandPlayer& Player, const FString& Button, bool bDown)
 {
-	if (bDown && Button == TEXT("primary") && Player.bHasPose && Player.Pose.bHasScreen)
+	// Any button: "primary" by default, or "fire" in the sample layouts.
+	if (bDown && Player.bHasPose && Player.Pose.bHasScreen)
 	{
 		Ripples.Add({ Player.Pose.Screen, Player.LinearColour, FPlatformTime::Seconds() });
 	}
+}
+
+void APhoneWandDemoHUD::OnControlChanged(const FPhoneWandPlayer& Player, const FString& ControlId, const FPhoneWandControlValue& Value)
+{
+	FString Shown = Value.ToString();
+	if (Value.Type == EPhoneWandValueType::Number)
+	{
+		// A choice shows its option's name; a slider two decimals.
+		const FPhoneWandControl* Control = Player.Layout.FindControl(ControlId);
+		Shown = Control && Control->Type == EPhoneWandControlType::Choice && Control->Options.IsValidIndex(Value.Index)
+			? Control->Options[Value.Index] : FString::Printf(TEXT("%.2f"), Value.Number);
+	}
+	LastChange = FString::Printf(TEXT("%s: %s = %s"), *Player.Name, *ControlId, *Shown);
+	LastChangeColour = Player.LinearColour;
+	LastChangeAt = FPlatformTime::Seconds();
+}
+
+void APhoneWandDemoHUD::OnRelayError(const FString& Message)
+{
+	LastChange = TEXT("Relay: ") + Message;
+	LastChangeColour = FLinearColor::Red;
+	LastChangeAt = FPlatformTime::Seconds();
+}
+
+void APhoneWandDemoHUD::UpdateLayoutKey(UPhoneWandSubsystem* Subsystem)
+{
+	APlayerController* PC = GetOwningPlayerController();
+	if (!Subsystem || !PC || !PC->WasInputKeyJustPressed(EKeys::L))
+	{
+		return;
+	}
+	LayoutIndex = (LayoutIndex + 1) % SampleLayoutCount;
+	if (LayoutIndex == 0)
+	{
+		Subsystem->ResetLayout();
+	}
+	else
+	{
+		Subsystem->SetLayout(SampleLayout(LayoutIndex));
+	}
+}
+
+void APhoneWandDemoHUD::DrawLastChange()
+{
+	const double Age = FPlatformTime::Seconds() - LastChangeAt;
+	if (LastChange.IsEmpty() || Age > LastChangeSeconds)
+	{
+		return;
+	}
+	UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;
+	const float Scale = 1.3f;
+	float W = 0.0f, H = 0.0f;
+	GetTextSize(LastChange, W, H, Font, Scale);
+	DrawLabel(LastChange, FVector2D((Canvas->SizeX - W) * 0.5f, 24.0f), LastChangeColour, Scale);
 }
 
 void APhoneWandDemoHUD::FetchQrCode(const FString& Url)
@@ -112,8 +207,10 @@ void APhoneWandDemoHUD::DrawHUD()
 	}
 	UpdateAutoScreenshot();
 	UPhoneWandSubsystem* Subsystem = Wand.Get();
+	UpdateLayoutKey(Subsystem);
 	DrawStatus(Subsystem);
 	DrawRipples();
+	DrawLastChange();
 	if (!Subsystem)
 	{
 		return;
@@ -160,6 +257,8 @@ void APhoneWandDemoHUD::DrawStatus(UPhoneWandSubsystem* Subsystem)
 	DrawLabel(FString::Printf(TEXT("Join: %s"), *Hello.JoinUrl), At, FLinearColor::White);
 	At.Y += 24.0f;
 	DrawLabel(FString::Printf(TEXT("%d of %d players"), Subsystem->GetPlayerCount(), Hello.MaxPlayers), At, FLinearColor(0.8f, 0.8f, 0.8f));
+	At.Y += 24.0f;
+	DrawLabel(FString::Printf(TEXT("L: phone layout (%s)"), *SampleLayoutName(LayoutIndex)), At, FLinearColor(0.8f, 0.8f, 0.8f));
 
 	// Player list, bottom left.
 	const TArray<FPhoneWandPlayer> Players = Subsystem->GetPlayers();
@@ -224,7 +323,7 @@ void APhoneWandDemoHUD::DrawCursor(const FPhoneWandPlayer& Player)
 	const FVector2D At = UPhoneWandLibrary::ScreenToPixels(Pose.Screen, Size);
 	Canvas->K2_DrawPolygon(nullptr, At, FVector2D(CursorRadius + 3.0f), 32, FLinearColor(0.0f, 0.0f, 0.0f, Colour.A));
 	Canvas->K2_DrawPolygon(nullptr, At, FVector2D(CursorRadius), 32, Colour);
-	if (Player.IsButtonHeld(TEXT("primary")))
+	if (Player.Buttons.Num() > 0)
 	{
 		DrawRing(At, CursorRadius + 8.0f, Colour, 3.0f);
 	}

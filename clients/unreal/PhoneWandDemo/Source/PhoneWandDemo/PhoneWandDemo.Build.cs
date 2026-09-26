@@ -19,6 +19,7 @@ public class PhoneWandDemo : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"HTTP",
+			"InputCore",
 		});
 	}
 }
