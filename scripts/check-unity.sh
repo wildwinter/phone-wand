@@ -14,6 +14,11 @@
 #                                          ws://127.0.0.1:8480/app) for 3 seconds and require a
 #                                          hello, joins and poses. Start the relay with simulated
 #                                          players first:  bun run sim
+#   scripts/check-unity.sh --managed-relay [folder]
+#                                          also check Start Relay: the client must start the relay
+#                                          from a phone-wand-relay folder (default dist/embed, made by
+#                                          bun scripts/dist.ts --only=relay,embed), connect, and stop
+#                                          it again. PHONEWAND_RELAY_DIR=<folder> does the same.
 #   UNITY_PATH=/path/to/Unity scripts/check-unity.sh
 set -e
 
@@ -25,14 +30,19 @@ staged="$project/Assets/Samples"
 
 live=""
 live_url="ws://127.0.0.1:8480/app"
+managed="${PHONEWAND_RELAY_DIR:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --live)
       live=1
       if [ -n "${2:-}" ] && [ "${2#-}" = "$2" ]; then live_url="$2"; shift; fi
       ;;
+    --managed-relay)
+      managed="$root/dist/embed"
+      if [ -n "${2:-}" ] && [ "${2#-}" = "$2" ]; then managed="$2"; shift; fi
+      ;;
     -h|--help)
-      sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -63,7 +73,16 @@ touch "$stamp"
 # Unity ignores folders ending in ~, so the sample is invisible where it lives. Copy it into the
 # demo for the run (with its .meta files, so the scene's script references resolve) and remove it,
 # and the .meta Unity writes beside it, afterwards.
-cleanup() { rm -rf "$staged" "$staged.meta" "$unity_tmp"; }
+relay_dest="$project/Assets/StreamingAssets/phone-wand-relay"
+relay_staged=""
+cleanup() {
+  rm -rf "$staged" "$staged.meta" "$unity_tmp"
+  # Only remove relay binaries this script put there; a developer's own copy stays.
+  if [ -n "$relay_staged" ]; then
+    rm -rf "$relay_dest" "$relay_dest.meta"
+    rmdir "$project/Assets/StreamingAssets" 2>/dev/null && rm -f "$project/Assets/StreamingAssets.meta" || true
+  fi
+}
 trap cleanup EXIT
 rm -rf "$staged" "$staged.meta"
 mkdir -p "$staged"
@@ -143,6 +162,29 @@ if [ -n "$live" ]; then
     exit 1
   fi
   echo "check-unity: live check passed."
+fi
+
+if [ -n "$managed" ]; then
+  if [ ! -d "$managed" ]; then
+    echo "check-unity: no relay folder at $managed. Build one with: bun scripts/dist.ts --only=relay,embed" >&2
+    exit 1
+  fi
+  if [ ! -d "$relay_dest" ]; then
+    mkdir -p "$(dirname "$relay_dest")"
+    cp -R "$managed" "$relay_dest"
+    relay_staged=1
+  fi
+  log="$logdir/managed.log"
+  echo "check-unity: Start Relay check, with the relay from $relay_dest"
+  status=0
+  run_unity "$log" -executeMethod PhoneWandChecks.ManagedRelay -phoneWandUrl ws://127.0.0.1:23480/app \
+    -phoneWandRelayArgs "--port 23443 --no-landing --data-dir $unity_tmp/relay-data" || status=$?
+  grep "^PhoneWandChecks: " "$log" | sed 's/^/  /'
+  if [ "$status" -ne 0 ] || ! grep -q "PhoneWandChecks: managed relay PASS" "$log"; then
+    echo "check-unity: the Start Relay check failed. See: $log" >&2
+    exit 1
+  fi
+  echo "check-unity: Start Relay check passed."
 fi
 
 rm -rf "$logdir"

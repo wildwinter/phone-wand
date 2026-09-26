@@ -372,11 +372,19 @@ The package is tested three ways. See [Testing](../testing.md) for the conforman
   player join and at least one pose. Pass a URL after `--live` for a relay on another port, for
   example `scripts/check-unity.sh --live ws://127.0.0.1:19480/app`.
 
-- **Start Relay.** With the relay binaries in the demo project's
-  `Assets/StreamingAssets/phone-wand-relay/`, `PhoneWandChecks.ManagedRelay` checks the whole cycle
-  in batch mode. With no relay on the URL's port, the client must start one, get its hello, and
-  stop it again (status.json no longer answers and the process has gone). With a relay already
-  running there, it must start none and leave that one running.
+- **Start Relay.** `PhoneWandChecks.ManagedRelay` checks the whole cycle in batch mode. With no
+  relay on the URL's port, the client must start one, get its hello, and stop it again
+  (status.json no longer answers and the process has gone). With a relay already running there, it
+  must start none and leave that one running. The easiest way to run it:
+
+  ```
+  bun scripts/dist.ts --only=relay,embed     # builds dist/embed
+  scripts/check-unity.sh --managed-relay     # or --managed-relay <folder>
+  ```
+
+  The script puts the relay in the demo's `Assets/StreamingAssets/phone-wand-relay/` for the run
+  (unless you already keep one there) and removes it afterwards. By hand, with the binaries in
+  place:
 
   ```
   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \

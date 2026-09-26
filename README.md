@@ -80,12 +80,14 @@ To ship a game that starts the relay itself, hidden, so players never see it, se
 - [Protocol](docs/protocol.md): the messages, for writing your own client
 - [Testing](docs/testing.md): simulated players, recording and replay, the conformance suite
 - [Development](docs/development.md): building from source and releasing
+- [Roadmap](docs/roadmap.md): what's planned, testing still to do, and known limitations
 - [Changelog](CHANGELOG.md)
 
 ## Status
 
 Phone Wand is new. The protocol is version 0 and may change before 1.0. Testing on real phones
-(iPhone, iPad and Android) and on Windows is under way. Please report problems in
+(iPhone, iPad and Android) and on Windows is under way; the [roadmap](docs/roadmap.md) says what's
+tested, what's planned and what's known to be missing. Please report problems in
 [the issues](https://github.com/wildwinter/phone-wand/issues).
 
 ## Licence

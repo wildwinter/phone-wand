@@ -40,7 +40,7 @@ four client libraries in step. See [conformance/README.md](../conformance/README
 | Relay and JavaScript client | `bun run test` |
 | Conformance files are current | `bun scripts/conformance.ts --check` |
 | Unity (C# core, no editor needed) | `dotnet run --project clients/unity/TestHost` |
-| Unity (editor compile and live check) | `scripts/check-unity.sh` |
+| Unity (editor compile and live check) | `scripts/check-unity.sh` (add `--live` and `--managed-relay`) |
 | Godot | `godot --headless --path clients/godot --script res://test/test_conformance.gd` |
 | Unreal (build and automation tests) | `scripts/check-unreal.sh` |
 

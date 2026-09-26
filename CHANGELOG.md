@@ -7,6 +7,11 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- `docs/roadmap.md`: planned features, testing still to do, and known limitations.
+- `scripts/check-unity.sh --managed-relay` checks Start Relay from start to stop.
+
 ## [0.3.0] - 2026-09-26
 
 ### Added
@@ -113,6 +118,6 @@ The first release.
 
 ### Known limitations
 
-- Tested so far with an iPhone (Safari and Chrome) against a Mac. Android phones, Windows and Linux
+- Tested so far with an iPhone (Chrome) against a Mac. Safari, Android phones, Windows and Linux
   relays, Unity WebGL builds and Unreal on Windows have not been tested yet.
 - Gestures (flick and shake), custom button layouts and OSC output are planned but not yet built.

@@ -58,7 +58,8 @@ change. Update the documentation in `docs/` in the same commit too.
 ## Releasing
 
 1. Make sure `CHANGELOG.md` has notes under `## [Unreleased]`, committed and pushed.
-2. Run the engine checks that CI can't: `scripts/check-unity.sh` and `scripts/check-unreal.sh`.
+2. Run the engine checks that CI can't: `bun scripts/dist.ts --only=relay,embed`, then
+   `scripts/check-unity.sh --managed-relay` and `PHONEWAND_RELAY_DIR=dist/embed scripts/check-unreal.sh`.
 3. Run:
 
    ```bash
