@@ -8,7 +8,9 @@ extends Control
 ##   have no screen position until they have calibrated once, or while they are calibrating).
 ## - The join QR code (loaded from the relay as a PNG) and the join URL as text.
 ##
-## Uses the PhoneWand autoload when the plugin is enabled, or makes its own client if not.
+## Uses the PhoneWand autoload when the plugin is enabled, or makes its own client if not. With the
+## phone_wand/start_relay project setting on (as in this project), the client starts the relay
+## from res://phone-wand-relay itself when none is running.
 
 const CURSOR_RADIUS := 18.0
 const RIPPLE_TIME := 0.6
@@ -36,6 +38,8 @@ func _ready() -> void:
 		wand = PhoneWandClient.new()
 		wand.name = "PhoneWandClient"
 		wand.url = relay_url
+		# Like the autoload, start the relay when the phone_wand/start_relay project setting is on.
+		wand.start_relay = bool(ProjectSettings.get_setting("phone_wand/start_relay", false))
 		add_child(wand)
 	wand.connected.connect(_on_connected)
 	wand.disconnected.connect(_on_disconnected)
@@ -109,7 +113,10 @@ func _on_button(player: PhoneWandPlayer, button_name: String, down: bool) -> voi
 
 func _update_status() -> void:
 	if not wand.is_relay_connected():
-		_status_label.text = "Waiting for the Phone Wand relay at %s\nStart it with: phone-wand --simulate 3" % wand.url
+		if wand.is_relay_started():
+			_status_label.text = "Starting the Phone Wand relay at %s" % wand.url
+		else:
+			_status_label.text = "Waiting for the Phone Wand relay at %s\nStart it with: phone-wand --simulate 3" % wand.url
 		_qr_panel.visible = false
 		return
 	var count := wand.players.size()

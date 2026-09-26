@@ -1,0 +1,3 @@
+# Relay binaries kept here for running the demo with start_relay (see docs/shipping.md).
+# Never commit them: each is about 100 MB.
+phone-wand-relay/

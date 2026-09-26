@@ -56,7 +56,7 @@ const _HANDSHAKE_TIMEOUT_MS := 5000
 		if value == url:
 			return
 		url = value
-		if _wanted:
+		if _wanted and _relay_http == null:
 			_drop_socket()
 			_retry_ms = _RETRY_START_MS
 			_open_socket()
@@ -64,6 +64,24 @@ const _HANDSHAKE_TIMEOUT_MS := 5000
 @export var auto_connect: bool = true
 ## Reconnect automatically, with backoff from 0.5 to 5 seconds, when the relay goes away.
 @export var reconnect: bool = true
+
+@export_group("Managed relay")
+## Start the Phone Wand relay program from this game, hidden, unless one is already running, and
+## stop it when this client goes. Only for a url on this computer, in desktop builds. Set it before
+## the client connects (the PhoneWand autoload also reads the phone_wand/start_relay project
+## setting). See docs/shipping.md.
+@export var start_relay: bool = false:
+	set(value):
+		start_relay = value
+		# Turned on after connect_to_relay (for example in the main scene's _ready, after the
+		# autoload's): check for a relay now, if the client hasn't connected yet.
+		if value and _wanted and not _relay_checked and hello.is_empty():
+			_begin_relay_check()
+## The phone-wand-relay folder (holding macos, windows-x64, ...) or the relay executable itself.
+## Empty: res://phone-wand-relay in the editor, or phone-wand-relay beside the exported executable.
+@export var relay_path: String = ""
+## Extra relay options, for example ["--max-players", "8"].
+@export var relay_arguments: PackedStringArray = PackedStringArray()
 
 ## Players by id.
 var players: Dictionary = {}
@@ -80,6 +98,19 @@ var _attempt_started_ms := 0
 var _smoothing: Variant = null
 var _smoothing_set := false
 
+# Managed relay (start_relay). _relay_checked: the check has run (or been skipped) for this client.
+var _relay_checked := false
+var _relay_http: HTTPClient = null
+var _relay_check_deadline_ms := 0
+var _relay_check_body := PackedByteArray()
+var _relay_port := 0
+var _relay_pid := -1
+# The relay's standard input: the lifeline. Kept referenced while the relay runs; closing it stops
+# the relay (--lifeline), and it closes by itself if this process ends in any way.
+var _relay_stdio: FileAccess = null
+var _relay_stderr: FileAccess = null
+static var _relay_platform_noted := false
+
 
 func _init() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -90,6 +121,11 @@ func _ready() -> void:
 		var override := url_override()
 		if override != "":
 			url = override
+	if _is_autoload():
+		if not start_relay and bool(ProjectSettings.get_setting("phone_wand/start_relay", false)):
+			start_relay = true
+		if relay_path == "":
+			relay_path = str(ProjectSettings.get_setting("phone_wand/relay_path", ""))
 	if auto_connect:
 		connect_to_relay()
 
@@ -113,8 +149,11 @@ func _process(_delta: float) -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_PREDELETE and _ws != null:
-		_ws.close()
+	if what == NOTIFICATION_PREDELETE:
+		if _ws != null:
+			_ws.close()
+		# Freed, including when the game quits: stop the relay if this client started it.
+		stop_relay()
 
 
 # ---------------------------------------------------------------- connection
@@ -124,15 +163,24 @@ func connect_to_relay(relay_url: String = "") -> void:
 	if relay_url != "":
 		url = relay_url
 	_wanted = true
-	if _ws == null:
+	if start_relay and not _relay_checked:
+		_begin_relay_check()
+		return
+	if _ws == null and _relay_http == null:
 		_next_attempt_ms = 0
 		_open_socket()
 
 
 ## Closes the connection and stops reconnecting. Fires player_left and disconnected as usual.
+## A relay this client started keeps running until the client is freed (or stop_relay()).
 func disconnect_from_relay() -> void:
 	_wanted = false
 	_next_attempt_ms = 0
+	if _relay_http != null:
+		# Still asking whether a relay is running: give up, and check again on the next connect.
+		_relay_http.close()
+		_relay_http = null
+		_relay_checked = false
 	if _ws != null:
 		_drop_socket()
 
@@ -182,6 +230,9 @@ func get_qr_url(size: int = 0) -> String:
 ## processing.
 func poll() -> void:
 	var now := Time.get_ticks_msec()
+	if _relay_http != null:
+		_poll_relay_check(now)
+		return
 	if _ws == null:
 		if _wanted and reconnect and _next_attempt_ms > 0 and now >= _next_attempt_ms:
 			_open_socket()
@@ -249,6 +300,209 @@ func _schedule_reconnect() -> void:
 func _send(msg: Dictionary) -> void:
 	if _ws != null and _open and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		_ws.send_text(JSON.stringify(msg))
+
+
+# ---------------------------------------------------------------- managed relay
+
+## True while a relay that this client started is running.
+func is_relay_started() -> bool:
+	return _relay_pid >= 0 and OS.is_process_running(_relay_pid)
+
+
+## The process id of the relay this client started, or -1.
+func get_relay_pid() -> int:
+	return _relay_pid
+
+
+## Stops the relay if this client started it: closes its standard input (so it stops cleanly),
+## waits up to two seconds, then ends the process. Called when the client is freed. Never stops a
+## relay the client didn't start.
+func stop_relay() -> void:
+	if _relay_pid < 0:
+		return
+	var pid := _relay_pid
+	_relay_pid = -1
+	if _relay_stdio != null:
+		_relay_stdio.close()
+		_relay_stdio = null
+	if _relay_stderr != null:
+		_relay_stderr.close()
+		_relay_stderr = null
+	var deadline := Time.get_ticks_msec() + 2000
+	while OS.is_process_running(pid) and Time.get_ticks_msec() < deadline:
+		OS.delay_msec(20)
+	if OS.is_process_running(pid):
+		OS.kill(pid)
+
+
+## The relay executable start_relay would run: relay_path if it names a file, otherwise
+## <folder>/<platform>/phone-wand-relay (.exe on Windows). "" if this platform has no relay build.
+func relay_executable() -> String:
+	var path := relay_path
+	if path == "":
+		if OS.has_feature("editor"):
+			path = ProjectSettings.globalize_path("res://phone-wand-relay")
+		else:
+			path = OS.get_executable_path().get_base_dir().path_join("phone-wand-relay")
+	elif path.begins_with("res://") or path.begins_with("user://"):
+		path = ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(path):
+		return path
+	var platform := relay_platform()
+	if platform == "":
+		return ""
+	var exe := "phone-wand-relay.exe" if OS.get_name() == "Windows" else "phone-wand-relay"
+	return path.path_join(platform).path_join(exe)
+
+
+## The folder name for this computer inside phone-wand-relay/ (macos, windows-x64, linux-x64 or
+## linux-arm64), or "" if the relay isn't built for it.
+static func relay_platform() -> String:
+	var arch := Engine.get_architecture_name()
+	match OS.get_name():
+		"macOS":
+			return "macos"
+		"Windows":
+			return "windows-x64" if arch == "x86_64" else ""
+		"Linux":
+			if arch == "x86_64":
+				return "linux-x64"
+			if arch == "arm64":
+				return "linux-arm64"
+	return ""
+
+
+# The app port if url is a relay on this computer (127.0.0.1, localhost or [::1]), otherwise -1.
+static func _local_app_port(relay_url: String) -> int:
+	var rest := relay_url
+	var scheme_end := rest.find("://")
+	if scheme_end >= 0:
+		rest = rest.substr(scheme_end + 3)
+	rest = rest.get_slice("/", 0).get_slice("?", 0).get_slice("#", 0)
+	if rest.contains("@"):
+		rest = rest.substr(rest.rfind("@") + 1)
+	var host := rest
+	var port_text := ""
+	if rest.begins_with("["):
+		var close := rest.find("]")
+		if close < 0:
+			return -1
+		host = rest.substr(0, close + 1)
+		if rest.substr(close + 1).begins_with(":"):
+			port_text = rest.substr(close + 2)
+	elif rest.contains(":"):
+		host = rest.get_slice(":", 0)
+		port_text = rest.get_slice(":", 1)
+	if not ["127.0.0.1", "localhost", "[::1]"].has(host.to_lower()):
+		return -1
+	if port_text.is_valid_int() and int(port_text) > 0:
+		return int(port_text)
+	return 8480
+
+
+func _is_autoload() -> bool:
+	if not is_inside_tree():
+		return false
+	return get_parent() == get_tree().root and ProjectSettings.has_setting("autoload/" + String(name))
+
+
+# Starts asking http://127.0.0.1:<port>/status.json whether a relay is running; poll() carries on
+# from there, starts one if nobody answers, then opens the socket.
+func _begin_relay_check() -> void:
+	_relay_checked = true
+	if OS.has_feature("web") or OS.has_feature("mobile"):
+		if not _relay_platform_noted:
+			_relay_platform_noted = true
+			print("phone-wand: start_relay is ignored on this platform; start the relay separately.")
+		_connect_after_relay_check()
+		return
+	_relay_port = _local_app_port(url)
+	if _relay_port < 0:
+		_connect_after_relay_check()
+		return
+	if _ws != null:
+		# Not connected yet (no hello), so nothing to announce: wait for the check instead.
+		_ws.close()
+		_ws = null
+		_open = false
+	_relay_http = HTTPClient.new()
+	_relay_check_body = PackedByteArray()
+	_relay_check_deadline_ms = Time.get_ticks_msec() + 1000
+	if _relay_http.connect_to_host("127.0.0.1", _relay_port) != OK:
+		_finish_relay_check(false)
+
+
+func _poll_relay_check(now: int) -> void:
+	var http := _relay_http
+	http.poll()
+	match http.get_status():
+		HTTPClient.STATUS_CONNECTED:
+			if http.has_response():
+				_finish_relay_check(_is_relay_status(_relay_check_body))
+				return
+			if http.request(HTTPClient.METHOD_GET, "/status.json", ["Accept: application/json"]) != OK:
+				_finish_relay_check(false)
+				return
+		HTTPClient.STATUS_BODY:
+			var chunk := http.read_response_body_chunk()
+			_relay_check_body.append_array(chunk)
+			if http.get_status() != HTTPClient.STATUS_BODY:
+				_finish_relay_check(_is_relay_status(_relay_check_body))
+				return
+		HTTPClient.STATUS_RESOLVING, HTTPClient.STATUS_CONNECTING, HTTPClient.STATUS_REQUESTING:
+			pass
+		_:
+			# Can't connect, connection error or disconnected: nothing is listening.
+			_finish_relay_check(_is_relay_status(_relay_check_body))
+			return
+	if now > _relay_check_deadline_ms:
+		_finish_relay_check(false)
+
+
+static func _is_relay_status(body: PackedByteArray) -> bool:
+	if body.is_empty():
+		return false
+	var status: Variant = JSON.parse_string(body.get_string_from_utf8())
+	return status is Dictionary and status.get("relay") is String
+
+
+func _finish_relay_check(relay_answered: bool) -> void:
+	if _relay_http != null:
+		_relay_http.close()
+		_relay_http = null
+	if not relay_answered:
+		_launch_relay()
+	_connect_after_relay_check()
+
+
+func _connect_after_relay_check() -> void:
+	if _wanted and _ws == null:
+		_next_attempt_ms = 0
+		_retry_ms = _RETRY_START_MS
+		_open_socket()
+
+
+func _launch_relay() -> void:
+	var exe := relay_executable()
+	if exe == "":
+		push_warning("phone-wand: start_relay is on, but the relay isn't built for %s %s. See docs/shipping.md." % [OS.get_name(), Engine.get_architecture_name()])
+		return
+	if not FileAccess.file_exists(exe):
+		push_warning("phone-wand: start_relay is on, but there is no relay at %s. Put the phone-wand-relay folder there, or set relay_path. See docs/shipping.md." % exe)
+		return
+	if OS.get_name() != "Windows":
+		OS.execute("chmod", ["+x", exe])  # Failures don't matter: it may already be executable.
+	var log_file := ProjectSettings.globalize_path("user://phone-wand-relay.log")
+	var args := PackedStringArray(["--lifeline", "--no-open", "--app-port", str(_relay_port), "--log", log_file])
+	args.append_array(relay_arguments)
+	var info := OS.execute_with_pipe(exe, args, false)
+	if info.is_empty() or int(info.get("pid", -1)) < 0:
+		push_warning("phone-wand: the relay at %s could not start." % exe)
+		return
+	_relay_stdio = info.get("stdio")
+	_relay_stderr = info.get("stderr")
+	_relay_pid = int(info["pid"])
+	print("phone-wand: started the relay (process %d); its log is %s" % [_relay_pid, log_file])
 
 
 # ---------------------------------------------------------------- app to relay

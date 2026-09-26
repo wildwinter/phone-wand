@@ -24,6 +24,10 @@ window/size/viewport_height=720
 
 enabled=PackedStringArray("res://addons/phone_wand/plugin.cfg")
 
+[phone_wand]
+
+start_relay=true
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

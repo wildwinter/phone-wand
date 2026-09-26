@@ -92,6 +92,9 @@ Properties:
 | `url: String` | The relay's app endpoint. Default `ws://127.0.0.1:8480/app`. Setting it while connected reconnects to the new address. |
 | `auto_connect: bool` | Connect when the node is ready. Default `true`. |
 | `reconnect: bool` | Reconnect when the relay goes away, waiting 0.5 s, then 1, 2, 4 and at most 5 s between tries. Default `true`. |
+| `start_relay: bool` | Start the relay program from your game, hidden, if none is running, and stop it when the client goes. Default `false`. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
+| `relay_path: String` | The `phone-wand-relay` folder, or the relay executable itself. Empty (the default) means `res://phone-wand-relay` in the editor, and `phone-wand-relay` beside the exported executable. |
+| `relay_arguments: PackedStringArray` | Extra relay options, for example `["--max-players", "8"]`. |
 | `players: Dictionary` | Players by id (`String` to `PhoneWandPlayer`). |
 | `hello: Dictionary` | The relay's hello: `protocol`, `relay` (its version), `joinUrl`, `qrUrl`, `maxPlayers`. Empty when not connected. |
 
@@ -135,6 +138,11 @@ Methods:
 | `handle_message(json_text)` / `handle(msg)` | Processes one relay message. The client calls these itself; they are public so tests can replay recorded sessions. |
 | `poll()` | Services the connection. Called from `_process`; you only need it if you turn the node's processing off. |
 | `url_override() -> String` (static) | The relay URL given at launch, if any (see below). |
+| `is_relay_started() -> bool` | True while a relay that this client started is running. |
+| `get_relay_pid() -> int` | The process id of the relay this client started, or `-1`. |
+| `stop_relay()` | Stops the relay if this client started it. The client does this itself when it is freed (including when the game quits). |
+| `relay_executable() -> String` | The relay program `start_relay` would run. |
+| `relay_platform() -> String` (static) | `macos`, `windows-x64`, `linux-x64` or `linux-arm64` for this computer, or `""`. |
 
 Smoothing settings and the other app-to-relay messages are only sent while connected. Smoothing is
 remembered and sent again after every reconnect; the others are not queued.
@@ -234,6 +242,71 @@ It uses the `PhoneWand` autoload when the plugin is enabled, and creates its own
 For accurate cursors, run the demo full screen and have players use **Calibrate screen** on their
 phones.
 
+## Starting the relay from your game
+
+When you ship a game, you probably don't want players to start the relay themselves. Turn on
+`start_relay` and the client starts the relay for you, hidden (no window, terminal or browser), when
+it connects, and stops it when it goes. The whole scheme, the same in every client library, is in
+[Shipping the relay with your game](../shipping.md).
+
+1. Download `phone-wand-relay-<version>-embed.zip` from the
+   [releases page](https://github.com/wildwinter/phone-wand/releases), the same version as the
+   addon. It holds a `phone-wand-relay` folder with one subfolder per platform (`macos`,
+   `windows-x64`, `linux-x64`, `linux-arm64`). Leave out the platforms you don't ship.
+2. For running in the editor, put the folder at `res://phone-wand-relay/`, so the macOS relay is
+   `res://phone-wand-relay/macos/phone-wand-relay`. Don't commit it to version control: each binary
+   is about 100 MB.
+3. Turn it on. Either tick **Phone Wand > Start Relay** in **Project > Project Settings** (the
+   `phone_wand/start_relay` setting, there while the plugin is enabled), which the `PhoneWand`
+   autoload reads when it starts, or set it in code before the client connects:
+
+   ```gdscript
+   func _ready() -> void:
+       PhoneWand.relay_arguments = ["--max-players", "8"]
+       PhoneWand.start_relay = true   # checks for a relay, starts one if needed, then connects
+   ```
+
+   Setting `start_relay` in your first scene's `_ready` is early enough: the autoload doesn't count
+   as connected until the relay's hello arrives. For a `PhoneWandClient` you create yourself, set it
+   before adding the node to the tree (or before `connect_to_relay()`).
+
+What happens then:
+
+- Only if the client's `url` is on this computer (`127.0.0.1`, `localhost` or `[::1]`).
+- The client asks `http://127.0.0.1:<port>/status.json` first (for up to a second). If a relay
+  answers, for example the Phone Wand app you started while developing, it just uses that one, and
+  never stops it.
+- Otherwise it runs `phone-wand-relay/<platform>/phone-wand-relay` (`.exe` on Windows) with
+  `--lifeline --no-open --app-port <the url's port> --log <log file>` and your `relay_arguments`.
+  The relay's standard input is a pipe the game holds open: when the client is freed (or the game
+  quits), it closes the pipe, which stops the relay, and ends the process if it hasn't gone within
+  two seconds. If the game crashes, the pipe closes anyway and the relay stops by itself.
+- The relay writes its output to `user://phone-wand-relay.log`.
+- If the relay program isn't there, a warning says where the client looked, and it carries on
+  trying to connect as usual.
+- In web and mobile exports `start_relay` does nothing (it prints once that it is ignored): run the
+  relay separately there.
+
+`disconnect_from_relay()` does not stop a relay the client started; freeing the client does, or
+call `stop_relay()`.
+
+### Exporting
+
+Godot can't run a program packed inside a `.pck`, so the relay has to sit beside the exported game:
+
+- Exclude it from the pack: in the export preset's **Resources** tab, add `phone-wand-relay/*` to
+  **Filters to exclude files/folders from project**. Otherwise the 100 MB binaries are packed
+  into the `.pck`, where they are no use.
+- Copy the `phone-wand-relay` folder next to the exported executable, for example
+  `MyGame.exe` and `phone-wand-relay/windows-x64/phone-wand-relay.exe` side by side. On macOS, put
+  it inside the app bundle, in `MyGame.app/Contents/MacOS/phone-wand-relay/macos/phone-wand-relay`.
+- Or put it somewhere else and set `relay_path` (or the `phone_wand/relay_path` project setting) to
+  the folder or to the executable.
+
+If you sign and notarize your macOS game, sign the relay inside it with the relay's entitlements
+first: see [Signing on macOS](../shipping.md#signing-on-macos). For Windows, see
+[Windows](../shipping.md#windows) about the firewall prompt.
+
 ## Web exports
 
 The addon uses `WebSocketPeer` and `HTTPRequest`, which Godot implements with the browser's own
@@ -282,7 +355,8 @@ default address.
 
 **Nothing happens, and `is_relay_connected()` stays false.** Check the relay is running and note the
 app port it prints (8480 unless you changed it with `--app-port`). The client retries every few
-seconds, so you can start the relay after the game.
+seconds, so you can start the relay after the game. With `start_relay` on, look for a warning about
+where the client looked for the relay, and at `user://phone-wand-relay.log`.
 
 **"Unable to set TCP no delay option" warnings in the output.** Godot prints this on macOS and
 Linux each time a connection attempt fails, which happens every few seconds while the relay is not
@@ -339,3 +413,15 @@ godot --headless --path clients/godot --script res://test/test_conformance.gd
   ```
 
   `run_tests.sh` runs it too when `RELAY_URL` is set.
+- `managed_relay_check.gd` checks `start_relay` against real relays, on ports you choose. With the
+  relay binary at `clients/godot/phone-wand-relay/macos/phone-wand-relay` (ignored by git) and
+  nothing on the ports:
+
+  ```sh
+  godot --headless --path clients/godot --script res://test/managed_relay_check.gd -- start 24480 24443 /tmp/pw-data
+  ```
+
+  starts the relay, connects, frees the client and checks the relay has gone. Mode `existing`
+  (with a relay already running on the app port) checks the client uses it and leaves it running;
+  `quit` quits with the client still in the tree; `missing` checks the warning when there is no
+  relay to start.
