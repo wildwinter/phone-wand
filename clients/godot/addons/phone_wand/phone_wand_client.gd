@@ -49,6 +49,13 @@ signal calibrating(player: PhoneWandPlayer, step: String)
 signal calibrated(player: PhoneWandPlayer, calibration: String)
 ## Connection statistics for the player arrived (once a second). See player.rtt, rate, dropped.
 signal stats(player: PhoneWandPlayer)
+## The player moved the phone deliberately (see docs/gestures.md). gesture holds:
+## "gesture" (String: push, pull, left, right, up, down, shake, twist-left or twist-right),
+## "strength" (float, 0 to 1), "speed" (float, peak m/s, 0 for twists), "dir" (Vector3, unit
+## direction of the movement in Godot's frame, zero for shakes and twists), "duration" (float, ms),
+## "t" (float, relay time it started) and "buttons" (PackedStringArray, button ids held when it
+## started, sorted). "Hold primary and pull" is gesture == "pull" and buttons.has("primary").
+signal gesture(player: PhoneWandPlayer, gesture: Dictionary)
 
 const VERSION := "0.1.0"
 const PROTOCOL_VERSION := 0
@@ -91,6 +98,28 @@ const _HANDSHAKE_TIMEOUT_MS := 5000
 ## Extra relay options, for example ["--max-players", "8"].
 @export var relay_arguments: PackedStringArray = PackedStringArray()
 
+@export_group("Gestures")
+## Send gesture signals. Off: the relay sends this app no gestures. See docs/gestures.md.
+@export var gestures_enabled: bool = true:
+	set(value):
+		gestures_enabled = value
+		_send_gestures()
+## Acceleration in m/s² that starts a movement. Lower is more sensitive.
+@export_range(1.0, 30.0, 0.1, "or_greater") var gesture_threshold: float = 7.0:
+	set(value):
+		gesture_threshold = value
+		_send_gestures()
+## Peak speed in m/s a movement must reach.
+@export_range(0.0, 3.0, 0.01, "or_greater") var gesture_min_speed: float = 0.35:
+	set(value):
+		gesture_min_speed = value
+		_send_gestures()
+## Roll rate in degrees per second that makes a twist.
+@export_range(30.0, 1440.0, 1.0, "or_greater") var gesture_twist_rate: float = 360.0:
+	set(value):
+		gesture_twist_rate = value
+		_send_gestures()
+
 ## Players by id.
 var players: Dictionary = {}
 ## The relay's hello (without "players"), or empty when not connected.
@@ -105,6 +134,8 @@ var _attempt_started_ms := 0
 # null: the relay's default. false: raw. Dictionary: One Euro settings.
 var _smoothing: Variant = null
 var _smoothing_set := false
+# True while configure_gestures sets several settings, so they go in one message.
+var _gestures_batch := false
 
 # Managed relay (start_relay). _relay_checked: the check has run (or been skipped) for this client.
 var _relay_checked := false
@@ -251,8 +282,10 @@ func poll() -> void:
 		if not _open:
 			_open = true
 			_retry_ms = _RETRY_START_MS
+			var configure := {"type": "configure", "gestures": _gesture_settings()}
 			if _smoothing_set:
-				_send({"type": "configure", "smoothing": _smoothing})
+				configure["smoothing"] = _smoothing
+			_send(configure)
 		while _ws != null and _ws.get_available_packet_count() > 0:
 			var packet := _ws.get_packet()
 			if _ws.was_string_packet():
@@ -530,6 +563,38 @@ func set_raw() -> void:
 	_send({"type": "configure", "smoothing": false})
 
 
+## Sets this app's gesture sensitivity (see docs/gestures.md): threshold is the acceleration in
+## m/s² that starts a movement (lower is more sensitive), min_speed the peak speed in m/s a movement
+## must reach, and twist_rate the roll rate in degrees per second that makes a twist. Turns gestures
+## on. The same as setting gesture_threshold, gesture_min_speed and gesture_twist_rate, and sent
+## again after reconnecting.
+func configure_gestures(threshold: float = 7.0, min_speed: float = 0.35, twist_rate: float = 360.0) -> void:
+	_gestures_batch = true
+	gesture_threshold = threshold
+	gesture_min_speed = min_speed
+	gesture_twist_rate = twist_rate
+	gestures_enabled = true
+	_gestures_batch = false
+	_send_gestures()
+
+
+## Turns gesture signals on or off for this app. Remembered across reconnects.
+func set_gestures_enabled(enabled: bool) -> void:
+	gestures_enabled = enabled
+
+
+# The configure message's gestures value: the settings, or false.
+func _gesture_settings() -> Variant:
+	if not gestures_enabled:
+		return false
+	return {"threshold": gesture_threshold, "minSpeed": gesture_min_speed, "twistRate": gesture_twist_rate}
+
+
+func _send_gestures() -> void:
+	if not _gestures_batch:
+		_send({"type": "configure", "gestures": _gesture_settings()})
+
+
 ## Changes a player's colour (a Color or "#rrggbb") and/or label. Pass null to leave one alone.
 func style(id: String, colour: Variant = null, label: Variant = null) -> void:
 	var msg := {"type": "style", "id": id}
@@ -713,6 +778,30 @@ func handle(msg: Dictionary) -> void:
 				return
 			p.apply_stats(msg)
 			stats.emit(p)
+		"gesture":
+			var p := _known(msg)
+			if p == null:
+				return
+			gesture.emit(p, _gesture_event(msg))
+
+
+# A gesture message as the gesture signal's Dictionary, with dir in Godot's frame.
+static func _gesture_event(msg: Dictionary) -> Dictionary:
+	var held := PackedStringArray()
+	var list: Variant = msg.get("buttons")
+	if list is Array:
+		for b in list:
+			held.append(str(b))
+	held.sort()
+	return {
+		"gesture": str(msg.get("gesture", "")),
+		"strength": float(msg.get("strength", 0.0)),
+		"speed": float(msg.get("speed", 0.0)),
+		"dir": PhoneWandFrames.dir_to_godot(msg.get("dir")),
+		"duration": float(msg.get("duration", 0.0)),
+		"t": float(msg.get("t", 0.0)),
+		"buttons": held,
+	}
 
 
 func _known(msg: Dictionary) -> PhoneWandPlayer:

@@ -1,6 +1,6 @@
 // Keeps a PhoneWandCore connected to a relay: opens a transport, reconnects with backoff
-// (0.5 s doubling to 5 s, as the JavaScript client does), re-sends the smoothing setting on every
-// connect, and hands received messages to the core. Nothing happens between calls to Pump(), so
+// (0.5 s doubling to 5 s, as the JavaScript client does), re-sends the smoothing and gesture
+// settings on every connect, and hands received messages to the core. Nothing happens between calls to Pump(), so
 // all events fire on the thread that calls Pump (Unity's main thread, from Update).
 
 using System;
@@ -43,6 +43,22 @@ namespace StoryTools.PhoneWand
             }
         }
         Smoothing smoothing;
+
+        /// <summary>
+        /// Gesture sensitivity sent to the relay each time the connection opens
+        /// (GestureSensitivity.Off for no gesture events). Null (the default) keeps the relay's
+        /// default. Setting it while connected sends it straight away.
+        /// </summary>
+        public GestureSensitivity Gestures
+        {
+            get { return gestures; }
+            set
+            {
+                gestures = value;
+                if (value != null && transportOpen) Core.Configure(value);
+            }
+        }
+        GestureSensitivity gestures;
 
         /// <summary>Makes the transport for each connection attempt. Default: ClientWebSocketTransport.</summary>
         public Func<ITransport> TransportFactory { get; set; } = () => new ClientWebSocketTransport();
@@ -102,7 +118,7 @@ namespace StoryTools.PhoneWand
                     case TransportEventKind.Opened:
                         transportOpen = true;
                         retryDelay = FirstRetry;
-                        if (smoothing != null) Core.Configure(smoothing);
+                        Core.Configure(smoothing, gestures);
                         break;
                     case TransportEventKind.Message:
                         Core.Handle(e.Text);

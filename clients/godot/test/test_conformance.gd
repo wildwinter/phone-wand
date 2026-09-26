@@ -33,6 +33,7 @@ func _initialize() -> void:
 		_run_session(dir, str(session_name))
 	_check_conversions(dir)
 	_check_value_types()
+	_check_gestures()
 	_finish()
 
 
@@ -81,6 +82,9 @@ func _run_session(dir: String, session_name: String) -> void:
 		_log.append("control %s %s" % [p.id, c]))
 	# error fires nothing in the log; connecting keeps the warnings out of the output.
 	client.relay_error.connect(func(_message: String) -> void: pass)
+	client.gesture.connect(func(p: PhoneWandPlayer, g: Dictionary) -> void:
+		var held: PackedStringArray = g["buttons"]
+		_log.append("gesture %s %s buttons=%s" % [p.id, g["gesture"], ",".join(held) if held.size() > 0 else "-"]))
 	client.calibrating.connect(func(p: PhoneWandPlayer, step: String) -> void:
 		_log.append("calibrating %s %s" % [p.id, step]))
 	client.calibrated.connect(func(p: PhoneWandPlayer, calibration: String) -> void:
@@ -249,6 +253,57 @@ func _check_value_types() -> void:
 	client.free()
 	var verdict := "ok" if _failures == before else "FAILED"
 	print("  control value types: %d checks, %s" % [checks.size() + 1, verdict])
+
+
+# ---------------------------------------------------------------- gestures
+
+# The gesture signal's Dictionary, accel on poses, and what the client sends in configure.
+func _check_gestures() -> void:
+	var before := _failures
+	var client := PhoneWandClient.new()
+	client.auto_connect = false
+	client.reconnect = false
+	var player := {"id": "p1", "slot": 0, "name": "A", "colour": "#ff4d6d", "label": "", "state": "active",
+		"calibration": "ray", "device": {}}
+	client.handle_message(JSON.stringify({"type": "join", "player": player}))
+	var got := []
+	client.gesture.connect(func(p: PhoneWandPlayer, g: Dictionary) -> void: got.append([p, g]))
+	client.handle_message('{"type":"gesture","id":"p1","gesture":"pull","strength":0.62,"speed":1.55,"dir":[0.05,-0.1,-0.99],"duration":240,"t":1000.5,"buttons":["secondary","primary"]}')
+	client.handle_message('{"type":"gesture","id":"nobody","gesture":"push","strength":1,"speed":1,"dir":[0,0,1],"duration":200,"t":1,"buttons":[]}')
+	client.handle_message('{"type":"pose","id":"p1","seq":1,"t":5,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null,"accel":[1,2,3]}')
+	var p := client.get_player("p1")
+	var accel_after_first := p.accel
+	var has_accel_first := p.has_accel
+	client.handle_message('{"type":"pose","id":"p1","seq":2,"t":6,"q":[0,0,0,1],"yaw":0,"pitch":0,"roll":0,"dir":[0,0,1],"screen":null}')
+	var g: Dictionary = got[0][1] if got.size() > 0 else {}
+	var checks := [
+		[got.size(), 1],
+		[got[0][0] == p if got.size() > 0 else false, true],
+		[g.get("gesture"), "pull"],
+		[g.get("buttons"), PackedStringArray(["primary", "secondary"])],
+		[g.get("dir", Vector3.ZERO).is_equal_approx(Vector3(0.05, -0.1, 0.99)), true],
+		[is_equal_approx(g.get("strength", 0.0), 0.62), true],
+		[is_equal_approx(g.get("speed", 0.0), 1.55), true],
+		[is_equal_approx(g.get("duration", 0.0), 240.0), true],
+		[is_equal_approx(g.get("t", 0.0), 1000.5), true],
+		[has_accel_first, true],
+		[accel_after_first.is_equal_approx(Vector3(1, 2, -3)), true],
+		[p.has_accel, false],
+		[p.accel, Vector3.ZERO],
+		[JSON.stringify(client._gesture_settings()), '{"minSpeed":0.35,"threshold":7.0,"twistRate":360.0}'],
+	]
+	client.configure_gestures(9.0, 0.5, 400.0)
+	checks.append([JSON.stringify(client._gesture_settings()), '{"minSpeed":0.5,"threshold":9.0,"twistRate":400.0}'])
+	client.set_gestures_enabled(false)
+	checks.append([client._gesture_settings(), false])
+	client.configure_gestures()
+	checks.append([client.gestures_enabled, true])
+	for i in checks.size():
+		if checks[i][0] != checks[i][1]:
+			_fail("gestures[%d]: expected %s, got %s" % [i, str(checks[i][1]), str(checks[i][0])])
+	client.free()
+	var verdict := "ok" if _failures == before else "FAILED"
+	print("  gestures and accel: %d checks, %s" % [checks.size(), verdict])
 
 
 # ---------------------------------------------------------------- conversions

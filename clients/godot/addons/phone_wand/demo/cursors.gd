@@ -9,6 +9,8 @@ extends Control
 ## - The join QR code (loaded from the relay as a PNG) and the join URL as text.
 ## - L cycles every phone through sample layouts (the default, primary-row with a toggle and a
 ##   label, and a grid with every kind of control); the latest control change shows at the top.
+## - Each gesture (a flick, shake or twist of the phone) shows briefly at the top in the player's
+##   colour, with any buttons held, such as "Kit: pull + primary".
 ##
 ## Uses the PhoneWand autoload when the plugin is enabled, or makes its own client if not. With the
 ## phone_wand/start_relay project setting on (as in this project), the client starts the relay
@@ -19,7 +21,7 @@ const RIPPLE_TIME := 0.6
 const EDGE_MARGIN := 28.0
 ## Space kept clear below the waiting list for the status line.
 const WAITING_BOTTOM := 48.0
-## How long the latest control change (or relay error) stays at the top of the window.
+## How long the latest control change, gesture (or relay error) stays at the top of the window.
 const NOTICE_TIME := 2.5
 
 ## The relay to use when this scene makes its own client (no PhoneWand autoload).
@@ -56,6 +58,7 @@ func _ready() -> void:
 	wand.player_left.connect(_on_players_changed.unbind(1))
 	wand.button.connect(_on_button)
 	wand.control_changed.connect(_on_control_changed)
+	wand.gesture.connect(_on_gesture)
 	wand.relay_error.connect(_on_relay_error)
 	_layouts = _sample_layouts()
 	_qr_request = HTTPRequest.new()
@@ -142,6 +145,14 @@ func _on_button(player: PhoneWandPlayer, button_name: String, down: bool) -> voi
 
 func _on_control_changed(player: PhoneWandPlayer, control: String, value: Variant) -> void:
 	_show_notice("%s: %s = %s" % [player.name, control, JSON.stringify(value)], player.colour)
+
+
+func _on_gesture(player: PhoneWandPlayer, gesture: Dictionary) -> void:
+	var text := "%s: %s" % [player.name, gesture["gesture"]]
+	var held: PackedStringArray = gesture["buttons"]
+	if not held.is_empty():
+		text += " + " + " + ".join(held)
+	_show_notice(text, player.colour)
 
 
 func _on_relay_error(message: String) -> void:

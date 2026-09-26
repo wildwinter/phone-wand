@@ -87,6 +87,12 @@ var screen: Vector2 = Vector2.ZERO
 var rig_q: Array = [0.0, 0.0, 0.0, 1.0]
 ## The pose's direction as sent, in the rig frame [right, up, forward].
 var rig_dir: Array = [0.0, 0.0, 1.0]
+## True when the last pose carried the phone's acceleration (phones send it unless motion access
+## was refused).
+var has_accel: bool = false
+## The phone's acceleration in m/s², gravity removed, in Godot's frame (x right, y up, -z forward).
+## Unsmoothed. Vector3.ZERO when has_accel is false. See docs/gestures.md ("Raw motion").
+var accel: Vector3 = Vector3.ZERO
 ## The last pose message as received (without "type"), or empty.
 var pose: Dictionary = {}
 
@@ -200,6 +206,9 @@ func apply_pose(msg: Dictionary) -> void:
 	rig_dir = d.duplicate() if d is Array else [0.0, 0.0, 1.0]
 	rotation = PhoneWandFrames.quat_to_godot(rig_q)
 	dir = PhoneWandFrames.dir_to_godot(rig_dir)
+	var a: Variant = msg.get("accel")
+	has_accel = a is Array and a.size() >= 3
+	accel = PhoneWandFrames.dir_to_godot(a) if has_accel else Vector3.ZERO
 	var s: Variant = msg.get("screen")
 	if s is Array and s.size() >= 2:
 		has_screen = true

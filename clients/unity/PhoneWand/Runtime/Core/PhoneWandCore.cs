@@ -62,6 +62,11 @@ namespace StoryTools.PhoneWand
         /// </summary>
         public event Action<ControlEvent, Player> ControlChanged;
         /// <summary>
+        /// The player moved the phone deliberately: a push, pull, sideways or vertical flick, shake
+        /// or twist. See docs/gestures.md.
+        /// </summary>
+        public event Action<GestureEvent, Player> Gesture;
+        /// <summary>
         /// The relay could not use something this app sent (a bad layout or value); the message says
         /// why. With no listener, the message goes to UnhandledError instead.
         /// </summary>
@@ -113,6 +118,26 @@ namespace StoryTools.PhoneWand
         {
             if (smoothing == null) throw new ArgumentNullException(nameof(smoothing));
             Send(new Dictionary<string, object> { { "type", "configure" }, { "smoothing", smoothing.ToJsonValue() } });
+        }
+
+        /// <summary>Set this app's gesture sensitivity. GestureSensitivity.Off for no gesture events.</summary>
+        public void Configure(GestureSensitivity gestures)
+        {
+            if (gestures == null) throw new ArgumentNullException(nameof(gestures));
+            Send(new Dictionary<string, object> { { "type", "configure" }, { "gestures", gestures.ToJsonValue() } });
+        }
+
+        /// <summary>
+        /// Set smoothing and gesture sensitivity in one message. A null argument leaves that setting
+        /// as it is; with both null nothing is sent.
+        /// </summary>
+        public void Configure(Smoothing smoothing, GestureSensitivity gestures)
+        {
+            if (smoothing == null && gestures == null) return;
+            var msg = new Dictionary<string, object> { { "type", "configure" } };
+            if (smoothing != null) msg["smoothing"] = smoothing.ToJsonValue();
+            if (gestures != null) msg["gestures"] = gestures.ToJsonValue();
+            Send(msg);
         }
 
         /// <summary>Change a player's colour ("#rrggbb") and/or label. Null leaves a field unchanged.</summary>
@@ -300,6 +325,24 @@ namespace StoryTools.PhoneWand
                     Emit(ControlChanged, new ControlEvent(p.Id, control, value), p);
                     break;
                 }
+                case "gesture":
+                {
+                    var p = GetPlayer(Str(msg, "id"));
+                    if (p == null) break;
+                    var gesture = Str(msg, "gesture");
+                    if (gesture == null) break;
+                    var dir = Get(msg, "dir") as List<object>;
+                    var held = new List<string>();
+                    var list = Get(msg, "buttons") as List<object>;
+                    if (list != null)
+                        foreach (var b in list)
+                            if (b is string s) held.Add(s);
+                    held.Sort(StringComparer.Ordinal);
+                    var e = new GestureEvent(p.Id, gesture, Num(msg, "strength"), Num(msg, "speed"),
+                        new RigVector3(At(dir, 0), At(dir, 1), At(dir, 2)), Num(msg, "duration"), Num(msg, "t"), held);
+                    Emit(Gesture, e, p);
+                    break;
+                }
                 case "error":
                 {
                     var message = Get(msg, "message");
@@ -409,6 +452,7 @@ namespace StoryTools.PhoneWand
             var q = Get(msg, "q") as List<object>;
             var dir = Get(msg, "dir") as List<object>;
             var screen = Get(msg, "screen") as List<object>;
+            var accel = Get(msg, "accel") as List<object>;
             return new PlayerPose(
                 id,
                 (long)Num(msg, "seq"),
@@ -418,7 +462,8 @@ namespace StoryTools.PhoneWand
                 Num(msg, "pitch"),
                 Num(msg, "roll"),
                 new RigVector3(At(dir, 0), At(dir, 1), dir == null ? 1 : At(dir, 2)),
-                screen != null && screen.Count >= 2 ? new ScreenPoint(At(screen, 0), At(screen, 1)) : (ScreenPoint?)null);
+                screen != null && screen.Count >= 2 ? new ScreenPoint(At(screen, 0), At(screen, 1)) : (ScreenPoint?)null,
+                accel != null && accel.Count >= 3 ? new RigVector3(At(accel, 0), At(accel, 1), At(accel, 2)) : (RigVector3?)null);
         }
 
         // ------------------------------------------------------------------ helpers

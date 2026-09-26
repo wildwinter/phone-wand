@@ -63,6 +63,10 @@ namespace StoryTools.PhoneWand.TestHost
             Console.WriteLine((layoutFailures.Count == 0 ? "pass  " : "FAIL  ") + "layout and set messages");
             failures.AddRange(layoutFailures.Select(f => "layout messages: " + f));
 
+            var gestureFailures = CheckGestureMessages();
+            Console.WriteLine((gestureFailures.Count == 0 ? "pass  " : "FAIL  ") + "gesture and configure messages");
+            failures.AddRange(gestureFailures.Select(f => "gesture messages: " + f));
+
             var relayFailures = CheckManagedRelay();
             Console.WriteLine((relayFailures.Count == 0 ? "pass  " : "FAIL  ") + "managed relay helpers");
             failures.AddRange(relayFailures.Select(f => "managed relay: " + f));
@@ -111,6 +115,8 @@ namespace StoryTools.PhoneWand.TestHost
             core.Pose += (pose, p) => events.Add("pose " + pose.Id + " seq=" + pose.Seq + " screen=" + (pose.Screen.HasValue ? "yes" : "no"));
             core.Button += (e, p) => events.Add("button " + e.Id + " " + e.Button + " " + (e.Down ? "down" : "up"));
             core.ControlChanged += (e, p) => events.Add("control " + e.Id + " " + e.Control);
+            core.Gesture += (g, p) => events.Add("gesture " + g.Id + " " + g.Gesture + " buttons=" +
+                (g.Buttons.Count == 0 ? "-" : string.Join(",", g.Buttons)));
             // error fires nothing in the log, but must reach a listener rather than the console.
             core.Error += message => { };
             core.UnhandledError = message => failures.Add("error reached UnhandledError despite a listener: " + message);
@@ -350,6 +356,101 @@ namespace StoryTools.PhoneWand.TestHost
             return failures;
         }
 
+        // What Configure sends for gestures, that the connection re-sends both settings on connect,
+        // and how gesture and accel fields are read.
+        static List<string> CheckGestureMessages()
+        {
+            var failures = new List<string>();
+            void Expect(string what, object want, object got)
+            {
+                if (!Equals(want, got)) failures.Add(what + ": expected " + Show(want) + ", got " + Show(got));
+            }
+            var core = new PhoneWandCore();
+            var sent = new List<string>();
+            core.Sender = sent.Add;
+            string Last() => sent.Count > 0 ? sent[sent.Count - 1] : null;
+
+            core.Configure(new GestureSensitivity(9));
+            Expect("Configure gestures", "{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.35,\"twistRate\":360}}", Last());
+            core.Configure(new GestureSensitivity { Threshold = 5 });
+            Expect("Configure gestures partial", "{\"type\":\"configure\",\"gestures\":{\"threshold\":5}}", Last());
+            core.Configure(GestureSensitivity.Off);
+            Expect("Configure gestures off", "{\"type\":\"configure\",\"gestures\":false}", Last());
+            core.Configure(Smoothing.Off, GestureSensitivity.Default);
+            Expect("Configure both", "{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":7,\"minSpeed\":0.35,\"twistRate\":360}}", Last());
+            int before = sent.Count;
+            core.Configure(null, null);
+            Expect("Configure neither sends nothing", before, sent.Count);
+
+            // The connection sends both settings when it opens, in one message.
+            var transport = new FakeTransport();
+            var connection = new PhoneWandConnection("ws://fake/app") { TransportFactory = () => transport };
+            connection.Smoothing = new Smoothing(1, 5, 1);
+            connection.Gestures = GestureSensitivity.Off;
+            Expect("nothing sent before open", 0, transport.Sent.Count);
+            connection.Connect();
+            transport.Accept();
+            connection.Pump();
+            Expect("configure on open", "{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1,\"beta\":5,\"dCutoff\":1},\"gestures\":false}",
+                transport.Sent.Count == 1 ? transport.Sent[0] : Show(transport.Sent.Cast<object>().ToList()));
+            connection.Gestures = new GestureSensitivity(8, 0.4, 300);
+            Expect("configure while open", "{\"type\":\"configure\",\"gestures\":{\"threshold\":8,\"minSpeed\":0.4,\"twistRate\":300}}",
+                transport.Sent.Count == 2 ? transport.Sent[1] : null);
+            connection.Close();
+
+            // gesture for a known player fires with every field; for an unknown one, nothing.
+            var heard = new List<GestureEvent>();
+            core.Gesture += (g, p) => heard.Add(g);
+            core.Handle("{\"type\":\"gesture\",\"id\":\"p9\",\"gesture\":\"push\",\"strength\":1,\"speed\":1,\"dir\":[0,0,1],\"duration\":1,\"t\":1,\"buttons\":[]}");
+            Expect("gesture unknown player", 0, heard.Count);
+            core.Handle("{\"type\":\"join\",\"player\":{\"id\":\"p1\",\"slot\":0,\"name\":\"A\",\"state\":\"active\"}}");
+            core.Handle("{\"type\":\"gesture\",\"id\":\"p1\",\"gesture\":\"pull\",\"strength\":0.62,\"speed\":1.55," +
+                "\"dir\":[0.05,-0.1,-0.99],\"duration\":240,\"t\":1790300000123.4,\"buttons\":[\"secondary\",\"primary\"]}");
+            Expect("gesture heard", 1, heard.Count);
+            if (heard.Count == 1)
+            {
+                var g = heard[0];
+                Expect("gesture Id", "p1", g.Id);
+                Expect("gesture Gesture", GestureName.Pull, g.Gesture);
+                Expect("gesture Is", true, g.Is(GestureName.Pull));
+                Expect("gesture Strength", 0.62, g.Strength);
+                Expect("gesture Speed", 1.55, g.Speed);
+                Expect("gesture Dir", new RigVector3(0.05, -0.1, -0.99), g.Dir);
+                Expect("gesture Duration", 240.0, g.Duration);
+                Expect("gesture T", 1790300000123.4, g.T);
+                Expect("gesture Buttons", "primary,secondary", string.Join(",", g.Buttons));
+                Expect("gesture WasHeld", true, g.WasHeld(PhoneButton.Primary));
+                Expect("gesture WasHeld other", false, g.WasHeld("fire"));
+            }
+            string[] names = { GestureName.Push, GestureName.Pull, GestureName.Left, GestureName.Right, GestureName.Up,
+                GestureName.Down, GestureName.Shake, GestureName.TwistLeft, GestureName.TwistRight };
+            Expect("gesture names", "push pull left right up down shake twist-left twist-right", string.Join(" ", names));
+
+            // accel on a pose, and its absence.
+            core.Handle("{\"type\":\"pose\",\"id\":\"p1\",\"seq\":1,\"t\":0,\"q\":[0,0,0,1],\"dir\":[0,0,1],\"screen\":null,\"accel\":[1.5,-2,3]}");
+            Expect("pose Accel", (RigVector3?)new RigVector3(1.5, -2, 3), core.GetPlayer("p1").Pose.Accel);
+            core.Handle("{\"type\":\"pose\",\"id\":\"p1\",\"seq\":2,\"t\":0,\"q\":[0,0,0,1],\"dir\":[0,0,1],\"screen\":null}");
+            Expect("pose no Accel", false, core.GetPlayer("p1").Pose.Accel.HasValue);
+            return failures;
+        }
+
+        // A transport the test drives by hand.
+        sealed class FakeTransport : ITransport
+        {
+            readonly Queue<TransportEvent> events = new Queue<TransportEvent>();
+            public readonly List<string> Sent = new List<string>();
+            public void Accept() => events.Enqueue(new TransportEvent(TransportEventKind.Opened));
+            public void Open(string url) { }
+            public void Send(string text) => Sent.Add(text);
+            public void Close() { }
+            public bool TryReceive(out TransportEvent e)
+            {
+                if (events.Count > 0) { e = events.Dequeue(); return true; }
+                e = default(TransportEvent);
+                return false;
+            }
+        }
+
         // The parts of ManagedRelay that need no relay: which URLs count, the port, the command
         // line, and what happens when there is nothing to start. The live test is PhoneWandChecks.ManagedRelay.
         static List<string> CheckManagedRelay()
@@ -414,10 +515,17 @@ namespace StoryTools.PhoneWand.TestHost
         {
             var connection = new PhoneWandConnection(url) { AutoReconnect = false };
             var core = connection.Core;
-            int hellos = 0, joins = 0, poses = 0, buttons = 0, stats = 0;
+            int hellos = 0, joins = 0, poses = 0, buttons = 0, stats = 0, gestures = 0, accels = 0;
             core.Connected += h => { hellos++; Console.WriteLine("hello: protocol " + h.Protocol + ", relay " + h.Relay + ", join " + h.JoinUrl); };
             core.PlayerJoined += p => { joins++; Console.WriteLine("join: " + p.Id + " " + p.Name + " slot " + p.Slot + " " + p.Colour); };
-            core.Pose += (pose, p) => poses++;
+            core.Pose += (pose, p) => { poses++; if (pose.Accel.HasValue) accels++; };
+            core.Gesture += (g, p) =>
+            {
+                gestures++;
+                Console.WriteLine("gesture: " + g.Id + " " + g.Gesture + " strength " + g.Strength.ToString("0.000", CultureInfo.InvariantCulture) +
+                    " speed " + g.Speed.ToString("0.000", CultureInfo.InvariantCulture) + " dir " + g.Dir + " duration " + g.Duration +
+                    " buttons [" + string.Join(",", g.Buttons) + "]");
+            };
             core.Button += (e, p) => buttons++;
             core.Stats += (s, p) => stats++;
             connection.Connect();
@@ -434,7 +542,8 @@ namespace StoryTools.PhoneWand.TestHost
                     (pose == null ? "none" : "seq " + pose.Seq + " screen " + (pose.Screen.HasValue ? pose.Screen.Value.ToString() : "null")));
             }
             connection.Close();
-            Console.WriteLine("hello=" + hellos + " joins=" + joins + " poses=" + poses + " buttons=" + buttons + " stats=" + stats);
+            Console.WriteLine("hello=" + hellos + " joins=" + joins + " poses=" + poses + " buttons=" + buttons + " stats=" + stats +
+                " gestures=" + gestures + " poses-with-accel=" + accels);
             bool ok = hellos > 0 && joins > 0 && poses > 0;
             Console.WriteLine(ok ? "LIVE PASS" : "LIVE FAIL");
             return ok ? 0 : 1;

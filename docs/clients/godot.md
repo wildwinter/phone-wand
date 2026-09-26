@@ -128,6 +128,49 @@ func _on_control(player: PhoneWandPlayer, control: String, value: Variant) -> vo
 The layout is a plain `Dictionary` in the [protocol's](../protocol.md#layouts) JSON shape, so you
 can also write it out by hand or load it from a JSON file.
 
+## Gestures
+
+Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
+The relay spots these movements and the client fires `gesture`; see [Gestures](../gestures.md) for
+what each one is and what works well.
+
+```gdscript
+func _ready() -> void:
+    PhoneWand.gesture.connect(_on_gesture)
+    PhoneWand.configure_gestures(9.0)   # needs a firmer flick than the default 7
+
+
+func _on_gesture(player: PhoneWandPlayer, gesture: Dictionary) -> void:
+    match gesture["gesture"]:
+        "pull":
+            if "primary" in gesture["buttons"]:
+                draw_bow(player, gesture["strength"])
+        "push":
+            throw_from(player, gesture["dir"] * gesture["speed"])   # dir is in Godot's frame
+        "shake":
+            shuffle(player)
+```
+
+The `gesture` Dictionary holds:
+
+| Key | Meaning |
+|---|---|
+| `gesture: String` | `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`, `"twist-left"` or `"twist-right"`. |
+| `strength: float` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
+| `speed: float` | Peak speed of the movement in m/s (0 for twists). |
+| `dir: Vector3` | Unit direction of the movement in Godot's frame (so a push is about `Vector3.FORWARD`); zero for shakes and twists. |
+| `duration: float` | How long it took, in milliseconds. |
+| `t: float` | Relay time it started. |
+| `buttons: PackedStringArray` | Button ids held when it started, sorted. |
+
+Sensitivity is set per app with the `gesture_threshold`, `gesture_min_speed`, `gesture_twist_rate`
+and `gestures_enabled` properties (in the inspector under Gestures), or with
+`configure_gestures(threshold, min_speed, twist_rate)` and `set_gestures_enabled(false)`. The
+client sends them when it connects and again after every reconnect.
+
+To recognise movements yourself, read `player.accel` on each pose: the phone's acceleration in
+m/s², gravity removed, in Godot's frame (`has_accel` is false if the phone didn't send it).
+
 ## API reference
 
 ### PhoneWandClient (the `PhoneWand` autoload)
@@ -142,6 +185,10 @@ Properties:
 | `start_relay: bool` | Start the relay program from your game, hidden, if none is running, and stop it when the client goes. Default `false`. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
 | `relay_path: String` | The `phone-wand-relay` folder, or the relay executable itself. Empty (the default) means `res://phone-wand-relay` in the editor, and `phone-wand-relay` beside the exported executable. |
 | `relay_arguments: PackedStringArray` | Extra relay options, for example `["--max-players", "8"]`. |
+| `gestures_enabled: bool` | Send this app `gesture` signals. Default `true`. See [Gestures](#gestures). |
+| `gesture_threshold: float` | Acceleration in m/s² that starts a movement; lower is more sensitive. Default `7.0`. |
+| `gesture_min_speed: float` | Peak speed in m/s a movement must reach. Default `0.35`. |
+| `gesture_twist_rate: float` | Roll rate in degrees per second that makes a twist. Default `360.0`. |
 | `players: Dictionary` | Players by id (`String` to `PhoneWandPlayer`). |
 | `hello: Dictionary` | The relay's hello: `protocol`, `relay` (its version), `joinUrl`, `qrUrl`, `maxPlayers`. Empty when not connected. |
 
@@ -163,6 +210,7 @@ Signals:
 | `calibrating(player, step: String)` | The player is being asked to point at a corner: `"top-left"`, `"bottom-right"`, or `"cancelled"`. |
 | `calibrated(player, calibration: String)` | The player pressed Recentre (`"ray"`) or finished two-corner calibration (`"screen"`). |
 | `stats(player)` | Once a second per player: see `rtt`, `rate` and `dropped`. |
+| `gesture(player, gesture: Dictionary)` | The player moved the phone deliberately: a flick, shake or twist. See [Gestures](#gestures) for the Dictionary's keys. |
 
 Every signal passes the same `PhoneWandPlayer` object for a given player, updated in place.
 
@@ -180,6 +228,8 @@ Methods:
 | `get_qr_url(size := 0) -> String` | A PNG QR code of the join URL, optionally at a size in pixels. |
 | `configure_smoothing(min_cutoff := 1.0, beta := 5.0, d_cutoff := 1.0)` | Sets the One Euro filter the relay applies to this app's poses. Lower `min_cutoff` is steadier when still; higher `beta` follows fast movement more closely. |
 | `set_raw()` | Turns smoothing off for this app. |
+| `configure_gestures(threshold := 7.0, min_speed := 0.35, twist_rate := 360.0)` | Sets this app's gesture sensitivity (the `gesture_*` properties) and turns gestures on. |
+| `set_gestures_enabled(enabled: bool)` | Turns `gesture` signals on or off for this app. |
 | `style(id, colour = null, label = null)` | Changes a player's colour (a `Color` or `"#rrggbb"`) and label, shown on their phone. Pass `null` to leave one unchanged. |
 | `prompt(text, id := "", duration := 3000)` | Shows text on a phone, or on every phone when `id` is empty. `duration` is in milliseconds; `0` keeps it up until the next prompt; empty text clears it. |
 | `haptic(pattern, id := "")` | Vibrates a phone (Android only: iPhones ignore it). `pattern` is an `int` or an array of milliseconds, alternating on and off. |
@@ -195,8 +245,8 @@ Methods:
 | `relay_executable() -> String` | The relay program `start_relay` would run. |
 | `relay_platform() -> String` (static) | `macos`, `windows-x64`, `linux-x64` or `linux-arm64` for this computer, or `""`. |
 
-Smoothing settings and the other app-to-relay messages are only sent while connected. Smoothing is
-remembered and sent again after every reconnect; the others are not queued.
+Smoothing settings and the other app-to-relay messages are only sent while connected. Smoothing and
+gesture settings are remembered and sent again after every reconnect; the others are not queued.
 
 The client keeps working while the scene tree is paused (its `process_mode` is `ALWAYS`).
 
@@ -233,6 +283,7 @@ not change them.
 | `dir: Vector3` | Unit pointing direction in Godot's frame. |
 | `rotation: Quaternion` | The phone's orientation in Godot's frame. |
 | `has_screen: bool`, `screen: Vector2` | Normalised screen position: `(0, 0)` top-left, `(1, 1)` bottom-right, outside 0..1 when pointing off the screen. `has_screen` is false when the phone points more than about 87 degrees away from forward. |
+| `has_accel: bool`, `accel: Vector3` | The phone's acceleration in m/s², gravity removed, in Godot's frame, unsmoothed. `has_accel` is false (and `accel` zero) when the pose didn't carry it, for example if motion access was refused. |
 | `rig_q`, `rig_dir: Array` | The pose's quaternion and direction exactly as the relay sent them, in the rig frame. |
 | `pose: Dictionary` | The last pose message as received. |
 | `has_stats`, `rtt`, `rate`, `dropped` | Round trip in milliseconds, poses per second, and samples lost in the last second. `stats` holds the whole message. |
@@ -310,6 +361,8 @@ in the addon so you can run it in your own project. It:
   `primary-row` with a toggle and an ammo label, and a `grid` with every kind of control). The
   most recent control change shows briefly at the top, and Shoot, Reload and Fire update the
   sample labels with `set_control`.
+- shows each gesture briefly at the top in the player's colour, with any held buttons (for
+  example "Kit: pull + primary").
 
 It uses the `PhoneWand` autoload when the plugin is enabled, and creates its own client otherwise.
 For accurate cursors, run the demo full screen and have players use **Calibrate screen** on their

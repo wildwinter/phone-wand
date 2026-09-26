@@ -174,9 +174,14 @@ namespace StoryTools.PhoneWand
         public RigVector3 Direction { get; }
         /// <summary>Normalised screen position, or null when pointing far away from the screen.</summary>
         public ScreenPoint? Screen { get; }
+        /// <summary>
+        /// The phone's acceleration in m/s^2, gravity removed, in the rig frame (the same frame as
+        /// Direction). Unsmoothed. Null when the phone sends none (motion access refused).
+        /// </summary>
+        public RigVector3? Accel { get; }
 
         public PlayerPose(string id, long seq, double time, RigQuaternion rotation, double yaw, double pitch, double roll,
-            RigVector3 direction, ScreenPoint? screen)
+            RigVector3 direction, ScreenPoint? screen, RigVector3? accel = null)
         {
             Id = id;
             Seq = seq;
@@ -187,6 +192,7 @@ namespace StoryTools.PhoneWand
             Roll = roll;
             Direction = direction;
             Screen = screen;
+            Accel = accel;
         }
     }
 
@@ -238,6 +244,82 @@ namespace StoryTools.PhoneWand
         public string AsString => Value as string;
 
         public override string ToString() => Id + " " + Control + " = " + (Value is string s ? "\"" + s + "\"" : Json.Write(Value));
+    }
+
+    /// <summary>
+    /// The names of the gestures the relay detects (GestureEvent.Gesture). See docs/gestures.md.
+    /// </summary>
+    public static class GestureName
+    {
+        /// <summary>A quick movement towards the screen.</summary>
+        public const string Push = "push";
+        /// <summary>A quick movement back towards the player.</summary>
+        public const string Pull = "pull";
+        /// <summary>A quick movement to the left.</summary>
+        public const string Left = "left";
+        /// <summary>A quick movement to the right.</summary>
+        public const string Right = "right";
+        /// <summary>A quick movement up.</summary>
+        public const string Up = "up";
+        /// <summary>A quick movement down.</summary>
+        public const string Down = "down";
+        /// <summary>Several quick movements back and forth.</summary>
+        public const string Shake = "shake";
+        /// <summary>A quick anticlockwise roll of the wrist, seen from behind.</summary>
+        public const string TwistLeft = "twist-left";
+        /// <summary>A quick clockwise roll of the wrist, seen from behind.</summary>
+        public const string TwistRight = "twist-right";
+    }
+
+    /// <summary>A deliberate movement of the phone, detected by the relay. Immutable.</summary>
+    public sealed class GestureEvent
+    {
+        static readonly string[] NoButtons = new string[0];
+
+        /// <summary>The player's id.</summary>
+        public string Id { get; }
+        /// <summary>Which gesture: one of the GestureName constants ("push", "twist-left", ...).</summary>
+        public string Gesture { get; }
+        /// <summary>0 to 1: how vigorous, relative to a strong flick, shake or twist.</summary>
+        public double Strength { get; }
+        /// <summary>Peak speed of the movement in m/s (0 for twists).</summary>
+        public double Speed { get; }
+        /// <summary>Unit direction of the movement in the rig frame (zero for shakes and twists).</summary>
+        public RigVector3 Dir { get; }
+        /// <summary>How long it took, in ms.</summary>
+        public double Duration { get; }
+        /// <summary>Relay time it started, in ms since the Unix epoch.</summary>
+        public double T { get; }
+        /// <summary>Ids of the buttons held when it started, sorted.</summary>
+        public IReadOnlyList<string> Buttons { get; }
+
+        public GestureEvent(string id, string gesture, double strength, double speed, RigVector3 dir, double duration,
+            double t, IReadOnlyList<string> buttons)
+        {
+            Id = id;
+            Gesture = gesture ?? "";
+            Strength = strength;
+            Speed = speed;
+            Dir = dir;
+            Duration = duration;
+            T = t;
+            Buttons = buttons ?? NoButtons;
+        }
+
+        /// <summary>True if this is the named gesture, e.g. Is(GestureName.Pull).</summary>
+        public bool Is(string gesture) => Gesture == gesture;
+
+        /// <summary>True if the button with this id was held when the gesture started.</summary>
+        public bool WasHeld(string button)
+        {
+            if (button == null) return false;
+            foreach (var b in Buttons)
+                if (b == button) return true;
+            return false;
+        }
+
+        public override string ToString() => Id + " " + Gesture + " strength " + Strength.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
+            (Buttons.Count > 0 ? " holding " + string.Join(",", Buttons) : "");
     }
 
     /// <summary>Connection statistics, sent once a second per player.</summary>
@@ -372,6 +454,57 @@ namespace StoryTools.PhoneWand
             if (MinCutoff.HasValue) o["minCutoff"] = MinCutoff.Value;
             if (Beta.HasValue) o["beta"] = Beta.Value;
             if (DCutoff.HasValue) o["dCutoff"] = DCutoff.Value;
+            return o;
+        }
+    }
+
+    /// <summary>
+    /// How sensitive the relay's gesture detection is for this app. Leave a field null to keep the
+    /// relay's value. Use GestureSensitivity.Off for no gesture events. See docs/gestures.md.
+    /// </summary>
+    public sealed class GestureSensitivity
+    {
+        /// <summary>The relay's default threshold, in m/s^2.</summary>
+        public const double DefaultThreshold = 7;
+        /// <summary>The relay's default minimum speed, in m/s.</summary>
+        public const double DefaultMinSpeed = 0.35;
+        /// <summary>The relay's default twist rate, in degrees per second.</summary>
+        public const double DefaultTwistRate = 360;
+
+        /// <summary>Acceleration in m/s^2 that starts a movement. Lower is more sensitive. Relay default 7.</summary>
+        public double? Threshold;
+        /// <summary>Peak speed in m/s a movement must reach. Relay default 0.35.</summary>
+        public double? MinSpeed;
+        /// <summary>Roll rate in degrees per second that makes a twist. Relay default 360.</summary>
+        public double? TwistRate;
+
+        /// <summary>True for "no gestures" (sent as gestures: false).</summary>
+        public bool IsOff { get; private set; }
+
+        /// <summary>No gesture events for this app.</summary>
+        public static GestureSensitivity Off => new GestureSensitivity { IsOff = true };
+
+        /// <summary>The relay's defaults, stated explicitly.</summary>
+        public static GestureSensitivity Default => new GestureSensitivity(DefaultThreshold, DefaultMinSpeed, DefaultTwistRate);
+
+        public GestureSensitivity()
+        {
+        }
+
+        public GestureSensitivity(double threshold, double minSpeed = DefaultMinSpeed, double twistRate = DefaultTwistRate)
+        {
+            Threshold = threshold;
+            MinSpeed = minSpeed;
+            TwistRate = twistRate;
+        }
+
+        internal object ToJsonValue()
+        {
+            if (IsOff) return false;
+            var o = new Dictionary<string, object>();
+            if (Threshold.HasValue) o["threshold"] = Threshold.Value;
+            if (MinSpeed.HasValue) o["minSpeed"] = MinSpeed.Value;
+            if (TwistRate.HasValue) o["twistRate"] = TwistRate.Value;
             return o;
         }
     }
