@@ -1,0 +1,65 @@
+name: CI
+
+# Every push and pull request: typecheck and test the relay, phone page and JS client, check the
+# conformance files and versions, and replay the conformance suite through the Godot addon and the
+# Unity package's C# core. Unreal and the Unity editor are not available on hosted runners; run
+# scripts/check-unreal.sh and scripts/check-unity.sh locally before a release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.7-stable"
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - name: Conformance files are up to date
+        run: bun scripts/conformance.ts --check
+      - name: Every manifest has the same version
+        run: bun scripts/version.ts check
+      - name: Relay compiles and starts
+        run: |
+          bun scripts/dist.ts --only=relay,js --relay=linux-x64
+          tar -xzf dist/phone-wand-relay-*-linux-x64.tar.gz -C dist
+          dist/phone-wand-relay-*-linux-x64/phone-wand --version
+      - name: No em-dashes
+        run: |
+          if git grep -nI $'—' -- . ':!bun.lock'; then echo "Em-dashes found (see above)"; exit 1; fi
+
+  godot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install headless Godot ${{ env.GODOT_VERSION }}
+        run: |
+          curl -fsSL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
+          chmod +x godot
+      - name: Import the project
+        run: ./godot --headless --path clients/godot --import || true
+      - name: Every addon script parses
+        run: GODOT="$PWD/godot" clients/godot/test/parse_check.sh
+      - name: Conformance
+        run: ./godot --headless --path clients/godot --script res://test/test_conformance.gd
+
+  unity-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+      - name: Conformance (Unity package C# core)
+        run: dotnet run --project clients/unity/TestHost

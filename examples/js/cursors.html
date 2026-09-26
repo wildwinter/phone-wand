@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone Wand cursors</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #join { position: fixed; right: 12px; top: 12px; width: 120px; background: #fff; border-radius: 8px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<img id="join" alt="Scan to join">
+<!-- The relay serves the client library. Use ../phone-wand.min.js instead to load it from the zip. -->
+<script src="http://127.0.0.1:8480/phone-wand.js"></script>
+<script>
+  // The smallest useful Phone Wand app: a coloured cursor per player, and a ring on each click.
+  const wand = new PhoneWand();
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const rings = [];
+
+  wand.on("connected", (hello) => { document.getElementById("join").src = hello.qrUrl; });
+  wand.on("button", (e, player) => {
+    if (e.button === "primary" && e.down && player.pose?.screen) {
+      rings.push({ at: player.pose.screen, colour: player.colour, start: performance.now() });
+    }
+  });
+
+  function frame(now) {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    for (const r of rings.filter((r) => now - r.start < 400)) {
+      const [x, y] = PhoneWand.toPixels(r.at, canvas.width, canvas.height);
+      ctx.strokeStyle = r.colour;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x, y, 10 + (now - r.start) / 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    for (const player of wand.list) {
+      const pos = PhoneWand.toPixels(player.pose?.screen ?? null, canvas.width, canvas.height);
+      if (!pos) continue;
+      ctx.fillStyle = player.colour;
+      ctx.beginPath();
+      ctx.arc(pos[0], pos[1], 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = "bold 16px system-ui";
+      ctx.fillText(player.name, pos[0] + 20, pos[1] + 5);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

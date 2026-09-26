@@ -1,0 +1,132 @@
+name: Release
+
+# Pushing a tag vX.Y.Z (made by `bun scripts/release.ts X.Y.Z`) tests everything, builds every
+# platform's files and publishes them as one GitHub Release. The release is only created once every
+# build has succeeded, so a half-built release is never visible.
+#
+# macOS signing uses the secrets CSC_LINK (base64 .p12 of a Developer ID Application certificate)
+# and CSC_KEY_PASSWORD. Notarization also needs APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and
+# APPLE_TEAM_ID. Without them the macOS binaries are still built, ad-hoc signed. Windows is unsigned
+# by policy.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)build, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GODOT_VERSION: "4.7-stable"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Tag matches the version, with a dated changelog section
+        run: bun scripts/version.ts tag "$TAG"
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun scripts/conformance.ts --check
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+      - name: Unity C# core conformance
+        run: dotnet run --project clients/unity/TestHost
+      - name: Godot conformance
+        run: |
+          curl -fsSL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o godot.zip
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot && chmod +x godot
+          ./godot --headless --path clients/godot --import || true
+          GODOT="$PWD/godot" clients/godot/test/parse_check.sh
+          ./godot --headless --path clients/godot --script res://test/test_conformance.gd
+
+  macos:
+    needs: verify
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Import the Developer ID certificate
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if [ -z "$CSC_LINK" ]; then echo "No CSC_LINK secret: the macOS relay will be ad-hoc signed."; exit 0; fi
+          echo "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p actions "$RUNNER_TEMP/build.keychain"
+          security default-keychain -s "$RUNNER_TEMP/build.keychain"
+          security unlock-keychain -p actions "$RUNNER_TEMP/build.keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$RUNNER_TEMP/build.keychain" -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$RUNNER_TEMP/build.keychain"
+          rm "$RUNNER_TEMP/cert.p12"
+      - name: Build, sign and notarize the macOS relay
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun scripts/dist.ts --only=relay --relay=darwin-arm64,darwin-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.zip
+
+  others:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Build the Windows and Linux relays and the client packages
+        run: bun scripts/dist.ts --relay=windows-x64,linux-x64,linux-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: others
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+
+  publish:
+    needs: [macos, others]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes from the changelog
+        run: |
+          {
+            bun scripts/version.ts notes "${TAG#v}"
+            echo
+            echo "Documentation: https://github.com/wildwinter/phone-wand#readme"
+          } > "$RUNNER_TEMP/notes.md"
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Phone Wand ${{ env.TAG }}
+          body_path: ${{ runner.temp }}/notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
