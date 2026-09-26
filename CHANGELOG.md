@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-26
+
 ### Added
 
 - **Layouts**: apps choose the controls each phone shows, from five templates (`primary`,
