@@ -1,7 +1,7 @@
 // Builds the release files into dist/, one per platform or engine:
 //
-//   phone-wand-relay-<ver>-macos-arm64.zip     signed relay binary (plus README and LICENSE)
-//   phone-wand-relay-<ver>-macos-x64.zip
+//   phone-wand-relay-<ver>-macos-arm64.dmg     signed, notarized and stapled disk image
+//   phone-wand-relay-<ver>-macos-x64.dmg       (a zip instead when built off macOS)
 //   phone-wand-relay-<ver>-windows-x64.zip     unsigned by policy
 //   phone-wand-relay-<ver>-linux-x64.tar.gz
 //   phone-wand-relay-<ver>-linux-arm64.tar.gz
@@ -31,9 +31,12 @@ const version: string = JSON.parse(readFileSync(join(root, "package.json"), "utf
 const run = (cmd: string, args: string[], cwd = root) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
 const probe = (cmd: string, args: string[]) => execFileSync(cmd, args, { cwd: root, encoding: "utf8" });
 
-const RELAY_TARGETS: Record<string, { name: string; exe: string; archive: "zip" | "tar" }> = {
-  "darwin-arm64": { name: "macos-arm64", exe: "phone-wand", archive: "zip" },
-  "darwin-x64": { name: "macos-x64", exe: "phone-wand", archive: "zip" },
+// macOS gets a disk image: a bare program can't carry a notarization ticket, so a downloaded one
+// needs Apple's servers to vouch for it on first run, and shows a malware warning when that lookup
+// fails. A disk image can have the ticket stapled to it, so it works offline and straight away.
+const RELAY_TARGETS: Record<string, { name: string; exe: string; archive: "zip" | "tar" | "dmg" }> = {
+  "darwin-arm64": { name: "macos-arm64", exe: "phone-wand", archive: "dmg" },
+  "darwin-x64": { name: "macos-x64", exe: "phone-wand", archive: "dmg" },
   "windows-x64": { name: "windows-x64", exe: "phone-wand.exe", archive: "zip" },
   "linux-x64": { name: "linux-x64", exe: "phone-wand", archive: "tar" },
   "linux-arm64": { name: "linux-arm64", exe: "phone-wand", archive: "tar" },
@@ -78,16 +81,25 @@ function signingIdentity(): string | null {
   }
 }
 
-function notarize(zipPath: string): void {
+/** Notarize a disk image and staple the ticket to it. Returns false when there are no credentials. */
+function notarizeAndStaple(dmgPath: string): boolean {
   const { APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID } = process.env;
   if (!APPLE_ID || !APPLE_APP_SPECIFIC_PASSWORD || !APPLE_TEAM_ID) {
     console.log("  (not notarized: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are not all set)");
-    return;
+    return false;
   }
-  run("xcrun", [
-    "notarytool", "submit", zipPath, "--wait",
+  // --wait exits 0 even when Apple rejects the upload, so read the status it reports.
+  const out = execFileSync("xcrun", [
+    "notarytool", "submit", dmgPath, "--wait", "--output-format", "json",
     "--apple-id", APPLE_ID, "--password", APPLE_APP_SPECIFIC_PASSWORD, "--team-id", APPLE_TEAM_ID,
-  ]);
+  ], { cwd: root, encoding: "utf8" });
+  const result = JSON.parse(out) as { status?: string; id?: string };
+  if (result.status !== "Accepted") {
+    throw new Error(`notarization of ${dmgPath} was ${result.status} (submission ${result.id}); see: xcrun notarytool log ${result.id}`);
+  }
+  run("xcrun", ["stapler", "staple", dmgPath]);
+  run("xcrun", ["stapler", "validate", dmgPath]);
+  return true;
 }
 
 async function buildRelay(): Promise<void> {
@@ -119,10 +131,17 @@ async function buildRelay(): Promise<void> {
 
     common(dir);
     writeFileSync(join(dir, "README.txt"), relayReadme(t.exe, target));
-    if (t.archive === "zip") {
-      const out = join(dist, `${base}.zip`);
-      zip(staging, out, [base]);
-      if (target.startsWith("darwin") && identity && process.platform === "darwin") notarize(out);
+    if (t.archive === "dmg" && process.platform === "darwin") {
+      const out = join(dist, `${base}.dmg`);
+      rmSync(out, { force: true });
+      run("hdiutil", ["create", "-volname", `Phone Wand relay ${version}`, "-srcfolder", dir, "-fs", "HFS+", "-format", "UDZO", "-ov", "-quiet", out]);
+      if (identity) {
+        run("codesign", ["--force", "--timestamp", "--sign", identity, out]);
+        notarizeAndStaple(out);
+      }
+      console.log(`  ${relative(root, out)}`);
+    } else if (t.archive === "zip" || t.archive === "dmg") {
+      zip(staging, join(dist, `${base}.zip`), [base]);
     } else {
       const out = join(dist, `${base}.tar.gz`);
       run("tar", ["-czf", out, base], staging);
@@ -132,7 +151,11 @@ async function buildRelay(): Promise<void> {
 }
 
 function relayReadme(exe: string, target: string): string {
-  const start = target.startsWith("windows") ? `Double-click ${exe}, or run it from a terminal.` : `Run ./${exe} from a terminal${target.startsWith("darwin") ? ", or double-click it in Finder" : ""}.`;
+  const start = target.startsWith("windows")
+    ? `Double-click ${exe}, or run it from a terminal.`
+    : target.startsWith("darwin")
+      ? `Double-click ${exe}, or copy it to any folder and run ./${exe} in Terminal.`
+      : `Run ./${exe} from a terminal.`;
   return `Phone Wand relay ${version}
 
 Turns phones into shared pointers for a screen.

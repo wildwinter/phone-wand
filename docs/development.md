@@ -41,9 +41,11 @@ bun scripts/dist.ts --relay=all          # the relay for every platform
 bun scripts/dist.ts --only=js,godot      # just some packages
 ```
 
-Files land in `dist/`, which git ignores. On a Mac with a Developer ID Application certificate in
-the keychain, the macOS relay is signed; with `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and
-`APPLE_TEAM_ID` set it is notarized too.
+Files land in `dist/`, which git ignores. On a Mac, the macOS relay is packaged as a disk image.
+With a Developer ID Application certificate in the keychain, the program and the disk image are
+signed; with `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` set, the disk image is
+also notarized and the ticket stapled to it, so it opens without a warning even offline. (A bare
+program can't carry a stapled ticket, which is why macOS doesn't get a zip.)
 
 ## Versions and the changelog
 

@@ -9,16 +9,16 @@ Download the relay for the computer that drives your screen from the
 
 | Computer | File |
 |---|---|
-| Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.zip` |
-| Intel Mac | `phone-wand-relay-<version>-macos-x64.zip` |
+| Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` |
+| Intel Mac | `phone-wand-relay-<version>-macos-x64.dmg` |
 | Windows | `phone-wand-relay-<version>-windows-x64.zip` |
 | Linux | `phone-wand-relay-<version>-linux-x64.tar.gz` or `-linux-arm64.tar.gz` |
 
-Unzip it and run it:
+Open or unzip it, and run it:
 
-- **macOS:** open Terminal in the folder and run `./phone-wand`, or double-click `phone-wand`. If
-  macOS says it can't check the app for malicious software, Control-click `phone-wand`, choose
-  **Open**, then **Open** again (or allow it in **System Settings**, **Privacy & Security**).
+- **macOS:** open the disk image and double-click `phone-wand`, or copy it to any folder first and
+  run it from there (in Terminal, `./phone-wand`). The disk image is signed and notarized by Apple,
+  so macOS opens it without a warning, even offline.
 - **Windows:** double-click `phone-wand.exe`. The first time, Windows SmartScreen may say it doesn't
   recognise the app: choose **More info**, then **Run anyway**. When Windows Firewall asks, allow
   access on **private networks**, or phones won't be able to connect.

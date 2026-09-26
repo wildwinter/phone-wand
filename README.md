@@ -30,12 +30,12 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
 ## Try it in two minutes
 
 1. Download the relay for the computer that drives your screen from the
-   [latest release](https://github.com/wildwinter/phone-wand/releases/latest), and unzip it:
+   [latest release](https://github.com/wildwinter/phone-wand/releases/latest), and open or unzip it:
 
    | Computer | Download | To run it |
    |---|---|---|
-   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.zip` | Double-click `phone-wand`, or run `./phone-wand` in Terminal |
-   | Intel Mac | `phone-wand-relay-<version>-macos-x64.zip` | The same |
+   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` | Open the disk image and double-click `phone-wand` (or copy it anywhere first) |
+   | Intel Mac | `phone-wand-relay-<version>-macos-x64.dmg` | The same |
    | Windows | `phone-wand-relay-<version>-windows-x64.zip` | Double-click `phone-wand.exe`. If SmartScreen appears, choose **More info**, then **Run anyway**. Allow it through the firewall on private networks. |
    | Linux | `phone-wand-relay-<version>-linux-x64.tar.gz` (or `-linux-arm64`) | Run `./phone-wand` |
 

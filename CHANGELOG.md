@@ -7,6 +7,12 @@ the protocol.
 
 ## [Unreleased]
 
+### Fixed
+
+- macOS could refuse to open the downloaded relay, warning that it may harm the Mac. The macOS relay
+  now comes as a disk image (`.dmg`) with Apple's notarization stapled to it, so it opens without a
+  warning, even offline.
+
 ## [0.1.1] - 2026-09-26
 
 ### Changed
