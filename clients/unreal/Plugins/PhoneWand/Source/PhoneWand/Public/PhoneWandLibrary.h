@@ -78,6 +78,16 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand", meta = (DisplayName = "To String (Calibration)", CompactNodeTitle = "->", BlueprintAutocast))
 	static FString CalibrationToString(EPhoneWandCalibration Calibration);
 
+	// ------------------------------------------------------------------ gestures (docs/gestures.md)
+
+	/** True when the button ("primary", "secondary" or an id from your layout) was held as the gesture started. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Gestures", meta = (DisplayName = "Is Button Held (Gesture)"))
+	static bool IsGestureButtonHeld(const FPhoneWandGesture& Gesture, const FString& Button = TEXT("primary")) { return Gesture.IsButtonHeld(Button); }
+
+	/** Protocol name of a gesture ("push", "pull", "left", "right", "up", "down", "shake", "twist-left", "twist-right"; empty for Unknown). */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Gestures", meta = (DisplayName = "To String (Gesture)", CompactNodeTitle = "->", BlueprintAutocast))
+	static FString GestureToString(EPhoneWandGesture Gesture) { return PhoneWand::ToString(Gesture); }
+
 	// ------------------------------------------------------------------ buttons and layouts
 
 	/** "primary": the default layout's big button. */

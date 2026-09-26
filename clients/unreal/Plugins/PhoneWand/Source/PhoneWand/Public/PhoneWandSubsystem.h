@@ -29,6 +29,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratingEvent, const F
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratedEvent, const FPhoneWandPlayer&, Player, EPhoneWandCalibration, Calibration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandStatsEvent, const FPhoneWandPlayer&, Player, const FPhoneWandStats&, Stats);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPhoneWandControlEvent, const FPhoneWandPlayer&, Player, const FString&, ControlId, const FPhoneWandControlValue&, Value);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPhoneWandGestureEvent, const FPhoneWandPlayer&, Player, const FPhoneWandGesture&, Gesture);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPhoneWandErrorEvent, const FString&, Message);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FPhoneWandConnectedNative, const FPhoneWandHello&);
@@ -40,6 +41,7 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratingNative, const FPhoneWa
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandCalibratedNative, const FPhoneWandPlayer&, EPhoneWandCalibration);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandStatsNative, const FPhoneWandPlayer&, const FPhoneWandStats&);
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPhoneWandControlNative, const FPhoneWandPlayer&, const FString&, const FPhoneWandControlValue&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FPhoneWandGestureNative, const FPhoneWandPlayer&, const FPhoneWandGesture&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FPhoneWandErrorNative, const FString&);
 
 /**
@@ -169,6 +171,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Commands")
 	void SetRaw();
 
+	/**
+	 * Set this app's gesture sensitivity (see docs/gestures.md) and turn gestures on. Threshold is
+	 * the acceleration in m/s^2 that starts a movement (lower is more sensitive), MinSpeed the peak
+	 * speed in m/s a movement must reach, TwistRate the roll speed in degrees per second that makes
+	 * a twist. Remembered across reconnects.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Gestures")
+	void SetGestureSensitivity(double Threshold = 7.0, double MinSpeed = 0.35, double TwistRate = 360.0);
+
+	/** Turn gesture events on or off for this app. Remembered across reconnects. */
+	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Gestures")
+	void SetGesturesEnabled(bool bEnabled);
+
+	/** True unless gestures were turned off (in the project settings or with Set Gestures Enabled). */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Gestures")
+	bool AreGesturesEnabled() const { return bGesturesEnabled; }
+
+	/** C++: the configure message this client sends when the connection opens, or empty when it would send none. */
+	FString GetConfigureJson() const;
+
 	/** Change a player's colour ("#rrggbb") and/or label. Leave a field empty to keep it. */
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Commands", meta = (AdvancedDisplay = "Label"))
 	void Style(const FString& Id, const FString& Colour, const FString& Label = TEXT(""));
@@ -287,6 +309,13 @@ public:
 	FPhoneWandControlEvent OnControlChanged;
 
 	/**
+	 * The player moved the phone deliberately: a push, pull, sideways or vertical flick, a shake or
+	 * a twist. Gesture.Buttons says which buttons were held as it started. See docs/gestures.md.
+	 */
+	UPROPERTY(BlueprintAssignable, Category = "Phone Wand|Events")
+	FPhoneWandGestureEvent OnGesture;
+
+	/**
 	 * The relay couldn't use something this app sent (an invalid layout, a value that doesn't fit a
 	 * control); the message says why. When nothing is bound, it is logged as a warning.
 	 */
@@ -306,6 +335,7 @@ public:
 	FPhoneWandCalibratedNative OnCalibratedNative;
 	FPhoneWandStatsNative OnStatsNative;
 	FPhoneWandControlNative OnControlChangedNative;
+	FPhoneWandGestureNative OnGestureNative;
 	FPhoneWandErrorNative OnRelayErrorNative;
 
 	// ------------------------------------------------------------------ message handling
@@ -341,6 +371,7 @@ private:
 	bool OnReconnectTimer(float DeltaTime);
 	void SendJson(const TSharedRef<FJsonObject>& Msg);
 	void SendConfigure();
+	TSharedPtr<FJsonObject> MakeConfigure() const;
 
 	void OnSocketConnected();
 	void OnSocketError(const FString& Error);
@@ -367,6 +398,13 @@ private:
 	float SmoothMinCutoff = 1.0f;
 	float SmoothBeta = 5.0f;
 	float SmoothDCutoff = 1.0f;
+
+	/** Whether the gesture settings are sent at all: false leaves the relay's default. */
+	bool bGesturesConfigured = false;
+	bool bGesturesEnabled = true;
+	double GestureThreshold = PhoneWand::DefaultGestureThreshold;
+	double GestureMinSpeed = PhoneWand::DefaultGestureMinSpeed;
+	double GestureTwistRate = PhoneWand::DefaultGestureTwistRate;
 
 	bool bStartRelay = false;
 	FString RelayPathSetting;

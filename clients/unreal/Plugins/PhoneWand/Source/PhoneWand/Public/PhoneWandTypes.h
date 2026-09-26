@@ -122,6 +122,32 @@ enum class EPhoneWandValueType : uint8
 	Text,
 };
 
+/** A deliberate movement of the phone, spotted by the relay. See docs/gestures.md. */
+UENUM(BlueprintType)
+enum class EPhoneWandGesture : uint8
+{
+	/** A quick movement towards the screen. */
+	Push,
+	/** A quick movement back towards the player. */
+	Pull,
+	/** A quick movement to the left. */
+	Left,
+	/** A quick movement to the right. */
+	Right,
+	/** A quick movement upwards. */
+	Up,
+	/** A quick movement downwards. */
+	Down,
+	/** Several quick movements back and forth. */
+	Shake,
+	/** A quick roll of the wrist, anticlockwise as seen from behind. */
+	TwistLeft,
+	/** A quick roll of the wrist, clockwise as seen from behind. */
+	TwistRight,
+	/** A gesture this plugin does not know yet (from a newer relay): see GestureName. */
+	Unknown,
+};
+
 /**
  * One control in a layout. Build them with the Make Button / Make Toggle / Make Slider / Make Choice
  * / Make Label nodes (UPhoneWandLibrary), or fill the fields yourself. Only the fields for the
@@ -324,6 +350,74 @@ struct PHONEWAND_API FPhoneWandPose
 	/** The raw rig-frame quaternion as sent by the relay: X, Y, Z, W. */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand|Raw")
 	FVector4 RigQuat = FVector4(0.0, 0.0, 0.0, 1.0);
+
+	/** True when Accel holds a value: the phone sends motion data (it does unless motion access was refused). */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	bool bHasAccel = false;
+
+	/**
+	 * The phone's acceleration in m/s^2, gravity removed, in Unreal's frame (X forward, Y right,
+	 * Z up). Not smoothed. For recognising movements yourself; see docs/gestures.md.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	FVector Accel = FVector::ZeroVector;
+
+	/** The raw rig-frame acceleration as sent by the relay: X = right, Y = up, Z = forward. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand|Raw")
+	FVector RigAccel = FVector::ZeroVector;
+};
+
+/**
+ * A deliberate movement of the phone: a flick, a shake or a twist. See docs/gestures.md.
+ * "Hold Primary and pull back" is a Pull whose Buttons include "primary".
+ */
+USTRUCT(BlueprintType)
+struct PHONEWAND_API FPhoneWandGesture
+{
+	GENERATED_BODY()
+
+	/** The player who moved. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	FString Id;
+
+	/** Which gesture. Unknown for one this plugin does not know yet; GestureName still names it. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	EPhoneWandGesture Gesture = EPhoneWandGesture::Unknown;
+
+	/** The gesture's protocol name: "push", "pull", "left", "right", "up", "down", "shake", "twist-left" or "twist-right". */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	FString GestureName;
+
+	/** 0 to 1: how vigorous, relative to a strong flick (or shake, or twist). */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	double Strength = 0.0;
+
+	/** The movement's peak speed in m/s (0 for twists). */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	double Speed = 0.0;
+
+	/** Unit direction of the movement in Unreal's frame (X forward, Y right, Z up), for aiming a throw. Zero for shakes and twists. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	FVector Direction = FVector::ZeroVector;
+
+	/** The raw rig-frame direction as sent by the relay: X = right, Y = up, Z = forward. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand|Raw")
+	FVector RawDirection = FVector::ZeroVector;
+
+	/** How long the movement took, in milliseconds. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	double Duration = 0.0;
+
+	/** When it started, in relay time: milliseconds since the Unix epoch. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	double Time = 0.0;
+
+	/** Ids of the buttons held when it started, sorted. */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	TArray<FString> Buttons;
+
+	/** True when Button was held as the gesture started. Blueprint: Is Button Held (Gesture). */
+	bool IsButtonHeld(const FString& Button) const { return Buttons.Contains(Button); }
 };
 
 /** Connection quality for one player, sent once a second. */
@@ -470,4 +564,13 @@ namespace PhoneWand
 	PHONEWAND_API FString ToString(EPhoneWandCalibration Calibration);
 	/** Protocol spelling of a calibration step ("top-left", "bottom-right", "cancelled", or "" for None). */
 	PHONEWAND_API FString ToString(EPhoneWandCalibrationStep Step);
+	/** Protocol spelling of a gesture ("push", "twist-left", ...; "" for Unknown). */
+	PHONEWAND_API FString ToString(EPhoneWandGesture Gesture);
+	/** Gesture from its protocol spelling; Unknown for a name this plugin does not know. */
+	PHONEWAND_API EPhoneWandGesture ParseGesture(const FString& Name);
+
+	/** The relay's default gesture sensitivity (docs/gestures.md). */
+	inline constexpr double DefaultGestureThreshold = 7.0;
+	inline constexpr double DefaultGestureMinSpeed = 0.35;
+	inline constexpr double DefaultGestureTwistRate = 360.0;
 }

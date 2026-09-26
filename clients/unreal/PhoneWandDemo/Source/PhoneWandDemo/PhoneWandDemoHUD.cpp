@@ -90,6 +90,7 @@ void APhoneWandDemoHUD::BeginPlay()
 	ConnectedHandle = Subsystem->OnConnectedNative.AddUObject(this, &APhoneWandDemoHUD::OnConnected);
 	ButtonHandle = Subsystem->OnButtonNative.AddUObject(this, &APhoneWandDemoHUD::OnButton);
 	ControlHandle = Subsystem->OnControlChangedNative.AddUObject(this, &APhoneWandDemoHUD::OnControlChanged);
+	GestureHandle = Subsystem->OnGestureNative.AddUObject(this, &APhoneWandDemoHUD::OnGesture);
 	ErrorHandle = Subsystem->OnRelayErrorNative.AddUObject(this, &APhoneWandDemoHUD::OnRelayError);
 	if (Subsystem->IsConnected())
 	{
@@ -104,6 +105,7 @@ void APhoneWandDemoHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		Subsystem->OnConnectedNative.Remove(ConnectedHandle);
 		Subsystem->OnButtonNative.Remove(ButtonHandle);
 		Subsystem->OnControlChangedNative.Remove(ControlHandle);
+		Subsystem->OnGestureNative.Remove(GestureHandle);
 		Subsystem->OnRelayErrorNative.Remove(ErrorHandle);
 	}
 	Super::EndPlay(EndPlayReason);
@@ -137,6 +139,18 @@ void APhoneWandDemoHUD::OnControlChanged(const FPhoneWandPlayer& Player, const F
 			? Control->Options[Value.Index] : FString::Printf(TEXT("%.2f"), Value.Number);
 	}
 	LastChange = FString::Printf(TEXT("%s: %s = %s"), *Player.Name, *ControlId, *Shown);
+	LastChangeColour = Player.LinearColour;
+	LastChangeAt = FPlatformTime::Seconds();
+}
+
+void APhoneWandDemoHUD::OnGesture(const FPhoneWandPlayer& Player, const FPhoneWandGesture& Gesture)
+{
+	// "Kit: pull (strength 0.62) holding primary"
+	LastChange = FString::Printf(TEXT("%s: %s (strength %.2f)"), *Player.Name, *Gesture.GestureName, Gesture.Strength);
+	if (Gesture.Buttons.Num() > 0)
+	{
+		LastChange += TEXT(" holding ") + FString::Join(Gesture.Buttons, TEXT(", "));
+	}
 	LastChangeColour = Player.LinearColour;
 	LastChangeAt = FPlatformTime::Seconds();
 }

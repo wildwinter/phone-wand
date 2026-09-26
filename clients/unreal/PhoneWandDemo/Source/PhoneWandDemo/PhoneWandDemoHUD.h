@@ -17,7 +17,7 @@ class UTexture2D;
  * screen position until they have set up their aim once (or while they calibrate), so above the
  * player list a line in each such player's colour says what they still need to do on their phone.
  * Press L to cycle every phone through a few sample layouts (docs/layouts.md); the latest control
- * change shows briefly at the top.
+ * change, or gesture (docs/gestures.md, with any held buttons), shows briefly at the top.
  */
 UCLASS()
 class APhoneWandDemoHUD : public AHUD
@@ -40,6 +40,7 @@ private:
 	void OnConnected(const FPhoneWandHello& Hello);
 	void OnButton(const FPhoneWandPlayer& Player, const FString& Button, bool bDown);
 	void OnControlChanged(const FPhoneWandPlayer& Player, const FString& ControlId, const FPhoneWandControlValue& Value);
+	void OnGesture(const FPhoneWandPlayer& Player, const FPhoneWandGesture& Gesture);
 	void OnRelayError(const FString& Message);
 	void UpdateLayoutKey(UPhoneWandSubsystem* Subsystem);
 	void DrawLastChange();
@@ -57,11 +58,12 @@ private:
 	FDelegateHandle ConnectedHandle;
 	FDelegateHandle ButtonHandle;
 	FDelegateHandle ControlHandle;
+	FDelegateHandle GestureHandle;
 	FDelegateHandle ErrorHandle;
 
 	/** Which sample layout every phone shows: 0 is the default. */
 	int32 LayoutIndex = 0;
-	/** The latest control change (or relay error), and when it happened. */
+	/** The latest control change, gesture or relay error, and when it happened. */
 	FString LastChange;
 	FLinearColor LastChangeColour = FLinearColor::White;
 	double LastChangeAt = -100.0;

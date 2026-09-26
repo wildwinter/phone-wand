@@ -10,10 +10,15 @@
 //   PhoneWand.Client.ConnectionLost       leave and disconnect events when the relay goes away
 //   PhoneWand.Layouts.Json                the layout and set messages the plugin sends
 //   PhoneWand.Layouts.Client              layouts, control values and errors from the relay
+//   PhoneWand.Gestures.Configure          the configure message: smoothing and gesture sensitivity
+//   PhoneWand.Gestures.Client             gesture events and pose acceleration from the relay
 //   PhoneWand.Live.Relay                  connects to a running relay; only does anything when
 //                                         PHONEWAND_LIVE_URL (or -PhoneWandLiveUrl=) is set
 //   PhoneWand.Live.Layouts                sends layouts through a running relay to a scripted phone;
 //                                         only does anything when PHONEWAND_LAYOUT_LIVE_URL is set
+//   PhoneWand.Live.Gestures               a scripted phone flicks while holding Primary through a
+//                                         running relay; only does anything when
+//                                         PHONEWAND_GESTURE_LIVE_URL is set
 //   PhoneWand.ManagedRelay.Paths          URL and relay path rules for Start Relay
 //   PhoneWand.ManagedRelay.Missing        with no relay binary: a clear warning, and connecting goes on
 //   PhoneWand.ManagedRelay.Live           starts and stops a relay binary; only does anything when
@@ -146,6 +151,11 @@ namespace PhoneWandTests
 		Wand->OnControlChangedNative.AddLambda([&Log](const FPhoneWandPlayer& P, const FString& Control, const FPhoneWandControlValue&)
 		{
 			Log.Add(FString::Printf(TEXT("control %s %s"), *P.Id, *Control));
+		});
+		Wand->OnGestureNative.AddLambda([&Log](const FPhoneWandPlayer& P, const FPhoneWandGesture& G)
+		{
+			Log.Add(FString::Printf(TEXT("gesture %s %s buttons=%s"), *P.Id, *G.GestureName,
+				G.Buttons.Num() > 0 ? *FString::Join(G.Buttons, TEXT(",")) : TEXT("-")));
 		});
 		// error fires nothing in the log; bound so the replay does not log warnings.
 		Wand->OnRelayErrorNative.AddLambda([](const FString&) {});
@@ -800,6 +810,121 @@ bool FPhoneWandWaitForLive::Update()
 	return true;
 }
 
+// ---------------------------------------------------------------------- gestures
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandGestureConfigureTest, "PhoneWand.Gestures.Configure", PhoneWandTests::Flags)
+
+bool FPhoneWandGestureConfigureTest::RunTest(const FString& Parameters)
+{
+	TStrongObjectPtr<UPhoneWandSubsystem> Wand = PhoneWandTests::MakeWand();
+	TArray<FString> Sent;
+	Wand->SetSendOverride([&Sent](const FString& Json) { Sent.Add(Json); });
+
+	// Nothing changed: nothing to send, so the relay keeps its defaults.
+	TestEqual(TEXT("default configure is empty"), Wand->GetConfigureJson(), FString());
+	TestTrue(TEXT("gestures on by default"), Wand->AreGesturesEnabled());
+
+	Wand->SetGestureSensitivity(9.0, 0.5, 400.0);
+	Wand->SetGesturesEnabled(false);
+	Wand->SetSmoothing(1.5f, 4.0f, 1.0f);
+	Wand->SetGesturesEnabled(true);
+	Wand->SetRaw();
+	TestTrue(TEXT("gestures on again"), Wand->AreGesturesEnabled());
+
+	const TCHAR* Expected[] = {
+		TEXT("{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
+		TEXT("{\"type\":\"configure\",\"gestures\":false}"),
+		TEXT("{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1.5,\"beta\":4,\"dCutoff\":1},\"gestures\":false}"),
+		TEXT("{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1.5,\"beta\":4,\"dCutoff\":1},\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
+		TEXT("{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
+	};
+	if (TestEqual(TEXT("messages sent"), Sent.Num(), (int32)UE_ARRAY_COUNT(Expected)))
+	{
+		for (int32 i = 0; i < Sent.Num(); ++i)
+		{
+			PhoneWandTests::ExpectJson(*this, FString::Printf(TEXT("message %d"), i + 1), Sent[i], Expected[i]);
+		}
+	}
+	// What a reconnect sends: the latest of both settings.
+	PhoneWandTests::ExpectJson(*this, TEXT("configure on connect"), Wand->GetConfigureJson(), Expected[4]);
+
+	// Gestures alone, smoothing left to the relay.
+	TStrongObjectPtr<UPhoneWandSubsystem> Other = PhoneWandTests::MakeWand();
+	Other->SetGesturesEnabled(false);
+	PhoneWandTests::ExpectJson(*this, TEXT("gestures off only"), Other->GetConfigureJson(), TEXT("{\"type\":\"configure\",\"gestures\":false}"));
+
+	TestEqual(TEXT("default threshold"), PhoneWand::DefaultGestureThreshold, 7.0);
+	TestEqual(TEXT("default min speed"), PhoneWand::DefaultGestureMinSpeed, 0.35);
+	TestEqual(TEXT("default twist rate"), PhoneWand::DefaultGestureTwistRate, 360.0);
+	return !HasAnyErrors();
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandGestureClientTest, "PhoneWand.Gestures.Client", PhoneWandTests::Flags)
+
+bool FPhoneWandGestureClientTest::RunTest(const FString& Parameters)
+{
+	TStrongObjectPtr<UPhoneWandSubsystem> Wand = PhoneWandTests::MakeWand();
+	TArray<FPhoneWandGesture> Gestures;
+	Wand->OnGestureNative.AddLambda([&Gestures](const FPhoneWandPlayer& P, const FPhoneWandGesture& G) { Gestures.Add(G); });
+
+	Wand->HandleMessage(TEXT("{\"type\":\"hello\",\"protocol\":0,\"maxPlayers\":4,\"players\":[{\"id\":\"p1\",\"slot\":0,\"name\":\"A\",\"colour\":\"#ff4d6d\",\"state\":\"active\"}]}"));
+	Wand->HandleMessage(TEXT("{\"type\":\"gesture\",\"id\":\"p1\",\"gesture\":\"pull\",\"strength\":0.62,\"speed\":1.55,\"dir\":[0.05,-0.1,-0.99],\"duration\":240,\"t\":1790300000123.4,\"buttons\":[\"secondary\",\"primary\"]}"));
+	Wand->HandleMessage(TEXT("{\"type\":\"gesture\",\"id\":\"p1\",\"gesture\":\"twist-left\",\"strength\":0.5,\"speed\":0,\"dir\":[0,0,0],\"duration\":150,\"t\":5,\"buttons\":[]}"));
+	Wand->HandleMessage(TEXT("{\"type\":\"gesture\",\"id\":\"p1\",\"gesture\":\"loop-the-loop\",\"strength\":1,\"speed\":2,\"dir\":[0,1,0],\"duration\":400,\"t\":6,\"buttons\":[]}"));
+	// An unknown player fires nothing.
+	Wand->HandleMessage(TEXT("{\"type\":\"gesture\",\"id\":\"p9\",\"gesture\":\"push\",\"strength\":1,\"speed\":1,\"dir\":[0,0,1],\"duration\":200,\"t\":7,\"buttons\":[]}"));
+
+	if (TestEqual(TEXT("gestures fired"), Gestures.Num(), 3))
+	{
+		const FPhoneWandGesture& Pull = Gestures[0];
+		TestEqual(TEXT("player id"), Pull.Id, FString(TEXT("p1")));
+		TestEqual(TEXT("pull"), Pull.Gesture, EPhoneWandGesture::Pull);
+		TestEqual(TEXT("pull name"), Pull.GestureName, FString(TEXT("pull")));
+		TestEqual(TEXT("strength"), Pull.Strength, 0.62, 1e-9);
+		TestEqual(TEXT("speed"), Pull.Speed, 1.55, 1e-9);
+		TestEqual(TEXT("duration"), Pull.Duration, 240.0, 1e-9);
+		TestEqual(TEXT("time keeps double precision"), Pull.Time, 1790300000123.4, 1e-3);
+		TestTrue(TEXT("raw direction"), PhoneWandTests::Near(Pull.RawDirection, FVector(0.05, -0.1, -0.99)));
+		TestTrue(TEXT("direction in Unreal's frame"), PhoneWandTests::Near(Pull.Direction, FVector(-0.99, 0.05, -0.1)));
+		TestEqual(TEXT("buttons sorted"), FString::Join(Pull.Buttons, TEXT(",")), FString(TEXT("primary,secondary")));
+		TestTrue(TEXT("primary held"), UPhoneWandLibrary::IsGestureButtonHeld(Pull, TEXT("primary")));
+		TestFalse(TEXT("other not held"), Pull.IsButtonHeld(TEXT("fire")));
+
+		TestEqual(TEXT("twist-left"), Gestures[1].Gesture, EPhoneWandGesture::TwistLeft);
+		TestTrue(TEXT("twist has no direction"), Gestures[1].Direction.IsZero());
+		TestFalse(TEXT("nothing held"), Gestures[1].IsButtonHeld(TEXT("primary")));
+
+		TestEqual(TEXT("unknown gesture"), Gestures[2].Gesture, EPhoneWandGesture::Unknown);
+		TestEqual(TEXT("unknown keeps its name"), Gestures[2].GestureName, FString(TEXT("loop-the-loop")));
+	}
+
+	// Every name round-trips.
+	for (const TCHAR* Name : { TEXT("push"), TEXT("pull"), TEXT("left"), TEXT("right"), TEXT("up"), TEXT("down"), TEXT("shake"), TEXT("twist-left"), TEXT("twist-right") })
+	{
+		const EPhoneWandGesture G = PhoneWand::ParseGesture(Name);
+		TestNotEqual(FString::Printf(TEXT("%s is known"), Name), G, EPhoneWandGesture::Unknown);
+		TestEqual(FString::Printf(TEXT("%s round trip"), Name), UPhoneWandLibrary::GestureToString(G), FString(Name));
+	}
+	TestEqual(TEXT("Unknown has no name"), PhoneWand::ToString(EPhoneWandGesture::Unknown), FString());
+
+	// Pose acceleration, converted to Unreal's frame; absent when the phone sends none.
+	Wand->HandleMessage(TEXT("{\"type\":\"pose\",\"id\":\"p1\",\"seq\":1,\"t\":1,\"q\":[0,0,0,1],\"yaw\":0,\"pitch\":0,\"roll\":0,\"dir\":[0,0,1],\"screen\":null,\"accel\":[1,2,3]}"));
+	FPhoneWandPlayer P;
+	if (TestTrue(TEXT("player exists"), Wand->GetPlayer(TEXT("p1"), P)))
+	{
+		TestTrue(TEXT("has accel"), P.Pose.bHasAccel);
+		TestTrue(TEXT("rig accel"), PhoneWandTests::Near(P.Pose.RigAccel, FVector(1, 2, 3)));
+		TestTrue(TEXT("accel in Unreal's frame"), PhoneWandTests::Near(P.Pose.Accel, FVector(3, 1, 2)));
+	}
+	Wand->HandleMessage(TEXT("{\"type\":\"pose\",\"id\":\"p1\",\"seq\":2,\"t\":2,\"q\":[0,0,0,1],\"yaw\":0,\"pitch\":0,\"roll\":0,\"dir\":[0,0,1],\"screen\":null}"));
+	if (Wand->GetPlayer(TEXT("p1"), P))
+	{
+		TestFalse(TEXT("no accel"), P.Pose.bHasAccel);
+		TestTrue(TEXT("accel zero"), P.Pose.Accel.IsZero());
+	}
+	return !HasAnyErrors();
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandLiveTest, "PhoneWand.Live.Relay", PhoneWandTests::Flags)
 
 bool FPhoneWandLiveTest::RunTest(const FString& Parameters)
@@ -1018,6 +1143,94 @@ bool FPhoneWandLayoutLiveTest::RunTest(const FString& Parameters)
 	State->NextPhase(0);
 	Wand->Connect(Url);
 	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandLayoutLiveSteps(State, this));
+	return true;
+}
+
+// ---------------------------------------------------------------------- live gestures
+//
+// Needs a relay and a phone that flicks, such as clients/unreal/Scripts/gesture-phone.ts: it
+// pushes the phone towards the screen every 1.5 s while holding Primary. The test sets the
+// sensitivity (so a configure with gestures goes over the wire) and waits for a push with
+// "primary" held, plus poses carrying acceleration.
+
+namespace PhoneWandTests
+{
+	struct FGestureLiveState
+	{
+		TStrongObjectPtr<UPhoneWandSubsystem> Wand;
+		double Start = 0.0;
+		int32 AccelPoses = 0;
+		TArray<FString> Gestures;
+		bool bGotHeldPush = false;
+	};
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FPhoneWandGestureLiveWait, TSharedPtr<PhoneWandTests::FGestureLiveState>, State, FAutomationTestBase*, Test);
+
+bool FPhoneWandGestureLiveWait::Update()
+{
+	PhoneWandTests::FGestureLiveState& S = *State;
+	const bool bTimedOut = FPlatformTime::Seconds() - S.Start > 30.0;
+	if (!S.bGotHeldPush && !bTimedOut)
+	{
+		return false;
+	}
+	if (S.bGotHeldPush)
+	{
+		Test->AddInfo(FString::Printf(TEXT("Gestures: %s; poses with acceleration: %d"), *FString::Join(S.Gestures, TEXT("; ")), S.AccelPoses));
+		Test->TestTrue(TEXT("poses carry acceleration"), S.AccelPoses > 0);
+	}
+	else
+	{
+		Test->AddError(FString::Printf(TEXT("Timed out after 30 s waiting for a push with primary held (gestures: %s; poses with acceleration: %d)"),
+			*FString::Join(S.Gestures, TEXT("; ")), S.AccelPoses));
+	}
+	S.Wand->Disconnect();
+	S.Wand.Reset();
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPhoneWandGestureLiveTest, "PhoneWand.Live.Gestures", PhoneWandTests::Flags)
+
+bool FPhoneWandGestureLiveTest::RunTest(const FString& Parameters)
+{
+	FString Url = FPlatformMisc::GetEnvironmentVariable(TEXT("PHONEWAND_GESTURE_LIVE_URL"));
+	if (Url.IsEmpty())
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("PhoneWandGestureLiveUrl="), Url);
+	}
+	if (Url.IsEmpty())
+	{
+		AddInfo(TEXT("Skipped: set PHONEWAND_GESTURE_LIVE_URL to a relay's app URL, with a flicking phone connected (clients/unreal/Scripts/gesture-phone.ts)."));
+		return true;
+	}
+
+	TSharedPtr<PhoneWandTests::FGestureLiveState> State = MakeShared<PhoneWandTests::FGestureLiveState>();
+	State->Wand = PhoneWandTests::MakeWand();
+	UPhoneWandSubsystem* Wand = State->Wand.Get();
+	PhoneWandTests::FGestureLiveState* S = State.Get();
+	Wand->OnPoseNative.AddLambda([S](const FPhoneWandPlayer&, const FPhoneWandPose& Pose)
+	{
+		if (Pose.bHasAccel)
+		{
+			++S->AccelPoses;
+		}
+	});
+	Wand->OnGestureNative.AddLambda([S](const FPhoneWandPlayer& P, const FPhoneWandGesture& G)
+	{
+		S->Gestures.Add(FString::Printf(TEXT("%s %s strength=%.2f dir=(%.2f, %.2f, %.2f) buttons=%s"), *P.Id, *G.GestureName, G.Strength,
+			G.Direction.X, G.Direction.Y, G.Direction.Z, *FString::Join(G.Buttons, TEXT(","))));
+		// A push is towards the screen: Unreal's +X.
+		if (G.Gesture == EPhoneWandGesture::Push && G.IsButtonHeld(TEXT("primary")) && G.Direction.X > 0.7)
+		{
+			S->bGotHeldPush = true;
+		}
+	});
+	Wand->SetGestureSensitivity(PhoneWand::DefaultGestureThreshold, PhoneWand::DefaultGestureMinSpeed, PhoneWand::DefaultGestureTwistRate);
+	AddInfo(FString::Printf(TEXT("Connecting to %s"), *Url));
+	State->Start = FPlatformTime::Seconds();
+	Wand->Connect(Url);
+	ADD_LATENT_AUTOMATION_COMMAND(FPhoneWandGestureLiveWait(State, this));
 	return true;
 }
 

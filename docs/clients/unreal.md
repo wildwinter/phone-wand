@@ -185,6 +185,75 @@ relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if 
 go. Each player's current layout and values are in `FPhoneWandPlayer::Layout` and `Controls`, and
 `GetControlValue(Id, ControlId, Value)` reads one value.
 
+## Gestures
+
+Players can also flick the phone towards the screen, pull it back, flick it sideways, up or down,
+shake it or twist their wrist. The relay spots these movements and the subsystem fires
+`OnGesture`; see [Gestures](../gestures.md) for what each one is and what works well.
+
+### Blueprint
+
+Bind **Assign On Gesture** on the subsystem. It gives the **Player** and a **Gesture**
+(`FPhoneWandGesture`): break it, **Switch on EPhoneWandGesture** on its **Gesture** field, and use
+**Is Button Held (Gesture)** for combinations such as "hold Primary and pull back". **Set Gesture
+Sensitivity** and **Set Gestures Enabled** (in **Phone Wand > Gestures**) change the sensitivity
+for this app.
+
+### C++
+
+```cpp
+#include "PhoneWandSubsystem.h"
+
+void AMyGame::BeginPlay()
+{
+    Super::BeginPlay();
+    UPhoneWandSubsystem* Wand = GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>();
+    Wand->SetGestureSensitivity(9.0);   // needs a firmer flick than the default 7
+
+    Wand->OnGestureNative.AddLambda([this](const FPhoneWandPlayer& Player, const FPhoneWandGesture& Gesture)
+    {
+        switch (Gesture.Gesture)
+        {
+        case EPhoneWandGesture::Pull:
+            if (Gesture.IsButtonHeld(TEXT("primary"))) DrawBow(Player, Gesture.Strength);
+            break;
+        case EPhoneWandGesture::Push:
+            Throw(Player, Gesture.Direction * Gesture.Speed * 100.0);   // m/s to cm/s, Unreal's frame
+            break;
+        case EPhoneWandGesture::Shake:
+            Shuffle(Player);
+            break;
+        default:
+            break;
+        }
+    });
+}
+```
+
+`FPhoneWandGesture` holds:
+
+| Field | Meaning |
+|---|---|
+| `Gesture` | `Push` (towards the screen), `Pull`, `Left`, `Right`, `Up`, `Down`, `Shake`, `TwistLeft` or `TwistRight`; `Unknown` for a gesture from a newer relay that this plugin doesn't know. |
+| `GestureName` | The protocol name (`push`, `twist-left`, ...), set even for `Unknown`. |
+| `Strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
+| `Speed` | Peak speed of the movement in m/s (0 for twists). |
+| `Direction` | Unit direction of the movement in Unreal's frame, so a push is about +X; zero for shakes and twists. |
+| `RawDirection` | The same in the rig frame (`[right, up, forward]`) as sent by the relay. |
+| `Duration` | How long it took, in milliseconds. |
+| `Time` | Relay time it started, in milliseconds since the Unix epoch. |
+| `Buttons` | Ids of the buttons held when it started, sorted. `IsButtonHeld(Button)` in C++, **Is Button Held (Gesture)** in Blueprint. |
+| `Id` | The player's id. |
+
+Sensitivity is per app: **Gestures**, **Gesture Threshold**, **Gesture Min Speed** and **Gesture
+Twist Rate** in the [project settings](#project-settings), or `SetGestureSensitivity(Threshold,
+MinSpeed, TwistRate)` and `SetGesturesEnabled(false)` at run time. The subsystem sends them in its
+`configure` message, with the smoothing, when it connects and again after every reconnect. Left at
+the defaults, nothing is sent and the relay uses its own defaults.
+
+To recognise movements yourself, read `Pose.Accel` on each pose: the phone's acceleration in m/s²,
+gravity removed, in Unreal's frame (`bHasAccel` is false if the phone didn't send it).
+
 ## API reference
 
 ### UPhoneWandSubsystem
@@ -209,6 +278,10 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `FindPlayer(Id)` | C++ only: a pointer to the live player, or null. |
 | `SetSmoothing(MinCutoff, Beta, DCutoff)` | Set the One Euro filter the relay applies to this app's poses. Lower `MinCutoff` is steadier when still; higher `Beta` is quicker when moving. |
 | `SetRaw()` | Turn smoothing off for this app. |
+| `SetGestureSensitivity(Threshold, MinSpeed, TwistRate)` | Set this app's gesture sensitivity and turn gestures on (see [Gestures](#gestures)). Defaults 7, 0.35 and 360. |
+| `SetGesturesEnabled(bEnabled)` | Turn `OnGesture` on or off for this app. |
+| `AreGesturesEnabled()` | False once gestures have been turned off. |
+| `GetConfigureJson()` | C++ only: the `configure` message the subsystem sends when it connects, or empty when it sends none. |
 | `Style(Id, Colour, Label)` | Change a player's colour (`#rrggbb`) and label. An empty field is left alone. |
 | `StyleColour(Id, Colour)` | Change a player's colour from an `FLinearColor`. |
 | `SetLabel(Id, Label)` | Change or clear a player's label, shown under their name on the phone. |
@@ -226,7 +299,8 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `StopRelay()` | Stop the relay this subsystem started, if any. `Disconnect` and shutting down do this for you. A relay it did not start is never stopped. |
 | `HandleMessage(Json)` | Feed in one relay message as a JSON string, as if it came from the socket. Used by the tests; also lets you drive the client from a recording or another transport. |
 
-Smoothing set with `SetSmoothing` or `SetRaw` is sent again each time the connection opens.
+Smoothing set with `SetSmoothing` or `SetRaw`, and gesture settings, are sent again each time the
+connection opens.
 
 ### Events
 
@@ -243,12 +317,13 @@ Each event is a Blueprint-assignable delegate (`OnPose`) with a native twin for 
 | `OnPose` | `Player`, `Pose` | A new pose, typically 60 a second per player. |
 | `OnButton` | `Player`, `Button`, `bDown` | A button went down or up. `Button` is its id: `primary` or `secondary` by default, or an id from your layout. Every down is followed by an up, including when a new layout removes a held button. |
 | `OnControlChanged` | `Player`, `ControlId`, `Value` | A toggle, slider, choice or label changed, on the phone or because an app set it. `Player.Controls` already holds the new value. |
+| `OnGesture` | `Player`, `Gesture` | The player moved the phone deliberately: a flick, shake or twist. `Gesture.Buttons` says which buttons were held as it started. See [Gestures](#gestures). |
 | `OnRelayError` | `Message` | The relay couldn't use something this app sent, such as an invalid layout; the message says why. With nothing bound (Blueprint or native), it is logged as a warning instead. |
 | `OnCalibrating` | `Player`, `Step` | The player is pointing at `TopLeft` or `BottomRight` during screen calibration, or `Cancelled` it. |
 | `OnCalibrated` | `Player`, `Calibration` | The player pressed Recentre (`Ray`) or finished screen calibration (`Screen`). |
 | `OnStats` | `Player`, `Stats` | Once a second per player: `Rtt` (ms), `Rate` (poses a second), `Dropped`. |
 
-A `pose`, `button`, `control`, `calibrating`, `calibrated` or `stats` message for a player the
+A `pose`, `button`, `control`, `gesture`, `calibrating`, `calibrated` or `stats` message for a player the
 client does not know fires nothing. A player whose state stops being `Active` has their held
 buttons cleared. A player message carrying a layout replaces the player's `Layout` and `Controls`
 entirely.
@@ -283,7 +358,8 @@ entirely.
 | `Direction` | Unit pointing direction in Unreal's frame. |
 | `Rotation`, `Rotator` | The phone's orientation in Unreal's frame. Rotating +X gives `Direction`; +Z points out of the phone's screen. |
 | `bHasScreen`, `Screen` | Normalised screen position, (0, 0) top-left to (1, 1) bottom-right. Values outside 0..1 mean the player is pointing off the screen. `bHasScreen` is false when the phone points more than about 87 degrees away from forward. |
-| `RigDirection`, `RigQuat` | The raw rig-frame values from the relay, for anyone who needs them. |
+| `bHasAccel`, `Accel` | The phone's acceleration in m/s², gravity removed, in Unreal's frame. Not smoothed. `bHasAccel` is false when the phone sends none (for example if motion access was refused). |
+| `RigDirection`, `RigQuat`, `RigAccel` | The raw rig-frame values from the relay, for anyone who needs them. |
 
 ### FPhoneWandLayout and FPhoneWandControl
 
@@ -346,6 +422,8 @@ Blueprint function library, also callable from C++.
 | `LayoutToJson(Layout)` | The layout as the JSON the relay receives, for logs. |
 | `MakeControlBool` / `MakeControlNumber` / `MakeControlText` | Values for `SetControl`. |
 | `TemplateToString(Template)` / `ControlValueToString(Value)` | Text for display. |
+| `IsGestureButtonHeld(Gesture, Button)` | **Is Button Held (Gesture)**: true when the button was held as the gesture started. |
+| `GestureToString(Gesture)` | A gesture's protocol name (`push`, `twist-left`, ...). |
 
 ### Project settings
 
@@ -361,6 +439,10 @@ Blueprint function library, also callable from C++.
 | **Relay Path** | empty | The `phone-wand-relay` folder or the relay executable. Empty uses `Resources/Relay/phone-wand-relay` in the plugin. A relative path is relative to the project folder. |
 | **Relay Arguments** | empty | Extra relay options, such as `--max-players 8 --key party`. |
 | **Smoothing** | Relay Default | `Relay Default`, `Custom` (uses **Min Cutoff**, **Beta**, **D Cutoff**) or `Raw`. |
+| **Gestures** | on | Send this app `OnGesture` events. |
+| **Gesture Threshold** | 7 | Acceleration in m/s² that starts a movement. Lower is more sensitive. |
+| **Gesture Min Speed** | 0.35 | Peak speed in m/s a movement must reach. |
+| **Gesture Twist Rate** | 360 | Roll speed in degrees per second that makes a twist. |
 
 Command-line switches: `-PhoneWandUrl=ws://host:port/app` overrides the URL,
 `-PhoneWandNoConnect` stops the automatic connection, `-PhoneWandStartRelay` turns on **Start
@@ -464,7 +546,8 @@ which draws:
 - a line for each player who hasn't set up their aim yet ("Player 2, Bea: set up your aim on your
   phone"), since they have no cursor until they do,
 - the join URL, the QR code (fetched from the relay's `qrUrl`) and a player list,
-- the latest control change, briefly, at the top of the screen.
+- the latest control change or gesture (with any held buttons), briefly, at the top of the screen,
+  in the player's colour.
 
 Press **L** to cycle every phone through three sample layouts: the default, a `primary-row` with a
 Fire button, a Zoom toggle and a label, and a `grid` with every kind of control.
@@ -526,9 +609,12 @@ The plugin has automation tests, all named `PhoneWand.*`:
 | `PhoneWand.Library` | Colour, screen, direction and pose helpers. |
 | `PhoneWand.Layouts.Json` | The exact `layout` and `set` messages the plugin sends, compared field by field with the protocol's shape, and layouts read back from JSON. |
 | `PhoneWand.Layouts.Client` | Layouts and control values from `player` and `control` messages, the default layout, and `error` going to `OnRelayError` or a warning. |
+| `PhoneWand.Gestures.Configure` | The `configure` message: gesture sensitivity and `gestures: false`, alone and with smoothing, and what a reconnect sends. |
+| `PhoneWand.Gestures.Client` | `gesture` messages to `OnGesture` (fields, frame conversion, sorted buttons, unknown gestures and players) and `accel` on poses. |
 | `PhoneWand.Client.ConnectionLost` | Leave and disconnect events, partial player updates, sorting, and ignoring unknown messages. |
 | `PhoneWand.Live.Relay` | Connects to a running relay and passes only if it sees the hello, joins, poses and stats. Skipped unless `PHONEWAND_LIVE_URL` (or `-PhoneWandLiveUrl=`) is set. |
 | `PhoneWand.Live.Layouts` | Sends a layout through a running relay to a scripted phone, which presses a custom `fire` button and moves a slider; checks the events and held values, sets a label, checks an invalid layout fires `OnRelayError`, and resets the layout. Skipped unless `PHONEWAND_LAYOUT_LIVE_URL` (or `-PhoneWandLayoutLiveUrl=`) is set. |
+| `PhoneWand.Live.Gestures` | A scripted phone flicks towards the screen while holding Primary through a running relay; passes when `OnGesture` gives a push with `primary` held and poses carry acceleration. Skipped unless `PHONEWAND_GESTURE_LIVE_URL` (or `-PhoneWandGestureLiveUrl=`) is set. |
 | `PhoneWand.ManagedRelay.Paths` | Which URLs count as this computer, and where **Relay Path** points. |
 | `PhoneWand.ManagedRelay.Missing` | With no relay binary, a warning says where it looked and the client keeps connecting. |
 | `PhoneWand.ManagedRelay.Live` | With no relay on the port, starts the relay, connects, and after shutdown checks that `status.json` no longer answers and the process is gone; then, with a relay already running, checks that it starts nothing and leaves that relay running. Uses app port 26480 and phone port 26443 (`PHONEWAND_RELAY_TEST_PORTS=<app>,<phone>` to change them). Skipped unless `PHONEWAND_RELAY_DIR` (or `-PhoneWandRelayDir=`) names a `phone-wand-relay` folder. |
@@ -558,6 +644,13 @@ bun scripts/build-assets.ts
 bun packages/relay/src/main.ts --no-open --no-key --port 32443 --app-port 32480 --http-port 32080 --no-landing &
 bun clients/unreal/Scripts/fake-phone.ts ws://127.0.0.1:32080/phone &
 PHONEWAND_LAYOUT_LIVE_URL=ws://127.0.0.1:32480/app scripts/check-unreal.sh
+```
+
+For the live gestures test, use `clients/unreal/Scripts/gesture-phone.ts` the same way:
+
+```sh
+bun clients/unreal/Scripts/gesture-phone.ts ws://127.0.0.1:32080/phone &
+PHONEWAND_GESTURE_LIVE_URL=ws://127.0.0.1:32480/app scripts/check-unreal.sh
 ```
 
 To include the managed relay test, point it at the relay binaries (for example after

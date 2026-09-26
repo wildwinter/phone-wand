@@ -66,4 +66,23 @@ public:
 	/** One Euro derivative cutoff (Hz). */
 	UPROPERTY(Config, EditAnywhere, Category = "Smoothing", meta = (EditCondition = "Smoothing == EPhoneWandSmoothingMode::Custom", ClampMin = "0.01"))
 	float DCutoff = 1.0f;
+
+	/**
+	 * Send this app gesture events (OnGesture). See docs/gestures.md. The gesture settings are sent
+	 * every time the connection opens, when they differ from the relay's defaults.
+	 */
+	UPROPERTY(Config, EditAnywhere, Category = "Gestures")
+	bool bGestures = true;
+
+	/** Acceleration in m/s^2 that starts a movement. Lower is more sensitive. The relay's default is 7. */
+	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "0.1"))
+	double GestureThreshold = PhoneWand::DefaultGestureThreshold;
+
+	/** Peak speed in m/s a movement must reach. The relay's default is 0.35. */
+	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "0.0"))
+	double GestureMinSpeed = PhoneWand::DefaultGestureMinSpeed;
+
+	/** Roll speed in degrees per second that makes a twist. The relay's default is 360. */
+	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "1.0"))
+	double GestureTwistRate = PhoneWand::DefaultGestureTwistRate;
 };

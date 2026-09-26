@@ -104,7 +104,44 @@ namespace
 		double S[2] = { 0.0, 0.0 };
 		Pose.bHasScreen = ReadNumbers(Msg, TEXT("screen"), S, 2);
 		Pose.Screen = Pose.bHasScreen ? FVector2D(S[0], S[1]) : FVector2D::ZeroVector;
+
+		double A[3] = { 0.0, 0.0, 0.0 };
+		Pose.bHasAccel = ReadNumbers(Msg, TEXT("accel"), A, 3);
+		Pose.RigAccel = Pose.bHasAccel ? FVector(A[0], A[1], A[2]) : FVector::ZeroVector;
+		Pose.Accel = UPhoneWandLibrary::RigToUnrealVector(Pose.RigAccel);
 		return Pose;
+	}
+
+	FPhoneWandGesture ParseGestureMessage(const FJsonObject& Msg)
+	{
+		FPhoneWandGesture G;
+		Msg.TryGetStringField(TEXT("id"), G.Id);
+		Msg.TryGetStringField(TEXT("gesture"), G.GestureName);
+		G.Gesture = PhoneWand::ParseGesture(G.GestureName);
+		Msg.TryGetNumberField(TEXT("strength"), G.Strength);
+		Msg.TryGetNumberField(TEXT("speed"), G.Speed);
+		double D[3] = { 0.0, 0.0, 0.0 };
+		if (ReadNumbers(Msg, TEXT("dir"), D, 3))
+		{
+			G.RawDirection = FVector(D[0], D[1], D[2]);
+			G.Direction = UPhoneWandLibrary::RigToUnrealVector(G.RawDirection);
+		}
+		Msg.TryGetNumberField(TEXT("duration"), G.Duration);
+		Msg.TryGetNumberField(TEXT("t"), G.Time);
+		const TArray<TSharedPtr<FJsonValue>>* Buttons = nullptr;
+		if (Msg.TryGetArrayField(TEXT("buttons"), Buttons) && Buttons != nullptr)
+		{
+			for (const TSharedPtr<FJsonValue>& B : *Buttons)
+			{
+				FString Id;
+				if (B.IsValid() && B->TryGetString(Id))
+				{
+					G.Buttons.AddUnique(Id);
+				}
+			}
+			G.Buttons.Sort();
+		}
+		return G;
 	}
 
 	FString ToJsonString(const TSharedRef<FJsonObject>& Msg)
@@ -149,6 +186,35 @@ namespace PhoneWand
 		default: return FString();
 		}
 	}
+
+	FString ToString(EPhoneWandGesture Gesture)
+	{
+		switch (Gesture)
+		{
+		case EPhoneWandGesture::Push: return TEXT("push");
+		case EPhoneWandGesture::Pull: return TEXT("pull");
+		case EPhoneWandGesture::Left: return TEXT("left");
+		case EPhoneWandGesture::Right: return TEXT("right");
+		case EPhoneWandGesture::Up: return TEXT("up");
+		case EPhoneWandGesture::Down: return TEXT("down");
+		case EPhoneWandGesture::Shake: return TEXT("shake");
+		case EPhoneWandGesture::TwistLeft: return TEXT("twist-left");
+		case EPhoneWandGesture::TwistRight: return TEXT("twist-right");
+		default: return FString();
+		}
+	}
+
+	EPhoneWandGesture ParseGesture(const FString& Name)
+	{
+		for (uint8 i = 0; i < (uint8)EPhoneWandGesture::Unknown; ++i)
+		{
+			if (Name == ToString((EPhoneWandGesture)i))
+			{
+				return (EPhoneWandGesture)i;
+			}
+		}
+		return EPhoneWandGesture::Unknown;
+	}
 }
 
 // ---------------------------------------------------------------------- lifecycle
@@ -163,6 +229,16 @@ void UPhoneWandSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	SmoothMinCutoff = Settings->MinCutoff;
 	SmoothBeta = Settings->Beta;
 	SmoothDCutoff = Settings->DCutoff;
+	bGesturesEnabled = Settings->bGestures;
+	GestureThreshold = Settings->GestureThreshold;
+	GestureMinSpeed = Settings->GestureMinSpeed;
+	GestureTwistRate = Settings->GestureTwistRate;
+	// Only tell the relay about gestures when the project changed them, so a relay started with
+	// its own defaults keeps them.
+	bGesturesConfigured = !bGesturesEnabled
+		|| !FMath::IsNearlyEqual(GestureThreshold, PhoneWand::DefaultGestureThreshold)
+		|| !FMath::IsNearlyEqual(GestureMinSpeed, PhoneWand::DefaultGestureMinSpeed)
+		|| !FMath::IsNearlyEqual(GestureTwistRate, PhoneWand::DefaultGestureTwistRate);
 
 	bStartRelay = Settings->bStartRelay || FParse::Param(FCommandLine::Get(), TEXT("PhoneWandStartRelay"));
 	RelayPathSetting = Settings->RelayPath;
@@ -756,11 +832,11 @@ void UPhoneWandSubsystem::SendJson(const TSharedRef<FJsonObject>& Msg)
 	}
 }
 
-void UPhoneWandSubsystem::SendConfigure()
+TSharedPtr<FJsonObject> UPhoneWandSubsystem::MakeConfigure() const
 {
-	if (SmoothingMode == EPhoneWandSmoothingMode::RelayDefault)
+	if (SmoothingMode == EPhoneWandSmoothingMode::RelayDefault && !bGesturesConfigured)
 	{
-		return;
+		return nullptr;
 	}
 	TSharedRef<FJsonObject> Msg = MakeShared<FJsonObject>();
 	Msg->SetStringField(TEXT("type"), TEXT("configure"));
@@ -768,7 +844,7 @@ void UPhoneWandSubsystem::SendConfigure()
 	{
 		Msg->SetBoolField(TEXT("smoothing"), false);
 	}
-	else
+	else if (SmoothingMode == EPhoneWandSmoothingMode::Custom)
 	{
 		TSharedRef<FJsonObject> S = MakeShared<FJsonObject>();
 		S->SetNumberField(TEXT("minCutoff"), SmoothMinCutoff);
@@ -776,7 +852,53 @@ void UPhoneWandSubsystem::SendConfigure()
 		S->SetNumberField(TEXT("dCutoff"), SmoothDCutoff);
 		Msg->SetObjectField(TEXT("smoothing"), S);
 	}
-	SendJson(Msg);
+	if (bGesturesConfigured)
+	{
+		if (!bGesturesEnabled)
+		{
+			Msg->SetBoolField(TEXT("gestures"), false);
+		}
+		else
+		{
+			TSharedRef<FJsonObject> G = MakeShared<FJsonObject>();
+			G->SetNumberField(TEXT("threshold"), GestureThreshold);
+			G->SetNumberField(TEXT("minSpeed"), GestureMinSpeed);
+			G->SetNumberField(TEXT("twistRate"), GestureTwistRate);
+			Msg->SetObjectField(TEXT("gestures"), G);
+		}
+	}
+	return Msg;
+}
+
+FString UPhoneWandSubsystem::GetConfigureJson() const
+{
+	const TSharedPtr<FJsonObject> Msg = MakeConfigure();
+	return Msg.IsValid() ? ToJsonString(Msg.ToSharedRef()) : FString();
+}
+
+void UPhoneWandSubsystem::SendConfigure()
+{
+	if (const TSharedPtr<FJsonObject> Msg = MakeConfigure())
+	{
+		SendJson(Msg.ToSharedRef());
+	}
+}
+
+void UPhoneWandSubsystem::SetGestureSensitivity(double Threshold, double MinSpeed, double TwistRate)
+{
+	bGesturesConfigured = true;
+	bGesturesEnabled = true;
+	GestureThreshold = Threshold;
+	GestureMinSpeed = MinSpeed;
+	GestureTwistRate = TwistRate;
+	SendConfigure();
+}
+
+void UPhoneWandSubsystem::SetGesturesEnabled(bool bEnabled)
+{
+	bGesturesConfigured = true;
+	bGesturesEnabled = bEnabled;
+	SendConfigure();
 }
 
 void UPhoneWandSubsystem::SetSmoothing(float MinCutoff, float Beta, float DCutoff)
@@ -1153,6 +1275,18 @@ void UPhoneWandSubsystem::HandleMessageObject(const FJsonObject& Msg)
 		const FPhoneWandPlayer P = *Live;
 		OnControlChanged.Broadcast(P, ControlId, Value);
 		OnControlChangedNative.Broadcast(P, ControlId, Value);
+	}
+	else if (Type == TEXT("gesture"))
+	{
+		FPhoneWandPlayer* Live = FindById();
+		if (!Live)
+		{
+			return;
+		}
+		const FPhoneWandGesture Gesture = ParseGestureMessage(Msg);
+		const FPhoneWandPlayer P = *Live;
+		OnGesture.Broadcast(P, Gesture);
+		OnGestureNative.Broadcast(P, Gesture);
 	}
 	else if (Type == TEXT("error"))
 	{
