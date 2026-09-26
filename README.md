@@ -1,7 +1,7 @@
 # Phone Wand
 
 [![CI](https://github.com/wildwinter/phone-wand/actions/workflows/ci.yml/badge.svg)](https://github.com/wildwinter/phone-wand/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/wildwinter/phone-wand)](https://github.com/wildwinter/phone-wand/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/wildwinter/phone-wand?label=release)](https://github.com/wildwinter/phone-wand/releases/latest)
 
 Turn the phones people already carry into pointers for a shared screen.
 
