@@ -34,12 +34,12 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
 
    | Computer | Download | To run it |
    |---|---|---|
-   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` | Open the disk image and double-click `phone-wand` (or copy it anywhere first) |
+   | Mac with Apple silicon | `phone-wand-relay-<version>-macos-arm64.dmg` | Open the disk image and double-click **Phone Wand** (or drag it to Applications first). It runs in the background, with the dashboard as its window. |
    | Intel Mac | `phone-wand-relay-<version>-macos-x64.dmg` | The same |
    | Windows | `phone-wand-relay-<version>-windows-x64.zip` | Double-click `phone-wand.exe`. If SmartScreen appears, choose **More info**, then **Run anyway**. Allow it through the firewall on private networks. |
    | Linux | `phone-wand-relay-<version>-linux-x64.tar.gz` (or `-linux-arm64`) | Run `./phone-wand` |
 
-   It prints a QR code and opens the dashboard in your browser. Nothing else to install.
+   It opens the dashboard in your browser, with a QR code for phones. Nothing else to install.
 2. Scan the QR code with a phone on the same Wi-Fi. A welcome page explains the certificate warning
    that follows and which buttons to tap (see [Phones and certificates](docs/phones.md) to get rid
    of it for good). Then tap **Tap to start**.

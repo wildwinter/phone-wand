@@ -16,16 +16,20 @@ Download the relay for the computer that drives your screen from the
 
 Open or unzip it, and run it:
 
-- **macOS:** open the disk image and double-click `phone-wand`, or copy it to any folder first and
-  run it from there (in Terminal, `./phone-wand`). The disk image is signed and notarized by Apple,
-  so macOS opens it without a warning, even offline.
+- **macOS:** open the disk image and double-click **Phone Wand**, or drag it to Applications first
+  and start it from there. It runs in the background with no window of its own: the dashboard opens
+  in your browser, and its **Stop relay** button stops it. It's signed and notarized by Apple, so it
+  opens without a warning. The disk image also has `phone-wand`, the same relay as a command-line
+  program: copy it to any folder and run `./phone-wand` in Terminal to see its output and use the
+  options below.
 - **Windows:** double-click `phone-wand.exe`. The first time, Windows SmartScreen may say it doesn't
   recognise the app: choose **More info**, then **Run anyway**. When Windows Firewall asks, allow
   access on **private networks**, or phones won't be able to connect.
 - **Linux:** run `./phone-wand`.
 
-The relay prints a QR code, the address phones use, and the dashboard address, then opens the
-dashboard in your browser. Leave it running. Stop it with Ctrl+C.
+The relay opens the dashboard in your browser, with the QR code phones scan. Run from a terminal, it
+also prints the QR code and addresses there. Leave it running. Stop it with the dashboard's **Stop
+relay** button, or Ctrl+C in the terminal.
 
 The relay needs no installation and no internet connection. It keeps its certificates and settings
 in a `.phone-wand` folder in your home folder.

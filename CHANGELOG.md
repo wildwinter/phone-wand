@@ -7,6 +7,19 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- **Phone Wand.app** for macOS, in the disk image next to the command-line relay. Double-click it and
+  the relay runs in the background with the dashboard as its window. Output goes to
+  `~/Library/Logs/Phone Wand/relay.log`, and startup errors appear in a dialog.
+- A **Stop relay** button on the dashboard.
+
+### Fixed
+
+- macOS still refused to open the relay from the 0.1.2 disk image ("Apple could not verify ... is
+  free of malware"): Finder won't open a command-line program downloaded from the internet, however
+  it is signed. The notarized Mac app is what to double-click now.
+
 ## [0.1.2] - 2026-09-26
 
 ### Fixed

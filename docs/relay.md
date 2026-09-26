@@ -10,6 +10,14 @@ The relay is one program that runs on the computer driving the display. It:
 
 Several apps can connect at once, for example your game plus the dashboard.
 
+## The Mac app
+
+On macOS, **Phone Wand.app** is the relay with no terminal: double-click it and the dashboard opens
+in your browser. Stop it with the dashboard's **Stop relay** button. Its output goes to
+`~/Library/Logs/Phone Wand/relay.log`, and if it can't start (say, a port is taken) it says why in a
+dialog. It uses the default options; for others, run the `phone-wand` command-line program from the
+same disk image instead.
+
 ## Options
 
 Run `phone-wand --help` for this list.
@@ -41,6 +49,8 @@ Run `phone-wand --help` for this list.
 ## The dashboard
 
 `http://127.0.0.1:8480/` shows:
+
+- a **Stop relay** button,
 
 - the QR code and join address,
 - each player with their state, platform, connection type, update rate, round-trip time and dropped
