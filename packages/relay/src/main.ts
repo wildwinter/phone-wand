@@ -51,6 +51,11 @@ Other:
   --data-dir <dir>      Where certificates and settings live (default ~/.phone-wand)
   --no-open             Do not open the dashboard in a browser
   --quiet               Only print errors
+  --log <file>          Write all output to this file instead of the terminal
+
+Starting the relay from a game or app (see docs/shipping.md):
+  --lifeline            Stop when standard input closes: start the relay with a pipe as its stdin
+                        and it stops when your program does, even if your program crashes
   -v, --version         Print the version
   -h, --help            Show this help
 
@@ -60,13 +65,24 @@ Docs: https://github.com/wildwinter/phone-wand`;
 // there is no terminal, so output goes to a log file and the dashboard is the interface. Run by
 // hand from a terminal, even from inside the app, the relay behaves as the ordinary command line.
 const APP_MODE = process.env.PHONE_WAND_APP === "1";
-const LOG_FILE = process.platform === "win32"
-  ? join(process.env.LOCALAPPDATA || join(homedir(), "AppData/Local"), "Phone Wand", "relay.log")
-  : process.platform === "darwin"
-    ? join(homedir(), "Library/Logs/Phone Wand/relay.log")
-    : join(homedir(), ".phone-wand", "relay.log");
 
-if (APP_MODE) {
+// --log is read before anything else is printed, so all output goes to the file.
+function earlyArg(name: string): string | undefined {
+  const i = process.argv.indexOf(name);
+  if (i >= 0) return process.argv[i + 1];
+  return process.argv.find((a) => a.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+const LOG_FILE = earlyArg("--log")
+  ? resolve(earlyArg("--log")!)
+  : !APP_MODE
+    ? null
+    : process.platform === "win32"
+      ? join(process.env.LOCALAPPDATA || join(homedir(), "AppData/Local"), "Phone Wand", "relay.log")
+      : process.platform === "darwin"
+        ? join(homedir(), "Library/Logs/Phone Wand/relay.log")
+        : join(homedir(), ".phone-wand", "relay.log");
+
+if (LOG_FILE) {
   mkdirSync(join(LOG_FILE, ".."), { recursive: true });
   writeFileSync(LOG_FILE, `Phone Wand relay started ${new Date().toISOString()}\n`);
   const toFile = (...parts: unknown[]) => {
@@ -193,6 +209,8 @@ async function main() {
         loop: { type: "boolean" },
         "data-dir": { type: "string" },
         "no-open": { type: "boolean" },
+        log: { type: "string" },
+        lifeline: { type: "boolean" },
         quiet: { type: "boolean" },
         version: { type: "boolean", short: "v" },
         help: { type: "boolean", short: "h" },
@@ -321,8 +339,8 @@ async function main() {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
-  if (APP_MODE) {
-    // The app holds our stdin open; when it closes, the app has gone, so the relay goes too.
+  if (APP_MODE || values.lifeline) {
+    // Whoever started us holds our stdin open; when it closes, they have gone, so we go too.
     process.stdin.on("end", shutdown);
     process.stdin.on("close", shutdown);
     process.stdin.resume();

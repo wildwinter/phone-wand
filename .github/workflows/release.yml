@@ -87,7 +87,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/embed/
 
   others:
     needs: verify
@@ -102,13 +104,14 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - name: Build the Windows and Linux relays and the client packages
-        run: bun scripts/dist.ts --relay=windows-x64,linux-x64,linux-arm64
+        run: bun scripts/dist.ts --only=relay,js,unity,godot,unreal --relay=windows-x64,linux-x64,linux-arm64
       - uses: actions/upload-artifact@v4
         with:
           name: others
           path: |
             dist/*.zip
             dist/*.tar.gz
+            dist/embed/
 
   publish:
     needs: [macos, others]
@@ -123,6 +126,11 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      - name: The relay for games, every platform in one zip
+        run: |
+          # Artifacts lose the executable bit; put it back before zipping.
+          chmod +x dist/embed/*/phone-wand-relay*
+          bun scripts/dist.ts --only=embed
       - name: Release notes from the changelog
         run: |
           {
@@ -131,11 +139,15 @@ jobs:
             echo "Documentation: https://github.com/wildwinter/phone-wand#readme"
           } > "$RUNNER_TEMP/notes.md"
       - name: Checksums
-        run: cd dist && sha256sum * > SHA256SUMS.txt
+        run: cd dist && sha256sum *.zip *.dmg *.tar.gz > SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: Phone Wand ${{ env.TAG }}
           body_path: ${{ runner.temp }}/notes.md
-          files: dist/*
+          files: |
+            dist/*.zip
+            dist/*.dmg
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
           fail_on_unmatched_files: true

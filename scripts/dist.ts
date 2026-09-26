@@ -5,6 +5,7 @@
 //   phone-wand-relay-<ver>-windows-x64.zip     tray app and relay, unsigned by policy
 //   phone-wand-relay-<ver>-linux-x64.tar.gz
 //   phone-wand-relay-<ver>-linux-arm64.tar.gz
+//   phone-wand-relay-<ver>-embed.zip           the relay for every platform, for games to ship
 //   phone-wand-js-<ver>.zip                    ES module, <script> build, types, examples
 //   phone-wand-unity-<ver>.zip                 the UPM package folder
 //   phone-wand-godot-<ver>.zip                 addons/phone_wand
@@ -48,7 +49,7 @@ const args = new Map(
     return [k, v] as [string, string];
   }),
 );
-const only = new Set((args.get("only") ?? "relay,js,unity,godot,unreal").split(","));
+const only = new Set((args.get("only") ?? "relay,embed,js,unity,godot,unreal").split(","));
 const hostTarget = `${process.platform === "win32" ? "windows" : process.platform}-${process.arch === "arm64" ? "arm64" : "x64"}`;
 const relayArg = args.get("relay") ?? hostTarget;
 const relayTargets = relayArg === "all" ? Object.keys(RELAY_TARGETS) : relayArg.split(",");
@@ -85,7 +86,7 @@ function signingIdentity(): string | null {
  * Notarize a file and staple the ticket to `staple` (the file itself by default: a disk image; for an
  * app, submit a zip of it and staple the app). Returns false when there are no credentials.
  */
-function notarizeAndStaple(dmgPath: string, staple = dmgPath): boolean {
+function notarizeAndStaple(dmgPath: string, staple: string | null = dmgPath): boolean {
   const { APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID } = process.env;
   if (!APPLE_ID || !APPLE_APP_SPECIFIC_PASSWORD || !APPLE_TEAM_ID) {
     console.log("  (not notarized: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are not all set)");
@@ -100,14 +101,22 @@ function notarizeAndStaple(dmgPath: string, staple = dmgPath): boolean {
   if (result.status !== "Accepted") {
     throw new Error(`notarization of ${dmgPath} was ${result.status} (submission ${result.id}); see: xcrun notarytool log ${result.id}`);
   }
+  if (!staple) return true;
   run("xcrun", ["stapler", "staple", staple]);
   run("xcrun", ["stapler", "validate", staple]);
   return true;
 }
 
+const embedDir = join(dist, "embed");
+
 async function buildRelay(): Promise<void> {
   await buildAssets();
   const identity = signingIdentity();
+  await buildRelayTargets(identity);
+  macEmbed(identity);
+}
+
+async function buildRelayTargets(identity: string | null): Promise<void> {
   for (const target of relayTargets) {
     const t = RELAY_TARGETS[target];
     if (!t) throw new Error(`unknown relay target ${target}; expected one of ${Object.keys(RELAY_TARGETS).join(", ")} or all`);
@@ -116,6 +125,10 @@ async function buildRelay(): Promise<void> {
     mkdirSync(dir, { recursive: true });
     const exe = join(dir, t.exe);
     run("bun", ["build", "packages/relay/src/main.ts", "--compile", "--minify", `--target=bun-${target}`, "--outfile", exe]);
+    // A bare copy for games to ship (see buildEmbed); macOS copies are merged and signed below.
+    const part = join(embedDir, target.startsWith("darwin") ? `macos-${target.slice(7)}` : target);
+    mkdirSync(part, { recursive: true });
+    cpSync(exe, join(part, target.startsWith("windows") ? "phone-wand-relay.exe" : "phone-wand-relay"));
 
     if (target.startsWith("darwin")) {
       if (process.platform !== "darwin") {
@@ -206,6 +219,53 @@ function buildTray(dir: string): void {
   cpSync(join(out, "Phone Wand.exe.config"), join(dir, "Phone Wand.exe.config"));
 }
 
+/**
+ * The macOS relay for games: one universal binary (both processors), signed with the JIT
+ * entitlements and notarized, in dist/embed/macos. Games that are themselves signed re-sign it.
+ */
+function macEmbed(identity: string | null): void {
+  const parts = ["macos-arm64", "macos-x64"].map((p) => join(embedDir, p, "phone-wand-relay")).filter((p) => existsSync(p));
+  if (!parts.length) return;
+  const outDir = join(embedDir, "macos");
+  mkdirSync(outDir, { recursive: true });
+  const out = join(outDir, "phone-wand-relay");
+  if (parts.length === 2 && process.platform === "darwin") run("lipo", ["-create", ...parts, "-output", out]);
+  else cpSync(parts[0], out);
+  rmSync(join(embedDir, "macos-arm64"), { recursive: true, force: true });
+  rmSync(join(embedDir, "macos-x64"), { recursive: true, force: true });
+  if (process.platform !== "darwin" || !identity) return;
+  run("codesign", [
+    "--force", "--timestamp", "--options", "runtime",
+    "--entitlements", join(root, "scripts/entitlements.plist"), "--sign", identity, out,
+  ]);
+  run("codesign", ["--verify", "--strict", "--verbose=2", out]);
+  // A bare program can't carry a stapled ticket, but notarizing it means Gatekeeper finds the
+  // ticket online when a game starts it.
+  const zipPath = join(staging, "embed-macos.zip");
+  run("ditto", ["-c", "-k", out, zipPath]);
+  notarizeAndStaple(zipPath, null);
+  rmSync(zipPath, { force: true });
+}
+
+/** phone-wand-relay-<ver>-embed.zip: the relay for every platform, laid out for games to ship. */
+function buildEmbed(): void {
+  if (!existsSync(embedDir)) return console.log("  (no relay binaries in dist/embed: build the relay first)");
+  const base = `phone-wand-relay-${version}-embed`;
+  const dir = join(staging, base, "phone-wand-relay");
+  cpSync(embedDir, dir, { recursive: true });
+  cpSync(join(root, "LICENSE"), join(dir, "LICENSE"));
+  writeFileSync(join(dir, "README.txt"), `Phone Wand relay ${version}, for shipping with a game or app
+
+One folder per platform: macos (a universal binary for Apple silicon and Intel), windows-x64,
+linux-x64 and linux-arm64. Keep the folder names: the Phone Wand client libraries look for
+phone-wand-relay/<platform>/phone-wand-relay (phone-wand-relay.exe on Windows).
+
+Where to put this folder for Unity, Godot and Unreal, and how to sign it inside a macOS game:
+https://github.com/wildwinter/phone-wand/blob/main/docs/shipping.md
+`);
+  zip(join(staging, base), join(dist, `${base}.zip`), ["phone-wand-relay"]);
+}
+
 function infoPlist(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -256,10 +316,17 @@ async function buildJs(): Promise<void> {
   if (!esm.success || !iife.success) throw new Error("JS client build failed");
   writeFileSync(join(dir, "phone-wand.mjs"), await esm.outputs[0].text());
   writeFileSync(join(dir, "phone-wand.min.js"), await iife.outputs[0].text());
+  // Starting the relay from Node, Bun or Deno (docs/shipping.md); kept apart for browsers.
+  const node = await Bun.build({ entrypoints: [join(pkg, "src/node.ts")], target: "node", format: "esm" });
+  if (!node.success) throw new Error("JS node helper build failed");
+  writeFileSync(join(dir, "phone-wand-node.mjs"), await node.outputs[0].text());
   run("bunx", ["tsc", "--declaration", "--emitDeclarationOnly", "--skipLibCheck", "--target", "ES2022", "--module", "ESNext",
-    "--moduleResolution", "Bundler", "--lib", "ES2022,DOM", "--outDir", dir, join(pkg, "src/index.ts")]);
+    "--moduleResolution", "Bundler", "--lib", "ES2022,DOM", "--types", "node", "--outDir", dir,
+    join(pkg, "src/index.ts"), join(pkg, "src/node.ts")]);
   cpSync(join(dir, "index.d.ts"), join(dir, "phone-wand.d.ts"));
+  cpSync(join(dir, "node.d.ts"), join(dir, "phone-wand-node.d.ts"));
   rmSync(join(dir, "index.d.ts"));
+  rmSync(join(dir, "node.d.ts"));
   cpSync(join(root, "examples/js"), join(dir, "examples"), { recursive: true });
   cpSync(join(pkg, "README.md"), join(dir, "README.md"));
   common(dir);
@@ -322,7 +389,11 @@ function buildUnreal(): void {
 // ------------------------------------------------------------------ main
 
 console.log(`phone-wand ${version}: building ${[...only].join(", ")}`);
-if (only.has("relay")) await buildRelay();
+if (only.has("relay")) {
+  rmSync(embedDir, { recursive: true, force: true });
+  await buildRelay();
+}
+if (only.has("embed")) buildEmbed();
 if (only.has("js")) await buildJs();
 if (only.has("unity")) buildUnity();
 if (only.has("godot")) buildGodot();

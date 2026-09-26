@@ -8,35 +8,36 @@
         "@phone-wand/core": "workspace:*",
         "@phone-wand/relay": "workspace:*",
         "@types/bun": "^1.4.2",
+        "@types/node": "^26.6.3",
         "phone-wand": "workspace:*",
         "typescript": "^5.9",
       },
     },
     "packages/client-js": {
       "name": "phone-wand",
-      "version": "0.1.0",
+      "version": "0.2.0",
     },
     "packages/core": {
       "name": "@phone-wand/core",
-      "version": "0.1.0",
+      "version": "0.2.0",
     },
     "packages/dashboard": {
       "name": "@phone-wand/dashboard",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "phone-wand": "workspace:*",
       },
     },
     "packages/phone": {
       "name": "@phone-wand/phone",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@phone-wand/core": "workspace:*",
       },
     },
     "packages/relay": {
       "name": "@phone-wand/relay",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "bin": {
         "phone-wand": "src/main.ts",
       },

@@ -22,6 +22,7 @@
     "@phone-wand/core": "workspace:*",
     "@phone-wand/relay": "workspace:*",
     "@types/bun": "^1.4.2",
+    "@types/node": "^26.6.3",
     "phone-wand": "workspace:*",
     "typescript": "^5.9"
   }
