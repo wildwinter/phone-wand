@@ -463,7 +463,13 @@ function flash(el: HTMLElement): void {
   setTimeout(() => el.classList.remove("flash"), 600);
 }
 
+// Taps that land on the play screen just after an overlay closes are the tail of the tap that
+// closed it (a "ghost click"), not a real press: without this, finishing calibration pressed Recentre.
+let ignoreTapsUntil = 0;
+const tapAllowed = () => performance.now() > ignoreTapsUntil;
+
 $("recentre").addEventListener("click", () => {
+  if (!tapAllowed()) return;
   send({ type: "recentre" });
   navigator.vibrate?.(20);
 });
@@ -491,18 +497,31 @@ function renderCalibration(): void {
 function endCalibration(): void {
   calibStep = null;
   $("calib").classList.add("hidden");
+  ignoreTapsUntil = performance.now() + 600;
 }
 
-$("calibrate").addEventListener("click", startCalibration);
-$("calib-cancel").addEventListener("pointerdown", (e) => {
+$("calibrate").addEventListener("click", () => {
+  if (tapAllowed()) startCalibration();
+});
+$("calib-cancel").addEventListener("pointerdown", (e) => e.stopPropagation());
+$("calib-cancel").addEventListener("click", (e) => {
   e.stopPropagation();
   send({ type: "calibrate-cancel" });
   endCalibration();
 });
+
+// The aim is taken when the finger touches down, while the phone is steadiest, but only sent when
+// the tap completes, so the overlay is still there to take the end of the tap.
+let aimAtTouch: Quat | null = null;
 $("calib").addEventListener("pointerdown", () => {
-  if (!calibStep || !lastQ) return;
+  aimAtTouch = lastQ;
+});
+$("calib").addEventListener("click", () => {
+  const q = aimAtTouch ?? lastQ;
+  aimAtTouch = null;
+  if (!calibStep || !q) return;
   navigator.vibrate?.(20);
-  send({ type: "corner", step: calibStep, q: lastQ });
+  send({ type: "corner", step: calibStep, q });
   if (calibStep === "top-left") {
     calibStep = "bottom-right";
     renderCalibration();
