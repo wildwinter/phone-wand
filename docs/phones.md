@@ -29,9 +29,10 @@ tap, so they aren't alarmed by it. Then the browser says the connection isn't pr
 The phone remembers this for the relay's address. If the relay's computer gets a different address
 on the network, phones are asked again.
 
-Some versions of Safari refuse a live WebSocket connection to a server whose certificate was only
-accepted this way. The phone page notices and switches to plain HTTP requests on the same page, so
-it still works. The dashboard shows which connection each phone is using ("WebSocket" or "HTTP
+Current Safari on iPhone keeps a live WebSocket connection after the warning has been accepted.
+Some older versions refused one to a server whose certificate was only accepted this way; if a
+browser does, the phone page notices and switches to plain HTTP requests on the same page, so it
+still works. The dashboard shows which connection each phone is using ("WebSocket" or "HTTP
 fallback").
 
 ### Install the relay's certificate

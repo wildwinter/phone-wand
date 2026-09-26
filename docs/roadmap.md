@@ -10,8 +10,10 @@ found on phones matters more than any new feature. Suggestions and reports are w
   tested.)
 - **Relay platforms:** the Windows relay and tray app, and the Linux relay, including starting the
   relay from a game on each.
-- **Lag:** the goal is under 40 ms from phone to app on local Wi-Fi. It hasn't been measured on
-  real networks yet, especially over the HTTP fallback.
+- **Lag:** the goal is under 40 ms from phone to app on local Wi-Fi. First measurement: an iPhone
+  with Safari over WebSocket on home Wi-Fi sent 60 updates a second with a 9 to 17 ms round trip
+  (so roughly 5 to 9 ms one way). Still to measure: Android, busy event Wi-Fi, and the HTTP
+  fallback, which no tested browser has needed so far.
 - **Long sessions:** battery use and heat on phones.
 - **Engines:** Unity WebGL builds, and Unreal on Windows.
 
