@@ -47,3 +47,7 @@ clients/unreal/**/*.xcworkspace
 clients/unreal/**/*.xcodeproj
 clients/unreal/**/*.sln
 clients/unreal/**/*.code-workspace
+
+# .NET build output (the Windows tray app)
+scripts/windows/**/bin/
+scripts/windows/**/obj/

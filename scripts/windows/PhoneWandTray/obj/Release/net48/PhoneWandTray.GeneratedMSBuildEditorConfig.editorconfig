@@ -1,8 +1,0 @@
-is_global = true
-build_property.RootNamespace = PhoneWandTray
-build_property.ProjectDir = /Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/
-build_property.EnableComHosting = 
-build_property.EnableGeneratedComInterfaceComImportInterop = 
-build_property.CsWinRTUseWindowsUIXamlProjections = false
-build_property.EffectiveAnalysisLevelStyle = 
-build_property.EnableCodeStyleSeverity = 
