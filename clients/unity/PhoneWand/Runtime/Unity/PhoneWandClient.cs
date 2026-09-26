@@ -5,6 +5,9 @@
 //   wand.Pose += (pose, player) => cursor.position = wand.ScreenPosition(pose) ?? offscreen;
 //   wand.Button += (e, player) => { if (e.Button == PhoneButton.Primary && e.Down) Fire(player); };
 //
+// SetLayout chooses the controls each phone shows (see docs/layouts.md); their changes arrive as
+// ControlChanged, and presses of your buttons as Button with your ids.
+//
 // Messages arrive on a background thread and are delivered in Update, so every event fires on
 // the main thread and you can touch the scene from any handler.
 //
@@ -174,7 +177,7 @@ namespace StoryTools.PhoneWand
             remove { connection.Core.PlayerLeft -= value; }
         }
 
-        /// <summary>State, name, colour, calibration or transport changed.</summary>
+        /// <summary>State, name, colour, label, calibration, transport or layout changed.</summary>
         public event Action<Player> PlayerChanged
         {
             add { connection.Core.PlayerChanged += value; }
@@ -191,6 +194,26 @@ namespace StoryTools.PhoneWand
         {
             add { connection.Core.Button += value; }
             remove { connection.Core.Button -= value; }
+        }
+
+        /// <summary>
+        /// A toggle, slider, choice or label changed, on the phone or because an app set it. The
+        /// player's Controls already hold the new value.
+        /// </summary>
+        public event Action<ControlEvent, Player> ControlChanged
+        {
+            add { connection.Core.ControlChanged += value; }
+            remove { connection.Core.ControlChanged -= value; }
+        }
+
+        /// <summary>
+        /// The relay could not use something this app sent (a bad layout or value); the message says
+        /// why. With no listener, the client logs it as a warning.
+        /// </summary>
+        public event Action<string> Error
+        {
+            add { connection.Core.Error += value; }
+            remove { connection.Core.Error -= value; }
         }
 
         public event Action<CalibrationStep, Player> Calibrating
@@ -216,6 +239,7 @@ namespace StoryTools.PhoneWand
         void Awake()
         {
             connection.Core.ListenerError = Debug.LogException;
+            connection.Core.UnhandledError = message => Debug.LogWarning("[Phone Wand] The relay says: " + message, this);
 #if UNITY_WEBGL && !UNITY_EDITOR
             connection.TransportFactory = () => new WebGLTransport();
 #endif
@@ -405,6 +429,33 @@ namespace StoryTools.PhoneWand
         public void Calibrate(CalibrationMode mode = CalibrationMode.Screen, string id = null)
         {
             connection.Core.Calibrate(mode, id);
+        }
+
+        /// <summary>
+        /// Choose the controls a phone shows, or every phone when playerId is null. Null goes back to
+        /// the default Primary and Secondary buttons. See docs/layouts.md.
+        /// </summary>
+        public void SetLayout(Layout layout, string playerId = null)
+        {
+            connection.Core.SetLayout(layout, playerId);
+        }
+
+        /// <summary>Turn a toggle on or off, on one phone or every phone when playerId is null.</summary>
+        public void SetControl(string controlId, bool value, string playerId = null)
+        {
+            connection.Core.SetControl(controlId, value, playerId);
+        }
+
+        /// <summary>Move a slider (0 to 1) or pick a choice's option (its index), on one phone or every phone.</summary>
+        public void SetControl(string controlId, double value, string playerId = null)
+        {
+            connection.Core.SetControl(controlId, value, playerId);
+        }
+
+        /// <summary>Change a label's text, on one phone or every phone when playerId is null.</summary>
+        public void SetControl(string controlId, string value, string playerId = null)
+        {
+            connection.Core.SetControl(controlId, value, playerId);
         }
 
         // ------------------------------------------------------------------ helpers

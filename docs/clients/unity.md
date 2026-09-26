@@ -111,6 +111,52 @@ All events fire on the main thread, from the client's `Update`, so handlers can 
 freely. The client runs early (execution order -1000), so poses received this frame are already
 in `Players` when your own `Update` runs.
 
+## Layouts: choosing the phone's controls
+
+By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
+can choose other controls, for every phone or for each player separately: pick a template and list
+the controls to put in it, and the phone places them for the player's thumb. See
+[Layouts](../layouts.md) for the templates, the control types and their limits.
+
+```csharp
+// A shooter: a big Shoot button, then Reload, a Zoom toggle and an ammo count below.
+wand.SetLayout(Layout.PrimaryRow(
+    Control.Button("shoot", "Shoot"),
+    Control.Button("reload", "Reload"),
+    Control.Toggle("zoom", "Zoom"),
+    Control.TextLabel("ammo", "Ammo", "12")));
+
+wand.Button += (e, player) =>
+{
+    if (e.Button == "shoot" && e.Down) Shoot(player);
+    if (e.Button == "reload" && e.Down) Reload(player);
+};
+wand.ControlChanged += (e, player) =>
+{
+    if (e.Control == "zoom") SetZoom(player, e.AsBool);
+};
+wand.Error += message => Debug.LogWarning("Phone Wand: " + message);
+
+// Later, for one player:
+wand.SetControl("ammo", "11", player.Id);
+```
+
+Pass a player id to `SetLayout` for one phone, or leave it out for every phone.
+`SetLayout(null)` goes back to the default. The relay remembers each player's layout and values,
+so a phone that reconnects comes back as it was, and it sends a `PlayerChanged` with the new
+layout. You can read a player's layout and values at any time: `player.Layout`, `player.Controls`,
+or `player.GetToggle("zoom")` and friends.
+
+If a layout or value doesn't fit (an unknown template, too many controls, a toggle set to text),
+the relay changes nothing and the client raises `Error` with the reason. With no `Error` handler,
+it logs the reason as a warning.
+
+Button ids are strings. `PhoneButton.Primary` and `PhoneButton.Secondary` are the constants
+`"primary"` and `"secondary"`, the ids of the default layout's buttons. (Before layouts,
+`PhoneButton` was an enum. Code such as `e.Button == PhoneButton.Primary` and
+`player.IsHeld(PhoneButton.Primary)` still compiles and works; code that declared a variable of
+type `PhoneButton`, or called `ProtocolNames.Of` on one, now uses `string`.)
+
 ## API reference
 
 ### PhoneWandClient (component)
@@ -145,6 +191,8 @@ Properties and methods:
 | `Prompt(text, id, duration)` | Show text on a phone, or on every phone when `id` is null. `duration` in ms (relay default 3000); 0 keeps it until the next prompt; empty text clears it. |
 | `Haptic(ms, id)`, `Haptic(int[] pattern, id)` | Vibrate one phone, or all when `id` is null. The pattern alternates on and off milliseconds. Android only: iPhones do not allow it. |
 | `Calibrate(mode, id)` | Ask a player (or everyone) to calibrate: `CalibrationMode.Screen` (two corners) or `CalibrationMode.Ray` (point at the middle and press Recentre). |
+| `SetLayout(layout, playerId = null)` | Choose the controls a phone shows, or every phone's when `playerId` is null. `null` goes back to the default. See [Layouts](#layouts-choosing-the-phones-controls). |
+| `SetControl(controlId, value, playerId = null)` | Change a control on a phone (or every phone): a toggle's `bool`, a slider's `double` from 0 to 1, a choice's option index, or a label's `string`. Every app then gets `ControlChanged`. |
 | `bool StartRelay`, `string RelayPath`, `string RelayArguments` | As in the inspector. They take effect on the next `Connect()`. |
 | `ManagedRelay Relay`, `bool StartedRelay` | The relay this client started (null if it started none), and whether it is still running. |
 | `StopRelay()` | Stop the relay this client started, if any. Disabling or destroying the component, or quitting, does this for you. `Disconnect()` does not. |
@@ -168,9 +216,11 @@ Static helpers:
 | `Disconnected` | | The connection closed, after `PlayerLeft` for every player. |
 | `PlayerJoined` | `Player` | A player took a slot (or was already there when you connected). |
 | `PlayerLeft` | `Player` | A player's slot is free again, or the connection closed. |
-| `PlayerChanged` | `Player` | State, name, colour, label, calibration or transport changed. |
+| `PlayerChanged` | `Player` | State, name, colour, label, calibration, transport or layout changed. |
 | `Pose` | `PlayerPose, Player` | A new orientation sample, typically 60 a second per player. |
-| `Button` | `ButtonEvent, Player` | A button went down or up. Every down is followed by an up, even if the phone disconnects. |
+| `Button` | `ButtonEvent, Player` | A button went down or up: `Id` (the player), `Button` (the button's id from the layout: `"primary"` and `"secondary"` by default), `Down`. Every down is followed by an up, even if the phone disconnects or a new layout removes the button. |
+| `ControlChanged` | `ControlEvent, Player` | A toggle, slider, choice or label changed, on the phone or because an app set it: `Id`, `Control` (its id), `Value` (`bool`, `double` or `string`), with `AsBool`, `AsNumber`, `AsIndex` and `AsString` to read it. The player's `Controls` already hold the new value. |
+| `Error` | `string` | The relay could not use something this app sent (a bad layout or value); the message says why. With no handler, the client logs a warning instead. |
 | `Calibrating` | `CalibrationStep, Player` | The player is being asked to point at `TopLeft` or `BottomRight`, or `Cancelled`. |
 | `Calibrated` | `Calibration, Player` | The player pressed Recentre (`Ray`) or finished screen calibration (`Screen`). |
 | `Stats` | `PlayerStats, Player` | Once a second per player: `Rtt` (ms), `Rate` (poses per second), `Dropped`. |
@@ -188,8 +238,43 @@ Static helpers:
 | `Calibrating` | The corner being calibrated, or null. |
 | `Device` | `Platform` (`iOS`, `Android`, `other`), `Sensor`, `Transport` (`ws` or `http`). |
 | `Pose` | The latest `PlayerPose`, or null before the first. |
-| `Buttons`, `IsHeld(PhoneButton)` | The buttons held down now. Cleared when the player stops being active. |
+| `Buttons`, `IsHeld(string button)` | The ids of the buttons held down now, e.g. `IsHeld(PhoneButton.Primary)` or `IsHeld("shoot")`. Cleared when the player stops being active. |
+| `Layout` | The controls the phone shows: `Layout.Template` and `Layout.Controls`. The default layout until your game sends one. Replaced whole by each `PlayerChanged`. |
+| `Controls` | `IReadOnlyDictionary<string, object>`: the current value of each toggle (`bool`), slider (`double`, 0 to 1), choice (`double`, the option index) and label (`string`), by control id. Buttons have no value. |
+| `GetToggle(id)`, `GetSlider(id)`, `GetChoice(id)`, `GetText(id)` | One control's value as a `bool`, `double`, `int` or `string`, or a fallback (the optional second argument) if there is no such value. |
 | `Stats` | The latest `PlayerStats`, or null. |
+
+### Layout and Control
+
+A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Primary`,
+`PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`) and a list of `Controls`, in order. Build one with
+`new Layout(template, controls...)` or a helper:
+
+| Helper | Template |
+|---|---|
+| `Layout.Primary(button)` | One big button. |
+| `Layout.PrimarySecondary(button, control)` | A big button and a smaller control below it. |
+| `Layout.Pair(left, right)` | Two equal controls side by side. |
+| `Layout.PrimaryRow(button, up to three controls)` | A big button with a row of smaller controls below. |
+| `Layout.Grid(up to six controls)` | Two columns. |
+| `Layout.Default` | The default: `primary` and `secondary` buttons. |
+
+`layout.Find(id)` finds a control, and `layout.ToJson()` gives the JSON the protocol carries.
+
+A `Control` has an `Id`, a `Type` (the constants are in `ControlType`), an optional `Label` and
+`Colour` (`"#rrggbb"`), and the fields of its type: `Value` (the starting value: a `bool` for a
+toggle, a `double` for a slider or a choice's index), `Orientation` and `Spring` for sliders,
+`Options` for choices, and `Text` for labels. Build one with:
+
+| Builder | Control |
+|---|---|
+| `Control.Button(id, label)` | A button. Presses arrive as `Button` events with this id. |
+| `Control.Toggle(id, label, on = false)` | On or off. |
+| `Control.Slider(id, label, value = null, vertical = false, spring = null)` | 0 to 1. `spring` is where it returns when let go (a throttle); null stays put. |
+| `Control.Choice(id, label, options, selected = 0)` | One of 2 to 4 options. |
+| `Control.TextLabel(id, label, text)` | Text that only your game changes, with `SetControl`. |
+
+`.WithColour("#00ff88")` (or a Unity `Color`) sets a control's colour and returns it, for chaining.
 
 ### PlayerPose
 
@@ -214,7 +299,9 @@ UnityEngine references:
 
 - `PhoneWandCore` holds the players and fires the events. `Handle(string json)` processes one relay
   message, which is how the conformance tests replay recorded sessions. It also builds the outgoing
-  messages (`Configure`, `Style`, `Prompt`, `Haptic`, `Calibrate`).
+  messages (`Configure`, `Style`, `Prompt`, `Haptic`, `Calibrate`, `SetLayout`, `SetControl`).
+  With no `Error` handler, relay errors go to its `UnhandledError` callback (the component logs
+  them as warnings).
 - `PhoneWandConnection` owns the WebSocket and the reconnect timer. Nothing happens until you call
   `Pump()`, and every event fires inside that call, on your thread.
 
@@ -316,7 +403,9 @@ The repository also has a demo project, `clients/unity/PhoneWandDemo`, which ref
 from the repository folder. Open it in Unity 6000.4 or newer, open `Assets/Demo/Demo.unity` and
 press Play. As well as cursors it shows the join QR code, the player list with their stats, and
 sends a welcome prompt and a buzz on every click. Press **C** to ask everyone to calibrate the
-screen, **R** to recentre, and **Tab** to hide the panel. A built player accepts
+screen, **R** to recentre, **L** to cycle every phone through sample layouts (the default, a
+primary row with a toggle and a label, and a grid with every kind of control; changes show
+briefly at the top of the screen), and **Tab** to hide the panel. A built player accepts
 `-phoneWandUrl ws://host:port/app` on the command line.
 
 ## Troubleshooting
@@ -371,6 +460,17 @@ The package is tested three ways. See [Testing](../testing.md) for the conforman
   mode. It connects for three seconds and passes only if it saw the relay's hello, at least one
   player join and at least one pose. Pass a URL after `--live` for a relay on another port, for
   example `scripts/check-unity.sh --live ws://127.0.0.1:19480/app`.
+
+- **Layouts, live.** `PhoneWandChecks.Layouts` drives a Phone Wand Client against a relay with one
+  phone that plays along: on the grid layout it presses `fire`, sets `power` to 0.7 and turns
+  `shield` on, and when the default layout comes back it presses `primary`. The check sends the
+  grid, checks the events and the player's `Layout` and `Controls`, sets a label, sends an invalid
+  layout (which must raise `Error`, and with no handler log a warning) and goes back to the default.
+
+  ```
+  Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+    -executeMethod PhoneWandChecks.Layouts -phoneWandUrl ws://127.0.0.1:8480/app -logFile -
+  ```
 
 - **Start Relay.** `PhoneWandChecks.ManagedRelay` checks the whole cycle in batch mode. With no
   relay on the URL's port, the client must start one, get its hello, and stop it again

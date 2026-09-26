@@ -8,6 +8,8 @@
 //   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
 //     -executeMethod PhoneWandChecks.ManagedRelay -phoneWandUrl ws://127.0.0.1:23480/app \
 //     -phoneWandRelayArgs "--port 23443 --no-landing"
+//   Unity -batchmode -nographics -projectPath clients/unity/PhoneWandDemo \
+//     -executeMethod PhoneWandChecks.Layouts -phoneWandUrl ws://127.0.0.1:8480/app
 //
 // Each exits the editor with 0 on success and 1 on failure, and logs a line starting with
 // "PhoneWandChecks:".
@@ -235,6 +237,160 @@ public static class PhoneWandChecks
             if (go != null) UnityEngine.Object.DestroyImmediate(go);
         }
         EditorApplication.Exit(code);
+    }
+
+    /// <summary>
+    /// Layouts, against a running relay with one phone that plays along (a scripted fake phone:
+    /// on the grid layout it presses "fire", sets "power" to 0.7 and "shield" on; when the default
+    /// comes back it presses "primary"). Drives a PhoneWandClient component: SetLayout to the grid,
+    /// then checks the Button and ControlChanged events and the player's Layout and Controls,
+    /// SetControl on a label, an invalid layout raising Error (and, with no listener, a logged
+    /// warning), and SetLayout(null) going back to the default.
+    /// </summary>
+    public static void Layouts()
+    {
+        int code = 1;
+        GameObject go = null;
+        var warnings = new List<string>();
+        Application.LogCallback onLog = (text, trace, type) =>
+        {
+            if (type == LogType.Warning && text.StartsWith("[Phone Wand]")) warnings.Add(text);
+        };
+        Application.logMessageReceived += onLog;
+        try
+        {
+            string url = Arg("-phoneWandUrl") ?? PhoneWandCore.DefaultUrl;
+            double seconds = double.Parse(Arg("-phoneWandSeconds") ?? "20", CultureInfo.InvariantCulture);
+            var failures = new List<string>();
+
+            // In edit mode Awake and OnEnable don't run, so drive the component by hand, as Unity would.
+            go = new GameObject("PhoneWandChecks.Layouts");
+            var wand = go.AddComponent<PhoneWandClient>();
+            typeof(PhoneWandClient).GetMethod("Awake", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(wand, null);
+            wand.Url = url;
+            wand.AutoReconnect = false;
+
+            var buttons = new List<string>();
+            var controls = new List<ControlEvent>();
+            var errors = new List<string>();
+            wand.Button += (e, p) => { buttons.Add(e.Button + (e.Down ? " down" : " up")); Debug.Log("PhoneWandChecks: button " + e.Id + " " + e.Button + " " + (e.Down ? "down" : "up")); };
+            wand.ControlChanged += (e, p) => { controls.Add(e); Debug.Log("PhoneWandChecks: control " + e); };
+            Action<string> onError = m => { errors.Add(m); Debug.Log("PhoneWandChecks: error event: " + m); };
+            wand.Error += onError;
+            wand.PlayerChanged += p => Debug.Log("PhoneWandChecks: player " + p.Id + " template " + p.Layout.Template + " controls " + p.Layout.Controls.Count);
+
+            var clock = Stopwatch.StartNew();
+            bool WaitFor(Func<bool> condition, string what)
+            {
+                var start = clock.Elapsed.TotalSeconds;
+                while (clock.Elapsed.TotalSeconds - start < seconds)
+                {
+                    wand.Connection.Pump();
+                    if (condition()) return true;
+                    Thread.Sleep(10);
+                }
+                failures.Add("timed out waiting for " + what);
+                return false;
+            }
+
+            wand.Connect();
+            Player player = null;
+            if (!WaitFor(() => (player = FirstActive(wand)) != null, "an active player")) throw new Exception("no phone");
+            Debug.Log("PhoneWandChecks: player " + player.Id + " \"" + player.Name + "\" starts with template " + player.Layout.Template);
+            if (player.Layout.Template != LayoutTemplate.PrimarySecondary) failures.Add("the first layout is " + player.Layout.Template + ", not the default");
+
+            // 1. A grid with every control type, for this player.
+            var grid = Layout.Grid(
+                Control.Button("fire", "Fire").WithColour(Color.red),
+                Control.Toggle("shield", "Shield"),
+                Control.Slider("power", "Power", 0.25),
+                Control.Slider("throttle", "Throttle", vertical: true, spring: 0.5),
+                Control.Choice("weapon", "Weapon", new[] { "Bow", "Sling", "Net" }, 1),
+                Control.TextLabel("score", "Score", "0"));
+            wand.SetLayout(grid, player.Id);
+            if (WaitFor(() => player.Layout.Template == LayoutTemplate.Grid, "the player's layout to become the grid"))
+            {
+                if (player.Layout.Controls.Count != 6) failures.Add("the grid came back with " + player.Layout.Controls.Count + " controls");
+                var fire = player.Layout.Find("fire");
+                if (fire == null || fire.Colour != "#ff0000") failures.Add("fire's colour came back as " + (fire == null ? "nothing" : fire.Colour));
+                if (Math.Abs(player.GetSlider("power") - 0.25) > 1e-6) failures.Add("power starts at " + player.GetSlider("power"));
+                if (player.GetChoice("weapon") != 1) failures.Add("weapon starts at " + player.GetChoice("weapon"));
+                if (player.GetText("score") != "0") failures.Add("score starts as " + player.GetText("score"));
+            }
+
+            // 2. The fake phone presses fire and changes power and shield.
+            if (WaitFor(() => buttons.Contains("fire up") && player.GetToggle("shield"), "fire presses and control changes"))
+            {
+                if (buttons.IndexOf("fire down") != 0) failures.Add("buttons arrived as " + string.Join(", ", buttons));
+                if (player.IsHeld("fire")) failures.Add("fire is still held");
+                if (Math.Abs(player.GetSlider("power") - 0.7) > 1e-6) failures.Add("power is " + player.GetSlider("power") + ", not 0.7");
+                var power = controls.Find(c => c.Control == "power");
+                if (power.Control == null || Math.Abs(power.AsNumber - 0.7) > 1e-6 || power.Id != player.Id)
+                    failures.Add("no ControlChanged for power = 0.7");
+            }
+
+            // 3. The app sets a label.
+            wand.SetControl("score", "42", player.Id);
+            if (WaitFor(() => player.GetText("score") == "42", "score to become 42"))
+            {
+                var score = controls.Find(c => c.Control == "score");
+                if (score.AsString != "42") failures.Add("ControlChanged for score carried " + score.Value);
+            }
+
+            // 4. An invalid layout: the first control of a primary template must be a button.
+            wand.SetLayout(Layout.Primary(Control.Toggle("nope", "Nope")), player.Id);
+            if (WaitFor(() => errors.Count > 0, "an Error event"))
+                Debug.Log("PhoneWandChecks: the invalid layout raised Error: " + errors[0]);
+            if (player.Layout.Template != LayoutTemplate.Grid) failures.Add("the invalid layout changed the layout");
+
+            // 5. With no listener, the error is logged as a warning.
+            wand.Error -= onError;
+            wand.SetControl("shield", "yes", player.Id);
+            if (WaitFor(() => warnings.Count > 0, "a warning for an error nobody listens to"))
+                Debug.Log("PhoneWandChecks: logged: " + warnings[0]);
+            if (errors.Count != 1) failures.Add("Error fired " + errors.Count + " times");
+
+            // 6. Back to the default; the fake phone then presses primary.
+            wand.SetLayout(null, player.Id);
+            if (WaitFor(() => player.Layout.Template == LayoutTemplate.PrimarySecondary && buttons.Contains("primary up"), "the default layout and a primary press"))
+            {
+                if (player.Controls.Count != 0) failures.Add("the default layout left " + player.Controls.Count + " control values");
+                if (player.Layout.Find(PhoneButton.Secondary) == null) failures.Add("the default layout has no secondary button");
+            }
+
+            typeof(PhoneWandClient).GetMethod("OnDisable", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(wand, null);
+
+            foreach (var f in failures) Debug.LogError("PhoneWandChecks: " + f);
+            string summary = "buttons=[" + string.Join(", ", buttons) + "] controls=" + controls.Count + " errors=" + errors.Count + " warnings=" + warnings.Count;
+            if (failures.Count == 0)
+            {
+                Debug.Log("PhoneWandChecks: layouts PASS " + summary);
+                code = 0;
+            }
+            else
+            {
+                Debug.LogError("PhoneWandChecks: layouts FAIL " + summary);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("PhoneWandChecks: layouts FAIL: " + e);
+        }
+        finally
+        {
+            Application.logMessageReceived -= onLog;
+            if (go != null) UnityEngine.Object.DestroyImmediate(go);
+        }
+        EditorApplication.Exit(code);
+    }
+
+    static Player FirstActive(PhoneWandClient wand)
+    {
+        foreach (var p in wand.Players)
+            if (p.State == PlayerState.Active) return p;
+        return null;
     }
 
     static void Expect(List<string> failures, string what, object want, float[] got)

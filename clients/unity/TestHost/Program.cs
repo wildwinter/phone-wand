@@ -59,6 +59,10 @@ namespace StoryTools.PhoneWand.TestHost
             Console.WriteLine((conversionFailures.Count == 0 ? "pass  " : "FAIL  ") + "conversions (" + cases + " cases)");
             failures.AddRange(conversionFailures.Select(f => "conversions: " + f));
 
+            var layoutFailures = CheckLayoutMessages();
+            Console.WriteLine((layoutFailures.Count == 0 ? "pass  " : "FAIL  ") + "layout and set messages");
+            failures.AddRange(layoutFailures.Select(f => "layout messages: " + f));
+
             var relayFailures = CheckManagedRelay();
             Console.WriteLine((relayFailures.Count == 0 ? "pass  " : "FAIL  ") + "managed relay helpers");
             failures.AddRange(relayFailures.Select(f => "managed relay: " + f));
@@ -105,7 +109,11 @@ namespace StoryTools.PhoneWand.TestHost
                 ProtocolNames.Of(p.Calibration) + " name=" + p.Name + " colour=" + p.Colour + " transport=" + p.Device.Transport);
             core.PlayerLeft += p => events.Add("leave " + p.Id);
             core.Pose += (pose, p) => events.Add("pose " + pose.Id + " seq=" + pose.Seq + " screen=" + (pose.Screen.HasValue ? "yes" : "no"));
-            core.Button += (e, p) => events.Add("button " + e.Id + " " + ProtocolNames.Of(e.Button) + " " + (e.Down ? "down" : "up"));
+            core.Button += (e, p) => events.Add("button " + e.Id + " " + e.Button + " " + (e.Down ? "down" : "up"));
+            core.ControlChanged += (e, p) => events.Add("control " + e.Id + " " + e.Control);
+            // error fires nothing in the log, but must reach a listener rather than the console.
+            core.Error += message => { };
+            core.UnhandledError = message => failures.Add("error reached UnhandledError despite a listener: " + message);
             core.Calibrating += (step, p) => events.Add("calibrating " + p.Id + " " + ProtocolNames.Of(step));
             core.Calibrated += (c, p) => events.Add("calibrated " + p.Id + " " + ProtocolNames.Of(c));
             core.Stats += (s, p) => events.Add("stats " + s.Id);
@@ -168,7 +176,9 @@ namespace StoryTools.PhoneWand.TestHost
                     { "state", ProtocolNames.Of(p.State) },
                     { "calibration", ProtocolNames.Of(p.Calibration) },
                     { "transport", p.Device.Transport },
-                    { "buttons", p.Buttons.Select(ProtocolNames.Of).OrderBy(s => s, StringComparer.Ordinal).Cast<object>().ToList() },
+                    { "buttons", p.Buttons.OrderBy(s => s, StringComparer.Ordinal).Cast<object>().ToList() },
+                    { "template", p.Layout.Template },
+                    { "controls", p.Controls.ToDictionary(kv => kv.Key, kv => kv.Value) },
                     { "pose", pose },
                 });
             }
@@ -253,6 +263,90 @@ namespace StoryTools.PhoneWand.TestHost
                 var rup = rq.Up;
                 Near("case " + i + " rig q.Up", rig["up"], new[] { rup.Right, rup.Up, rup.Forward }, failures);
             }
+            return failures;
+        }
+
+        // What SetLayout and SetControl send, the builders, the layout round trip, and error with and
+        // without a listener.
+        static List<string> CheckLayoutMessages()
+        {
+            var failures = new List<string>();
+            void Expect(string what, object want, object got)
+            {
+                if (!Equals(want, got)) failures.Add(what + ": expected " + Show(want) + ", got " + Show(got));
+            }
+            var core = new PhoneWandCore();
+            var sent = new List<string>();
+            core.Sender = sent.Add;
+
+            var grid = Layout.Grid(
+                Control.Button("fire", "Fire").WithColour("#00ff88"),
+                Control.Toggle("shield", "Shield"),
+                Control.Slider("power", "Power", 0.25),
+                Control.Slider("throttle", vertical: true, spring: 0.5),
+                Control.Choice("weapon", null, new[] { "Bow", "Sling", "Net" }, 1),
+                Control.TextLabel("score", "Score", "0"));
+            core.SetLayout(grid, "p1");
+            Expect("SetLayout grid", "{\"type\":\"layout\",\"layout\":{\"template\":\"grid\",\"controls\":[" +
+                "{\"id\":\"fire\",\"type\":\"button\",\"label\":\"Fire\",\"colour\":\"#00ff88\"}," +
+                "{\"id\":\"shield\",\"type\":\"toggle\",\"label\":\"Shield\",\"value\":false}," +
+                "{\"id\":\"power\",\"type\":\"slider\",\"label\":\"Power\",\"value\":0.25,\"orientation\":\"horizontal\"}," +
+                "{\"id\":\"throttle\",\"type\":\"slider\",\"orientation\":\"vertical\",\"spring\":0.5}," +
+                "{\"id\":\"weapon\",\"type\":\"choice\",\"value\":1,\"options\":[\"Bow\",\"Sling\",\"Net\"]}," +
+                "{\"id\":\"score\",\"type\":\"label\",\"label\":\"Score\",\"text\":\"0\"}]},\"id\":\"p1\"}",
+                sent.Count > 0 ? sent[sent.Count - 1] : null);
+            core.SetLayout(null);
+            Expect("SetLayout null", "{\"type\":\"layout\",\"layout\":null}", sent[sent.Count - 1]);
+            core.SetLayout(Layout.PrimaryRow(Control.Button("shoot", "Shoot"), Control.Toggle("zoom", "Zoom", true)));
+            Expect("SetLayout primary-row", "{\"type\":\"layout\",\"layout\":{\"template\":\"primary-row\",\"controls\":[" +
+                "{\"id\":\"shoot\",\"type\":\"button\",\"label\":\"Shoot\"},{\"id\":\"zoom\",\"type\":\"toggle\",\"label\":\"Zoom\",\"value\":true}]}}",
+                sent[sent.Count - 1]);
+            core.SetControl("zoom", true, "p2");
+            Expect("SetControl bool", "{\"type\":\"set\",\"control\":\"zoom\",\"value\":true,\"id\":\"p2\"}", sent[sent.Count - 1]);
+            core.SetControl("power", 0.8);
+            Expect("SetControl double", "{\"type\":\"set\",\"control\":\"power\",\"value\":0.8}", sent[sent.Count - 1]);
+            core.SetControl("weapon", 2);
+            Expect("SetControl int", "{\"type\":\"set\",\"control\":\"weapon\",\"value\":2}", sent[sent.Count - 1]);
+            core.SetControl("score", "120");
+            Expect("SetControl string", "{\"type\":\"set\",\"control\":\"score\",\"value\":\"120\"}", sent[sent.Count - 1]);
+
+            // Round trip: the JSON a layout writes reads back as the same JSON.
+            var back = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(grid.ToJson()));
+            Expect("round trip", grid.ToJson(), back.ToJson());
+            Expect("Find", "power", grid.Find("power") != null ? grid.Find("power").Id : null);
+            Expect("Default", "{\"template\":\"primary-secondary\",\"controls\":[{\"id\":\"primary\",\"type\":\"button\",\"label\":\"Primary\"}," +
+                "{\"id\":\"secondary\",\"type\":\"button\",\"label\":\"Secondary\"}]}", Layout.Default.ToJson());
+
+            // A player before any layout has the default; control values and their getters.
+            core.Handle("{\"type\":\"join\",\"player\":{\"id\":\"p1\",\"slot\":0,\"name\":\"A\",\"state\":\"active\"}}");
+            var p = core.GetPlayer("p1");
+            Expect("default template", LayoutTemplate.PrimarySecondary, p.Layout.Template);
+            Expect("default controls", 0, p.Controls.Count);
+            core.Handle("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"shield\",\"value\":true}");
+            core.Handle("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"power\",\"value\":0.5}");
+            core.Handle("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"weapon\",\"value\":2}");
+            core.Handle("{\"type\":\"control\",\"id\":\"p1\",\"control\":\"score\",\"value\":\"7\"}");
+            Expect("GetToggle", true, p.GetToggle("shield"));
+            Expect("GetSlider", 0.5, p.GetSlider("power"));
+            Expect("GetChoice", 2, p.GetChoice("weapon"));
+            Expect("GetText", "7", p.GetText("score"));
+            Expect("GetToggle missing", false, p.GetToggle("nope"));
+            core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":true}");
+            Expect("IsHeld custom", true, p.IsHeld("fire"));
+            Expect("IsHeld primary", false, p.IsHeld(PhoneButton.Primary));
+
+            // error: to UnhandledError with no listener, to the listener otherwise.
+            var unhandled = new List<string>();
+            var heard = new List<string>();
+            core.UnhandledError = unhandled.Add;
+            core.Handle("{\"type\":\"error\",\"message\":\"layout: nope\"}");
+            Expect("error unheard", "layout: nope", unhandled.Count == 1 ? unhandled[0] : null);
+            Action<string> listener = heard.Add;
+            core.Error += listener;
+            core.Handle("{\"type\":\"error\",\"message\":\"set: nope\"}");
+            Expect("error heard", "set: nope", heard.Count == 1 ? heard[0] : null);
+            Expect("error not also unhandled", 1, unhandled.Count);
+            core.Error -= listener;
             return failures;
         }
 

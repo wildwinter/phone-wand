@@ -34,6 +34,12 @@ namespace StoryTools.PhoneWand
         /// <summary>Called when an event listener throws. Default: writes to Console.Error.</summary>
         public Action<Exception> ListenerError = e => Console.Error.WriteLine(e);
 
+        /// <summary>
+        /// Called with the relay's error message when nothing listens to Error. Default: writes
+        /// "phone-wand: message" to Console.Error. The Unity component logs a warning instead.
+        /// </summary>
+        public Action<string> UnhandledError = message => Console.Error.WriteLine("phone-wand: " + message);
+
         // ------------------------------------------------------------------ events
 
         /// <summary>The relay said hello. Join events for its current players follow.</summary>
@@ -44,12 +50,22 @@ namespace StoryTools.PhoneWand
         public event Action<Player> PlayerJoined;
         /// <summary>A player left, or the connection closed.</summary>
         public event Action<Player> PlayerLeft;
-        /// <summary>Something about a player changed: state, name, colour, calibration or transport.</summary>
+        /// <summary>Something about a player changed: state, name, colour, label, calibration, transport or layout.</summary>
         public event Action<Player> PlayerChanged;
         /// <summary>A new pose. Typically 60 per second per player.</summary>
         public event Action<PlayerPose, Player> Pose;
-        /// <summary>A button went down or up.</summary>
+        /// <summary>A button went down or up. The button is an id from the player's layout.</summary>
         public event Action<ButtonEvent, Player> Button;
+        /// <summary>
+        /// A toggle, slider, choice or label changed, on the phone or because an app set it. The
+        /// player's Controls already hold the new value.
+        /// </summary>
+        public event Action<ControlEvent, Player> ControlChanged;
+        /// <summary>
+        /// The relay could not use something this app sent (a bad layout or value); the message says
+        /// why. With no listener, the message goes to UnhandledError instead.
+        /// </summary>
+        public event Action<string> Error;
         /// <summary>The player is being asked to point at a corner, or cancelled calibration.</summary>
         public event Action<CalibrationStep, Player> Calibrating;
         /// <summary>The player pressed Recentre (Ray) or finished screen calibration (Screen).</summary>
@@ -142,6 +158,37 @@ namespace StoryTools.PhoneWand
             Send(msg);
         }
 
+        /// <summary>
+        /// Choose the controls a phone shows, or every phone when playerId is null. A null layout
+        /// goes back to the default (PhoneButton.Primary and Secondary). The relay answers with a
+        /// PlayerChanged for each phone, or an Error if the layout does not fit.
+        /// </summary>
+        public void SetLayout(Layout layout, string playerId = null)
+        {
+            var msg = new Dictionary<string, object> { { "type", "layout" }, { "layout", layout == null ? null : layout.ToJsonValue() } };
+            if (playerId != null) msg["id"] = playerId;
+            Send(msg);
+        }
+
+        /// <summary>Turn a toggle on or off, on one phone or every phone when playerId is null.</summary>
+        public void SetControl(string controlId, bool value, string playerId = null) => SendSet(controlId, value, playerId);
+
+        /// <summary>
+        /// Move a slider (0 to 1) or pick a choice's option (its index), on one phone or every phone
+        /// when playerId is null.
+        /// </summary>
+        public void SetControl(string controlId, double value, string playerId = null) => SendSet(controlId, value, playerId);
+
+        /// <summary>Change a label's text, on one phone or every phone when playerId is null.</summary>
+        public void SetControl(string controlId, string value, string playerId = null) => SendSet(controlId, value ?? "", playerId);
+
+        void SendSet(string controlId, object value, string playerId)
+        {
+            var msg = new Dictionary<string, object> { { "type", "set" }, { "control", controlId ?? "" }, { "value", value } };
+            if (playerId != null) msg["id"] = playerId;
+            Send(msg);
+        }
+
         void Send(Dictionary<string, object> msg)
         {
             var sender = Sender;
@@ -230,13 +277,39 @@ namespace StoryTools.PhoneWand
                 {
                     var p = GetPlayer(Str(msg, "id"));
                     if (p == null) break;
-                    PhoneButton button;
-                    // Buttons this version does not know are ignored (protocol: ignore the unknown).
-                    if (!ProtocolNames.TryParse(Str(msg, "button"), out button)) break;
+                    var button = Str(msg, "button");
+                    if (button == null) break;
                     bool down = Get(msg, "down") is bool b && b;
                     if (down) p.HeldButtons.Add(button);
                     else p.HeldButtons.Remove(button);
                     Emit(Button, new ButtonEvent(p.Id, button, down), p);
+                    break;
+                }
+                case "control":
+                {
+                    var p = GetPlayer(Str(msg, "id"));
+                    if (p == null) break;
+                    var control = Str(msg, "control");
+                    if (control == null) break;
+                    var value = Get(msg, "value");
+                    // Values are bool, double or string. Replace the dictionary rather than change
+                    // it, so a Controls someone is holding does not change under them (as in JS).
+                    var values = new Dictionary<string, object>(p.ControlValues);
+                    values[control] = value;
+                    p.ControlValues = values;
+                    Emit(ControlChanged, new ControlEvent(p.Id, control, value), p);
+                    break;
+                }
+                case "error":
+                {
+                    var message = Get(msg, "message");
+                    var text = message as string ?? (message == null ? "null" : Json.Write(message));
+                    if (Error != null) Emit(Error, text);
+                    else
+                    {
+                        var unhandled = UnhandledError;
+                        if (unhandled != null) unhandled(text);
+                    }
                     break;
                 }
                 case "calibrating":
@@ -315,6 +388,18 @@ namespace StoryTools.PhoneWand
                 if (device.TryGetValue("platform", out v) && v is string platform) p.Device.Platform = platform;
                 if (device.TryGetValue("sensor", out v) && v is string sensor) p.Device.Sensor = sensor;
                 if (device.TryGetValue("transport", out v) && v is string transport) p.Device.Transport = transport;
+            }
+            // Layout and controls replace the old ones entirely. A relay too old to send them leaves
+            // the default in place.
+            var layout = Layout.FromJsonValue(Get(info, "layout") as Dictionary<string, object>);
+            if (layout != null) p.Layout = layout;
+            var controls = Get(info, "controls") as Dictionary<string, object>;
+            if (controls != null)
+            {
+                var values = new Dictionary<string, object>();
+                foreach (var kv in controls)
+                    if (kv.Value is bool || kv.Value is double || kv.Value is string) values[kv.Key] = kv.Value;
+                p.ControlValues = values;
             }
             return p;
         }

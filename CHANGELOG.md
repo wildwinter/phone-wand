@@ -20,6 +20,9 @@ the protocol.
 
 ### Changed
 
+- **Unity: breaking.** `PhoneButton` is no longer an enum but a class of string constants, because
+  button ids now come from the layout. `e.Button == PhoneButton.Primary` and
+  `player.IsHeld(PhoneButton.Primary)` still work; variables typed as `PhoneButton` become `string`.
 - Recentre and Calibrate screen moved from the main phone screen into settings, so the game's
   controls get the space. Button names can be any id from the layout, not just `primary` and
   `secondary` (which remain the default).

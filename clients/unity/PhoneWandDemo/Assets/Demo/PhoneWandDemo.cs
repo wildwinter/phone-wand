@@ -1,11 +1,13 @@
 // Phone Wand demo: cursors for every player, plus a panel with the join QR code, the player list
 // and their connection stats. It also shows the app-to-phone messages: a welcome prompt on
-// join, a buzz (Android) on every click, and keys to ask everyone to calibrate. Players have no
+// join, a buzz (Android) on every click, keys to ask everyone to calibrate, and sample layouts
+// (the controls on the phones), whose changes show briefly at the top. Players have no
 // cursor until they have set up their aim once (or while they calibrate), so a line at the bottom
 // left says what each of them still needs to do on their phone.
 //
 //   C: ask every player to calibrate the screen (two corners)
 //   R: ask every player to recentre (point at the middle and press Recentre)
+//   L: cycle every phone through the sample layouts: default, primary-row, grid
 //   Tab: show or hide the panel
 //
 // Press Play. The PhoneWandClient on the same GameObject holds the relay address, and has Start
@@ -40,6 +42,30 @@ public class PhoneWandDemo : MonoBehaviour
 
     const float RippleSeconds = 0.6f;
 
+    // The sample layouts L cycles through. Null is the default: Primary and Secondary buttons.
+    static readonly Layout[] Layouts =
+    {
+        null,
+        Layout.PrimaryRow(
+            Control.Button("shoot", "Shoot"),
+            Control.Button("reload", "Reload"),
+            Control.Toggle("zoom", "Zoom"),
+            Control.TextLabel("ammo", "Ammo", "12")),
+        Layout.Grid(
+            Control.Button("fire", "Fire"),
+            Control.Toggle("shield", "Shield"),
+            Control.Slider("power", "Power", 0.5),
+            Control.Slider("throttle", "Throttle", vertical: true, spring: 0.5),
+            Control.Choice("weapon", "Weapon", new[] { "Bow", "Sling", "Net" }),
+            Control.TextLabel("score", "Score", "0")),
+    };
+    static readonly string[] LayoutNames = { "default", "primary-row", "grid" };
+    const float MessageSeconds = 2.5f;
+
+    int layoutIndex;
+    string message;
+    Color messageColour;
+    float messageAt = -100f;
     PhoneWandClient wand;
     readonly List<Ripple> ripples = new List<Ripple>();
     readonly Dictionary<string, string> calibrating = new Dictionary<string, string>();
@@ -77,6 +103,8 @@ public class PhoneWandDemo : MonoBehaviour
         wand.Connected += OnConnected;
         wand.PlayerJoined += OnJoined;
         wand.Button += OnButton;
+        wand.ControlChanged += OnControl;
+        wand.Error += OnError;
         wand.Calibrating += OnCalibrating;
         wand.Calibrated += OnCalibrated;
     }
@@ -86,6 +114,8 @@ public class PhoneWandDemo : MonoBehaviour
         wand.Connected -= OnConnected;
         wand.PlayerJoined -= OnJoined;
         wand.Button -= OnButton;
+        wand.ControlChanged -= OnControl;
+        wand.Error -= OnError;
         wand.Calibrating -= OnCalibrating;
         wand.Calibrated -= OnCalibrated;
     }
@@ -103,6 +133,12 @@ public class PhoneWandDemo : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.C)) wand.Calibrate(CalibrationMode.Screen);
         if (Input.GetKeyDown(KeyCode.R)) wand.Calibrate(CalibrationMode.Ray);
         if (Input.GetKeyDown(KeyCode.Tab)) showPanel = !showPanel;
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            layoutIndex = (layoutIndex + 1) % Layouts.Length;
+            wand.SetLayout(Layouts[layoutIndex]);
+            ShowMessage("Layout: " + LayoutNames[layoutIndex], Color.white);
+        }
     }
 
     // ------------------------------------------------------------------ events
@@ -120,12 +156,38 @@ public class PhoneWandDemo : MonoBehaviour
     void OnButton(ButtonEvent e, Player player)
     {
         if (!e.Down) return;
-        if (e.Button == PhoneButton.Primary)
+        if (e.Button == MainButton(player))
         {
             var at = PhoneWandClient.GuiPosition(player.Pose);
             if (at.HasValue) ripples.Add(new Ripple { Position = at.Value, Colour = player.UnityColour(), Start = Time.unscaledTime });
             wand.Haptic(30, player.Id);
         }
+    }
+
+    // The big button: the first control of the player's layout, if it is a button.
+    static string MainButton(Player player)
+    {
+        var controls = player.Layout.Controls;
+        return controls.Count > 0 && controls[0].Type == ControlType.Button ? controls[0].Id : PhoneButton.Primary;
+    }
+
+    void OnControl(ControlEvent e, Player player)
+    {
+        string value = e.Value is string text ? "\"" + text + "\"" : e.Value is bool on ? (on ? "on" : "off")
+            : e.Value is double d ? d.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "?";
+        ShowMessage(player.Name + ": " + e.Control + " = " + value, player.UnityColour());
+    }
+
+    void OnError(string error)
+    {
+        ShowMessage("Relay error: " + error, new Color(1f, 0.36f, 0.42f));
+    }
+
+    void ShowMessage(string text, Color colour)
+    {
+        message = text;
+        messageColour = colour;
+        messageAt = Time.unscaledTime;
     }
 
     void OnCalibrating(CalibrationStep step, Player player)
@@ -171,7 +233,20 @@ public class PhoneWandDemo : MonoBehaviour
         DrawRipples();
         foreach (var player in wand.Players) DrawPlayer(player);
         DrawWaiting();
+        DrawMessage();
         if (showPanel) DrawPanel();
+    }
+
+    // The latest control change (or relay error), top centre, for a moment.
+    void DrawMessage()
+    {
+        float age = Time.unscaledTime - messageAt;
+        if (message == null || age > MessageSeconds) return;
+        var colour = messageColour;
+        colour.a = Mathf.Clamp01((MessageSeconds - age) / 0.5f);
+        float width = label.CalcSize(new GUIContent(message)).x;
+        Label(new Vector2((Screen.width - width) / 2, 40 * Scale), message, colour);
+        GUI.color = Color.white;
     }
 
     void DrawPlayer(Player player)
@@ -188,7 +263,7 @@ public class PhoneWandDemo : MonoBehaviour
 
         if (at.HasValue && new Rect(0, 0, screen.x, screen.y).Contains(at.Value))
         {
-            bool held = player.IsHeld(PhoneButton.Primary);
+            bool held = player.IsHeld(MainButton(player));
             float s = held ? size * 1.25f : size;
             GUI.color = colour;
             GUI.DrawTexture(new Rect(at.Value.x - s / 2, at.Value.y - s / 2, s, s), held ? ring : disc);
@@ -316,7 +391,7 @@ public class PhoneWandDemo : MonoBehaviour
                 if (p.Stats != null) sb.Append(", ").Append(p.Stats.Rate.ToString("0")).Append("/s, ").Append(p.Stats.Rtt.ToString("0")).Append(" ms");
                 sb.Append('\n');
             }
-            sb.Append("\nC: calibrate screen   R: recentre   Tab: hide");
+            sb.Append("\nC: calibrate screen   R: recentre\nL: layout (").Append(LayoutNames[layoutIndex]).Append(")   Tab: hide");
         }
         var content = new GUIContent(sb.ToString());
         float width = Mathf.Min(Screen.width - 20, 420 * Scale);

@@ -44,11 +44,16 @@ namespace StoryTools.PhoneWand
         Ray,
     }
 
-    /// <summary>The phone's buttons.</summary>
-    public enum PhoneButton
+    /// <summary>
+    /// The ids of the default layout's two buttons. Buttons are identified by string ids: these
+    /// two by default, or the ids of the buttons in a layout you send with SetLayout.
+    /// </summary>
+    public static class PhoneButton
     {
-        Primary,
-        Secondary,
+        /// <summary>The big button of the default layout: "primary".</summary>
+        public const string Primary = "primary";
+        /// <summary>The smaller button of the default layout: "secondary".</summary>
+        public const string Secondary = "secondary";
     }
 
     /// <summary>Conversions between the protocol's strings and the enums above.</summary>
@@ -89,11 +94,6 @@ namespace StoryTools.PhoneWand
             return mode == CalibrationMode.Ray ? "ray" : "screen";
         }
 
-        public static string Of(PhoneButton button)
-        {
-            return button == PhoneButton.Secondary ? "secondary" : "primary";
-        }
-
         public static bool TryParse(string s, out PlayerState state)
         {
             switch (s)
@@ -127,15 +127,6 @@ namespace StoryTools.PhoneWand
             }
         }
 
-        public static bool TryParse(string s, out PhoneButton button)
-        {
-            switch (s)
-            {
-                case "primary": button = PhoneButton.Primary; return true;
-                case "secondary": button = PhoneButton.Secondary; return true;
-                default: button = PhoneButton.Primary; return false;
-            }
-        }
     }
 
     /// <summary>The relay's hello, received once per connection.</summary>
@@ -202,17 +193,51 @@ namespace StoryTools.PhoneWand
     /// <summary>A button press or release.</summary>
     public readonly struct ButtonEvent
     {
+        /// <summary>The player's id.</summary>
         public string Id { get; }
-        public PhoneButton Button { get; }
+        /// <summary>The button's id: PhoneButton.Primary or Secondary by default, or an id from the player's layout.</summary>
+        public string Button { get; }
         /// <summary>True when pressed, false when released.</summary>
         public bool Down { get; }
 
-        public ButtonEvent(string id, PhoneButton button, bool down)
+        public ButtonEvent(string id, string button, bool down)
         {
             Id = id;
             Button = button;
             Down = down;
         }
+    }
+
+    /// <summary>A toggle, slider, choice or label changed, on the phone or because an app set it.</summary>
+    public readonly struct ControlEvent
+    {
+        /// <summary>The player's id.</summary>
+        public string Id { get; }
+        /// <summary>The control's id, from the player's layout.</summary>
+        public string Control { get; }
+        /// <summary>
+        /// The new value: bool for a toggle, double for a slider (0 to 1) or a choice (the option
+        /// index), string for a label.
+        /// </summary>
+        public object Value { get; }
+
+        public ControlEvent(string id, string control, object value)
+        {
+            Id = id;
+            Control = control;
+            Value = value;
+        }
+
+        /// <summary>The value as a bool (a toggle), or false.</summary>
+        public bool AsBool => Value is bool b && b;
+        /// <summary>The value as a number (a slider's 0 to 1, or a choice's index), or 0.</summary>
+        public double AsNumber => Value is double d ? d : 0;
+        /// <summary>The value as an option index (a choice), or 0.</summary>
+        public int AsIndex => Value is double d ? (int)Math.Round(d) : 0;
+        /// <summary>The value as text (a label), or null.</summary>
+        public string AsString => Value as string;
+
+        public override string ToString() => Id + " " + Control + " = " + (Value is string s ? "\"" + s + "\"" : Json.Write(Value));
     }
 
     /// <summary>Connection statistics, sent once a second per player.</summary>
@@ -257,13 +282,56 @@ namespace StoryTools.PhoneWand
         /// <summary>The corner being calibrated, or null.</summary>
         public CalibrationStep? Calibrating { get; internal set; }
 
-        internal readonly HashSet<PhoneButton> HeldButtons = new HashSet<PhoneButton>();
+        /// <summary>
+        /// The controls this player's phone shows. Until an app sends one, the default:
+        /// primary-secondary with the buttons "primary" and "secondary". Treat it as read only; change
+        /// it with SetLayout.
+        /// </summary>
+        public Layout Layout { get; internal set; } = Layout.Default;
 
-        /// <summary>The buttons currently held down.</summary>
-        public IReadOnlyCollection<PhoneButton> Buttons => HeldButtons;
+        internal Dictionary<string, object> ControlValues = new Dictionary<string, object>();
 
-        /// <summary>True while the button is held down.</summary>
-        public bool IsHeld(PhoneButton button) => HeldButtons.Contains(button);
+        /// <summary>
+        /// Current values of the layout's toggles (bool), sliders (double, 0 to 1), choices (double,
+        /// the option index) and labels (string), by control id. Buttons have no value.
+        /// </summary>
+        public IReadOnlyDictionary<string, object> Controls => ControlValues;
+
+        /// <summary>A toggle's state, or fallback if the player has no such toggle.</summary>
+        public bool GetToggle(string controlId, bool fallback = false)
+        {
+            object v;
+            return controlId != null && ControlValues.TryGetValue(controlId, out v) && v is bool b ? b : fallback;
+        }
+
+        /// <summary>A slider's position (0 to 1), or fallback if the player has no such slider.</summary>
+        public double GetSlider(string controlId, double fallback = 0)
+        {
+            object v;
+            return controlId != null && ControlValues.TryGetValue(controlId, out v) && v is double d ? d : fallback;
+        }
+
+        /// <summary>A choice's selected option index, or fallback if the player has no such choice.</summary>
+        public int GetChoice(string controlId, int fallback = 0)
+        {
+            object v;
+            return controlId != null && ControlValues.TryGetValue(controlId, out v) && v is double d ? (int)Math.Round(d) : fallback;
+        }
+
+        /// <summary>A label's text, or fallback if the player has no such label.</summary>
+        public string GetText(string controlId, string fallback = null)
+        {
+            object v;
+            return controlId != null && ControlValues.TryGetValue(controlId, out v) && v is string s ? s : fallback;
+        }
+
+        internal readonly HashSet<string> HeldButtons = new HashSet<string>();
+
+        /// <summary>The ids of the buttons currently held down.</summary>
+        public IReadOnlyCollection<string> Buttons => HeldButtons;
+
+        /// <summary>True while the button with this id is held down, e.g. IsHeld(PhoneButton.Primary).</summary>
+        public bool IsHeld(string button) => button != null && HeldButtons.Contains(button);
 
         public override string ToString() => Id + " (" + Name + ", slot " + Slot + ")";
     }

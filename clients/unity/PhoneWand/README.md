@@ -2,7 +2,8 @@
 
 Phone Wand turns phones into pointers for a shared screen. Players open a web page on their phone,
 and this package gives your Unity project each player's orientation, pointing direction, screen
-position and button presses, from a Phone Wand relay running on the same computer.
+position and button presses, from a Phone Wand relay running on the same computer. Your game can
+also choose the controls each phone shows (buttons, toggles, sliders, choices and labels).
 
 ```csharp
 using StoryTools.PhoneWand;

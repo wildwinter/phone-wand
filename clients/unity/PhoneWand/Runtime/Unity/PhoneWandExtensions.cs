@@ -60,6 +60,12 @@ namespace StoryTools.PhoneWand
             return new Ray(origin, frame * pose.Direction.ToVector3());
         }
 
+        /// <summary>Set a control's colour from a Unity Color and return the control, for chaining.</summary>
+        public static Control WithColour(this Control control, Color colour)
+        {
+            return control.WithColour("#" + ColorUtility.ToHtmlStringRGB(colour).ToLowerInvariant());
+        }
+
         /// <summary>The player's colour as a Unity Color (white if it cannot be read).</summary>
         public static Color UnityColour(this Player player)
         {
