@@ -15,7 +15,7 @@
 //   PhoneWand.ManagedRelay.Live           starts and stops a relay binary; only does anything when
 //                                         PHONEWAND_RELAY_DIR (or -PhoneWandRelayDir=) is set
 //
-// The conformance folder is found relative to the plugin (<repo>/clients/unreal/PhoneWand ->
+// The conformance folder is found relative to the plugin (<repo>/clients/unreal/Plugins/PhoneWand ->
 // <repo>/conformance). Override it with the PHONEWAND_CONFORMANCE_DIR environment variable or the
 // -PhoneWandConformance=<dir> command-line switch.
 
@@ -59,7 +59,7 @@ namespace PhoneWandTests
 		{
 			if (TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("PhoneWand")))
 			{
-				Dir = FPaths::Combine(Plugin->GetBaseDir(), TEXT(".."), TEXT(".."), TEXT(".."), TEXT("conformance"));
+				Dir = FPaths::Combine(Plugin->GetBaseDir(), TEXT(".."), TEXT(".."), TEXT(".."), TEXT(".."), TEXT("conformance"));
 			}
 		}
 		Dir = FPaths::ConvertRelativePathToFull(Dir);

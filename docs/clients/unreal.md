@@ -12,24 +12,24 @@ to hand? `phone-wand --simulate 3` gives you three simulated players to develop 
 ## Installation
 
 Download `phone-wand-unreal-<version>.zip` from the
-[latest release](https://github.com/wildwinter/phone-wand/releases/latest). It holds two folders
-side by side:
+[latest release](https://github.com/wildwinter/phone-wand/releases/latest). It holds:
 
 ```
-PhoneWand/          the plugin
+Plugins/PhoneWand/  the plugin
 PhoneWandDemo/      a sample project that uses it
 ```
 
 To add Phone Wand to your own project:
 
-1. Copy the `PhoneWand` folder into your project's `Plugins` folder (create it if needed), so you
-   have `YourProject/Plugins/PhoneWand/PhoneWand.uplugin`.
+1. Copy the `Plugins/PhoneWand` folder into your project's `Plugins` folder (create it if needed),
+   so you have `YourProject/Plugins/PhoneWand/PhoneWand.uplugin`.
 2. Open the project. The plugin ships as source, so Unreal asks to build it: say yes. You need a
    C++ toolchain (Xcode on macOS, Visual Studio on Windows). A Blueprint-only project can use it
    too, as long as the toolchain is installed.
 3. Check **Edit > Plugins > Input > Phone Wand** is enabled.
 
-You can also take the plugin straight from the repository: it lives in `clients/unreal/PhoneWand`.
+You can also take the plugin straight from the repository: it lives in
+`clients/unreal/Plugins/PhoneWand`.
 
 ## Quick start
 
@@ -334,8 +334,9 @@ which draws:
 - the join URL, the QR code (fetched from the relay's `qrUrl`) and a player list.
 
 To run it: start the relay, open `PhoneWandDemo.uproject`, let it build, and press **Play**. Its
-`.uproject` finds the plugin through `AdditionalPluginDirectories: [".."]`, so keep the two
-folders side by side.
+`.uproject` finds the plugin through `AdditionalPluginDirectories: ["../Plugins"]`, so keep
+`PhoneWandDemo` and `Plugins` side by side, as they are in the zip and the repository. The demo
+packages as it is (**Platforms**, **Mac** or **Windows**, **Package Project**).
 
 Two command-line switches help when running the demo from a script: `-PhoneWandUrl=` points it at
 another relay, and `-PhoneWandDemoShot=<file.png>` with `-PhoneWandDemoShotDelay=<seconds>` takes
@@ -418,6 +419,6 @@ To include the managed relay test, point it at the relay binaries (for example a
 PHONEWAND_RELAY_DIR=dist/embed scripts/check-unreal.sh
 ```
 
-The tests find the conformance suite relative to the plugin (`clients/unreal/PhoneWand` to
+The tests find the conformance suite relative to the plugin (`clients/unreal/Plugins/PhoneWand` to
 `conformance`). If the plugin lives elsewhere, set `PHONEWAND_CONFORMANCE_DIR` or pass
 `-PhoneWandConformance=<dir>`.

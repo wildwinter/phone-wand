@@ -374,16 +374,18 @@ function buildGodot(): void {
 }
 
 function buildUnreal(): void {
-  const plugin = join(root, "clients/unreal/PhoneWand");
+  const plugin = join(root, "clients/unreal/Plugins/PhoneWand");
   if (!existsSync(plugin)) return console.log("  (no Unreal plugin yet, skipped)");
   const base = `phone-wand-unreal-${version}`;
   const dir = join(staging, base);
-  copyClean(plugin, join(dir, "PhoneWand"));
+  // The same layout as the repository: Plugins/PhoneWand beside PhoneWandDemo, whose .uproject
+  // looks in ../Plugins. (Pointing it at a folder that also holds the project breaks packaging.)
+  copyClean(plugin, join(dir, "Plugins/PhoneWand"));
   const demo = join(root, "clients/unreal/PhoneWandDemo");
   if (existsSync(demo)) copyClean(demo, join(dir, "PhoneWandDemo"));
-  common(join(dir, "PhoneWand"));
+  common(join(dir, "Plugins/PhoneWand"));
   // The plugin and the demo side by side at the top of the zip.
-  zip(dir, join(dist, `${base}.zip`), existsSync(demo) ? ["PhoneWand", "PhoneWandDemo"] : ["PhoneWand"]);
+  zip(dir, join(dist, `${base}.zip`), existsSync(demo) ? ["Plugins", "PhoneWandDemo"] : ["Plugins"]);
 }
 
 // ------------------------------------------------------------------ main

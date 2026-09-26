@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.7",
 	"Category": "Samples",
-	"Description": "Phone Wand demo: every phone draws a coloured cursor on the screen. Finds the Phone Wand plugin in the sibling folder (AdditionalPluginDirectories), so the release zip works as unpacked.",
+	"Description": "Phone Wand demo: every phone draws a coloured cursor on the screen. Finds the Phone Wand plugin in the sibling Plugins folder (AdditionalPluginDirectories), so the release zip works as unpacked. Only that folder, not its parent: a plugin directory that contains the project breaks packaging.",
 	"Modules": [
 		{
 			"Name": "PhoneWandDemo",
@@ -17,6 +17,6 @@
 		}
 	],
 	"AdditionalPluginDirectories": [
-		".."
+		"../Plugins"
 	]
 }

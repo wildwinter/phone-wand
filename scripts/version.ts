@@ -34,7 +34,7 @@ const MANIFESTS: Manifest[] = [
     set: (t, v) => t.replace(/^version="[^"]*"/m, `version="${v}"`),
   },
   {
-    path: "clients/unreal/PhoneWand/PhoneWand.uplugin",
+    path: "clients/unreal/Plugins/PhoneWand/PhoneWand.uplugin",
     get: (t) => JSON.parse(t).VersionName ?? null,
     // Unreal also wants an increasing integer Version; bump it with every release.
     set: (t, v) => {

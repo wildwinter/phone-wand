@@ -16,6 +16,13 @@ the protocol.
   ship, with one universal macOS binary, signed and notarized.
 - Relay options `--lifeline` (stop when standard input closes) and `--log <file>`.
 
+### Fixed
+
+- The Unreal demo project failed to launch once packaged ("cannot be opened because of a problem",
+  a missing `libtbb`): it found the plugin through a folder that also contained the project, which
+  confuses Unreal's packaging. The plugin now lives in `Plugins/PhoneWand`, beside the demo, in
+  both the repository and the release zip, and the demo packages as it is.
+
 ## [0.2.0] - 2026-09-26
 
 ### Changed
