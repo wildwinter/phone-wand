@@ -15,6 +15,9 @@ the protocol.
 - **Phone Wand.exe** for Windows: a notification-area (tray) app beside the relay, with the same
   behaviour. The relay program in the Windows zip is now called `phone-wand-relay.exe`, and runs
   without a console window when started by the tray app.
+- New players have no cursor until they have aimed once (poses have no `screen` until the player's
+  calibration is no longer `none`). Straight after Tap to start, the phone asks them to set up their
+  aim, and the dashboard and samples show "Player 2: set up your aim on your phone" meanwhile.
 - The macOS disk image no longer has a separate command-line relay beside the app. The relay inside
   the app still runs from Terminal, with options.
 

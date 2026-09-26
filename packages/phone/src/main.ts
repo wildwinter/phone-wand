@@ -214,6 +214,7 @@ function onMessage(msg: RelayToPhone): void {
   switch (msg.type) {
     case "welcome":
       welcomed = true;
+      myCalibration = msg.calibration;
       save({ token: msg.token });
       applyStyle(msg.colour, msg.label);
       $("slot").textContent = String(msg.slot + 1);
@@ -429,6 +430,7 @@ $("start-button").addEventListener("click", async () => {
   send({ type: "ready", sensor: sensorKind });
   $("start").classList.add("hidden");
   $("play").classList.remove("hidden");
+  if (myCalibration === "none") showSetup();
 });
 
 // ------------------------------------------------------------------ buttons
@@ -521,6 +523,8 @@ $("calib-cancel").addEventListener("click", (e) => {
   e.stopPropagation();
   send({ type: "calibrate-cancel" });
   endCalibration();
+  // Still never aimed: back to the setup screen, since there's no cursor without it.
+  if (myCalibration === "none") showSetup();
 });
 
 // The aim is taken when the finger touches down, while the phone is steadiest, but only sent when
@@ -541,8 +545,35 @@ $("calib").addEventListener("click", () => {
   }
 });
 
+// ------------------------------------------------------------------ first-time setup
+
+// A new player has no cursor until they have aimed once (the relay withholds it), so they are
+// walked into calibration straight after Tap to start.
+let myCalibration: "none" | "ray" | "screen" = "none";
+
+function showSetup(): void {
+  $("setup").classList.remove("hidden");
+}
+
+function hideSetup(): void {
+  $("setup").classList.add("hidden");
+  ignoreTapsUntil = performance.now() + 600;
+}
+
+$("setup-screen").addEventListener("click", () => {
+  hideSetup();
+  startCalibration();
+});
+$("setup-ray").addEventListener("click", () => {
+  hideSetup();
+  send({ type: "recentre" });
+  navigator.vibrate?.(20);
+});
+
 function onCalibration(msg: Extract<RelayToPhone, { type: "calibration" }>): void {
+  myCalibration = msg.calibration;
   if (msg.step === "done") {
+    hideSetup();
     endCalibration();
     showPrompt(msg.calibration === "screen" ? "Screen calibrated" : "Recentred", 1500);
   } else if (msg.step === "failed") {

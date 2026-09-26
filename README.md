@@ -43,10 +43,9 @@ phones (browser page, HTTPS) --Wi-Fi--> relay (on the display machine) --localho
 2. Scan the QR code with a phone on the same Wi-Fi. A welcome page explains the certificate warning
    that follows and which buttons to tap (see [Phones and certificates](docs/phones.md) to get rid
    of it for good). Then tap **Tap to start**.
-3. Point the top of the phone at the middle of the screen and press **Recentre**. Your cursor
-   appears on the dashboard's test screen.
-4. For accurate cursors, press **F** on the dashboard for full screen, then press **Calibrate
-   screen** on the phone and aim at the top-left and bottom-right corners.
+3. Press **F** on the dashboard for a full-screen test screen. The phone asks you to set up your
+   aim: tap **Calibrate screen**, then aim the top of the phone at the top-left corner of the screen
+   and tap, then the bottom-right corner and tap. Your cursor appears where you point.
 
 No phone to hand? Run `phone-wand --simulate 3` for three simulated players.
 

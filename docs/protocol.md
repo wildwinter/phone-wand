@@ -68,7 +68,12 @@ bottom-right. Values outside 0..1 mean the player is pointing off the screen. `s
 when the phone points more than about 87 degrees away from forward, and while the player is doing
 two-corner screen calibration (so apps hide the cursor, which would otherwise distract them).
 
-Before a player calibrates a screen, the relay uses a default virtual screen 40 degrees wide and
+`screen` is also `null` until the player has calibrated at least once this run (their
+`calibration` is still `none`). A cursor before then would sit wherever the phone happened to be
+pointing when it joined, so apps show a prompt instead, such as "Player 2: set up your aim on your
+phone". `q`, the angles and `dir` are sent from the start.
+
+Until a player calibrates a screen, the relay uses a default virtual screen 40 degrees wide and
 22.5 degrees high (16:9) centred on forward, so Recentre alone gives a usable cursor.
 
 ## Players

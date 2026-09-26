@@ -46,8 +46,9 @@ The phone must be on the **same network** as the relay's computer.
    **Continue** and follow it. [Phones and certificates](phones.md) explains how to stop the
    warning for good.
 3. Type a name if you like and tap **Tap to start**. On iPhone, allow motion access when asked.
-4. Hold the phone like a torch, screen up, and point its top edge at the middle of the screen. Press
-   **Recentre**.
+4. The phone asks you to **Set up your aim**. Hold the phone like a torch, screen up. Either tap
+   **Calibrate screen** and aim the top edge at the top-left corner of the screen, tap, then the
+   bottom-right corner, tap; or point at the middle of the screen and tap the button below.
 
 Your cursor now appears on the dashboard's test screen. The **Primary** button is the big area in
 the middle; **Secondary** is below it.

@@ -19,9 +19,14 @@ screens or scene from where the player stands).
 
 ## Before calibration
 
-As soon as a phone starts, the relay takes the direction it's facing as forward, level with the
-horizon. The screen position then assumes a screen 40 degrees wide and 22.5 degrees high (16:9)
-centred on forward. That's roughly a large TV from a sofa, so it's usable straight away.
+A player who has just joined has no cursor: their poses have no screen position until they have
+aimed once, because until then the relay doesn't know where the screen is. Straight after **Tap to
+start**, the phone asks them to **Set up your aim**, with **Calibrate screen** as the main choice and
+a quicker "point at the middle of the screen and tap" (a Recentre) as the other. Apps should show
+something like "Player 2: set up your aim on your phone" meanwhile; the dashboard and the samples do.
+
+After a Recentre alone, the screen position assumes a screen 40 degrees wide and 22.5 degrees high
+(16:9) centred on forward. That's roughly a large TV from a sofa, so it's usable straight away.
 
 ## Recentre
 

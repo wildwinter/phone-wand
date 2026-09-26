@@ -252,7 +252,32 @@ function draw(now: number): void {
   }
 
   for (const p of wand.list) drawCursor(p, w, h, unit);
+  drawWaiting(w, h, unit);
   requestAnimationFrame(draw);
+}
+
+// Players have no cursor until they have aimed once, so say what each one still needs to do.
+function drawWaiting(w: number, h: number, unit: number): void {
+  const waiting = wand.list.filter((p) => p.state === "waiting" || p.calibration === "none" || p.calibrating);
+  if (!waiting.length) return;
+  const size = Math.round(unit * 0.03);
+  ctx.font = `600 ${size}px system-ui, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  waiting.forEach((p, i) => {
+    const what = p.calibrating
+      ? "is calibrating: aim at the marked corner"
+      : p.state === "waiting"
+        ? "tap Tap to start on your phone"
+        : "set up your aim on your phone";
+    const y = h - unit * 0.04 - (waiting.length - 1 - i) * size * 1.5;
+    ctx.fillStyle = p.colour;
+    ctx.beginPath();
+    ctx.arc(unit * 0.04 + size * 0.35, y - size * 0.5, size * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    const who = p.name === `Player ${p.slot + 1}` ? p.name : `Player ${p.slot + 1}, ${p.name}`;
+    ctx.fillText(`${who}: ${what}`, unit * 0.04 + size, y);
+  });
 }
 
 function drawCursor(p: Player, w: number, h: number, unit: number): void {

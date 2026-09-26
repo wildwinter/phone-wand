@@ -360,7 +360,9 @@ export class Session {
       let s = p.smoothers.get(app);
       if (!s) p.smoothers.set(app, (s = new PoseSmoother(app.smoothing)));
       const d = derivePose(s.smooth(calibrated, stamp), p.calibration.screen);
-      if (p.calibratingScreen) d.screen = null;
+      // No cursor until the player has aimed at least once this run (Recentre or screen
+      // calibration), nor while they calibrate: apps show a prompt instead of a misleading cursor.
+      if (p.calibratingScreen || p.calibration.kind === "none") d.screen = null;
       app.link.send({ type: "pose", id: p.id, seq, t, ...d });
     }
   }

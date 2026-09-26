@@ -1,15 +1,15 @@
 connected protocol=0 max=4
 join p1 slot=0 name=Bea colour=#ff4d6d
 player p1 state=active calibration=none name=Bea colour=#ff4d6d transport=ws
-pose p1 seq=0 screen=yes
-pose p1 seq=1 screen=yes
-pose p1 seq=2 screen=yes
-pose p1 seq=3 screen=yes
-pose p1 seq=4 screen=yes
-pose p1 seq=5 screen=yes
-pose p1 seq=6 screen=yes
-pose p1 seq=7 screen=yes
-pose p1 seq=8 screen=yes
+pose p1 seq=0 screen=no
+pose p1 seq=1 screen=no
+pose p1 seq=2 screen=no
+pose p1 seq=3 screen=no
+pose p1 seq=4 screen=no
+pose p1 seq=5 screen=no
+pose p1 seq=6 screen=no
+pose p1 seq=7 screen=no
+pose p1 seq=8 screen=no
 calibrating p1 top-left
 calibrating p1 bottom-right
 calibrating p1 top-left
