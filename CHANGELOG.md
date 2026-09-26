@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-26
+
 ### Added
 
 - `docs/roadmap.md`: planned features, testing still to do, and known limitations.

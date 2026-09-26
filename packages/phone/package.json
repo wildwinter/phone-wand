@@ -1,7 +1,7 @@
 {
   "name": "@phone-wand/phone",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "dependencies": { "@phone-wand/core": "workspace:*" }
 }
