@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-26
+
 ### Fixed
 
 - On iPhone (Safari and Chrome), every movement gesture came out backwards (push as pull, left as
