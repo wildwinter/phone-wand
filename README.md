@@ -86,7 +86,7 @@ To ship a game that starts the relay itself, hidden, so players never see it, se
 ## Status
 
 Phone Wand is new. The protocol is version 0 and may change before 1.0. It is tested with iPhone
-and iPad (Safari and Chrome) against a Mac; Android and Windows testing is under way; the [roadmap](docs/roadmap.md) says what's
+(Safari and Chrome) and iPad against a Mac; Android and Windows testing is under way; the [roadmap](docs/roadmap.md) says what's
 tested, what's planned and what's known to be missing. Please report problems in
 [the issues](https://github.com/wildwinter/phone-wand/issues).
 
