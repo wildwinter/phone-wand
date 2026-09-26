@@ -21,7 +21,7 @@
 // APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are set. Without an identity they are ad-hoc signed.
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { buildAssets } from "./build-assets.js";
 
@@ -81,8 +81,11 @@ function signingIdentity(): string | null {
   }
 }
 
-/** Notarize a disk image and staple the ticket to it. Returns false when there are no credentials. */
-function notarizeAndStaple(dmgPath: string): boolean {
+/**
+ * Notarize a file and staple the ticket to `staple` (the file itself by default: a disk image; for an
+ * app, submit a zip of it and staple the app). Returns false when there are no credentials.
+ */
+function notarizeAndStaple(dmgPath: string, staple = dmgPath): boolean {
   const { APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID } = process.env;
   if (!APPLE_ID || !APPLE_APP_SPECIFIC_PASSWORD || !APPLE_TEAM_ID) {
     console.log("  (not notarized: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID are not all set)");
@@ -97,8 +100,8 @@ function notarizeAndStaple(dmgPath: string): boolean {
   if (result.status !== "Accepted") {
     throw new Error(`notarization of ${dmgPath} was ${result.status} (submission ${result.id}); see: xcrun notarytool log ${result.id}`);
   }
-  run("xcrun", ["stapler", "staple", dmgPath]);
-  run("xcrun", ["stapler", "validate", dmgPath]);
+  run("xcrun", ["stapler", "staple", staple]);
+  run("xcrun", ["stapler", "validate", staple]);
   return true;
 }
 
@@ -132,6 +135,29 @@ async function buildRelay(): Promise<void> {
     common(dir);
     writeFileSync(join(dir, "README.txt"), relayReadme(t.exe, target));
     if (t.archive === "dmg" && process.platform === "darwin") {
+      // A Mac app alongside the command-line tool. Finder won't open a bare command-line program
+      // that came from the internet, however it is signed ("does not seem to be an app"), so the
+      // app is what people double-click. It runs the same relay, with the dashboard as its window.
+      const app = join(dir, "Phone Wand.app");
+      mkdirSync(join(app, "Contents/MacOS"), { recursive: true });
+      mkdirSync(join(app, "Contents/Resources"), { recursive: true });
+      cpSync(exe, join(app, "Contents/MacOS/phone-wand"));
+      cpSync(join(root, "scripts/macos/AppIcon.icns"), join(app, "Contents/Resources/AppIcon.icns"));
+      writeFileSync(join(app, "Contents/Info.plist"), infoPlist());
+      if (identity) {
+        run("codesign", [
+          "--force", "--timestamp", "--options", "runtime",
+          "--entitlements", join(root, "scripts/entitlements.plist"),
+          "--sign", identity, app,
+        ]);
+        run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", app]);
+        const appZip = join(staging, `${base}-app.zip`);
+        run("ditto", ["-c", "-k", "--keepParent", app, appZip]);
+        notarizeAndStaple(appZip, app);
+        rmSync(appZip, { force: true });
+      }
+      symlinkSync("/Applications", join(dir, "Applications"));
+
       const out = join(dist, `${base}.dmg`);
       rmSync(out, { force: true });
       run("hdiutil", ["create", "-volname", `Phone Wand relay ${version}`, "-srcfolder", dir, "-fs", "HFS+", "-format", "UDZO", "-ov", "-quiet", out]);
@@ -150,19 +176,40 @@ async function buildRelay(): Promise<void> {
   }
 }
 
+function infoPlist(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Phone Wand</string>
+  <key>CFBundleDisplayName</key><string>Phone Wand</string>
+  <key>CFBundleIdentifier</key><string>se.storytools.phonewand</string>
+  <key>CFBundleExecutable</key><string>phone-wand</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>${version}</string>
+  <key>CFBundleVersion</key><string>${version}</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHumanReadableCopyright</key><string>Ian Thomas, storytools.se. MIT licence.</string>
+</dict>
+</plist>
+`;
+}
+
 function relayReadme(exe: string, target: string): string {
   const start = target.startsWith("windows")
     ? `Double-click ${exe}, or run it from a terminal.`
     : target.startsWith("darwin")
-      ? `Double-click ${exe}, or copy it to any folder and run ./${exe} in Terminal.`
+      ? `Double-click Phone Wand (drag it to Applications first if you like). It runs in the background\nand opens the dashboard in your browser; stop it with the dashboard's Stop relay button.\n\nFor the command line, copy ${exe} to any folder and run ./${exe} in Terminal.`
       : `Run ./${exe} from a terminal.`;
   return `Phone Wand relay ${version}
 
 Turns phones into shared pointers for a screen.
 
 ${start}
-It prints a QR code and opens a dashboard in your browser. Phones on the same Wi-Fi scan the code to
-join. Run "${exe} --help" for the options.
+The dashboard shows a QR code; phones on the same Wi-Fi scan it to join.
+Run "${exe} --help" for the command-line options.
 
 Full documentation: https://github.com/wildwinter/phone-wand
 `;

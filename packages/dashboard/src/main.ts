@@ -100,6 +100,15 @@ function renderPlayers(): void {
   });
 }
 
+$("stop").addEventListener("click", async () => {
+  if (!confirm("Stop the relay? Phones will lose their connection.")) return;
+  try {
+    await fetch("/shutdown", { method: "POST", headers: { "x-phone-wand": "shutdown" } });
+  } catch {
+    // it may already be gone
+  }
+});
+
 $("all-screen").addEventListener("click", () => wand.calibrate("screen"));
 $("all-ray").addEventListener("click", () => wand.calibrate("ray"));
 $("all-buzz").addEventListener("click", () => wand.haptic(80));

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2230"/>
+      <stop offset="1" stop-color="#0c0e14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2ec4ff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#2ec4ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <!-- beam from the phone to the target -->
+  <path d="M 452 640 L 700 300 L 760 360 Z" fill="#2ec4ff" opacity="0.28"/>
+  <!-- target -->
+  <circle cx="730" cy="330" r="150" fill="url(#glow)"/>
+  <circle cx="730" cy="330" r="62" fill="none" stroke="#2ec4ff" stroke-width="22"/>
+  <circle cx="730" cy="330" r="20" fill="#2ec4ff"/>
+  <!-- phone, tilted towards the target -->
+  <g transform="rotate(38 400 640)">
+    <rect x="310" y="470" width="180" height="340" rx="36" fill="#f2f4f8"/>
+    <rect x="328" y="500" width="144" height="270" rx="18" fill="#ff4d6d"/>
+    <circle cx="400" cy="635" r="42" fill="none" stroke="#f2f4f8" stroke-width="12"/>
+  </g>
+</svg>

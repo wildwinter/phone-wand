@@ -71,6 +71,10 @@ change. Update the documentation in `docs/` in the same commit too.
 4. The **Release** workflow tests again, builds every file, and publishes the GitHub Release with
    the changelog section as its notes. Follow it in the Actions tab.
 
+To try the release build without publishing (for example after changing macOS signing), run the
+workflow by hand with **publish** off and a branch such as `main` as the tag: every file is built,
+signed and notarized, and kept as downloadable artifacts of the run.
+
 If a release build fails after the tag is pushed, fix the problem on `main`, then re-run the
 workflow by hand for the same tag (Actions, Release, Run workflow) only if the fix doesn't need to
 be in the tagged code; otherwise release the next patch version.

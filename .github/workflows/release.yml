@@ -14,8 +14,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to (re)build, e.g. v0.1.0"
+        description: "Tag to (re)build, e.g. v0.1.0. With publish off, any branch (e.g. main) for a test build."
         required: true
+      publish:
+        description: "Publish the GitHub Release. Off: build, sign and notarize only, and keep the files as run artifacts."
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -34,6 +38,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Tag matches the version, with a dated changelog section
+        if: ${{ github.event_name == 'push' || inputs.publish }}
         run: bun scripts/version.ts tag "$TAG"
       - run: bun run typecheck
       - run: bun run test
@@ -104,6 +109,7 @@ jobs:
 
   publish:
     needs: [macos, others]
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

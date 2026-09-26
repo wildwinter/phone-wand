@@ -2,10 +2,10 @@
 // phone-wand relay: command-line entry point.
 
 import { parseArgs } from "node:util";
-import { existsSync, mkdirSync, readFileSync, readSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import QRCode from "qrcode";
 import pkg from "../package.json" with { type: "json" };
 import { Session } from "./session.js";
@@ -56,8 +56,38 @@ Other:
 
 Docs: https://github.com/wildwinter/phone-wand`;
 
+// Launched as "Phone Wand.app" on macOS: there is no terminal, so output goes to a log file, the
+// dashboard is the interface, and errors are shown in a dialog.
+const APP_MODE = process.platform === "darwin" && process.execPath.includes(".app/Contents/MacOS/");
+const LOG_FILE = join(homedir(), "Library/Logs/Phone Wand/relay.log");
+
+if (APP_MODE) {
+  mkdirSync(join(LOG_FILE, ".."), { recursive: true });
+  writeFileSync(LOG_FILE, `Phone Wand relay started ${new Date().toISOString()}\n`);
+  const toFile = (...parts: unknown[]) => {
+    try {
+      appendFileSync(LOG_FILE, parts.map(String).join(" ").replace(/\x1b\[[0-9;]*m/g, "") + "\n");
+    } catch {
+      // nowhere to log
+    }
+  };
+  console.log = toFile;
+  console.warn = toFile;
+  console.error = toFile;
+}
+
+function alertDialog(title: string, message: string): void {
+  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  try {
+    execFileSync("osascript", ["-e", `display alert "${esc(title)}" message "${esc(message)}" as critical`]);
+  } catch {
+    // no GUI session
+  }
+}
+
 function fail(message: string): never {
   console.error(`phone-wand: ${message}`);
+  if (APP_MODE) alertDialog("Phone Wand could not start", `${message}\n\nThe log is in ${LOG_FILE}.`);
   // Double-clicking the relay on Windows opens a console that closes the moment it exits, so the
   // message would vanish unread. Wait for Enter first.
   if (process.platform === "win32" && process.stdin.isTTY) {
@@ -135,6 +165,8 @@ async function main() {
   let values;
   try {
     ({ values } = parseArgs({
+      // Finder can add a process serial number argument when it launches an app.
+      args: process.argv.slice(2).filter((a) => !a.startsWith("-psn_")),
       options: {
         port: { type: "string" },
         host: { type: "string" },
@@ -267,7 +299,7 @@ async function main() {
     if (lan.length > 1 && !values.host) {
       console.log(`  Other addresses: ${lan.slice(1).map((a) => `${a.address} (${a.iface})`).join(", ")}  (use --host to pick one)`);
     }
-    console.log(`\n  ${maxPlayers} player slots. Press Ctrl+C to stop.\n`);
+    console.log(`\n  ${maxPlayers} player slots. ${APP_MODE ? "Stop it with the dashboard's Stop relay button." : "Press Ctrl+C to stop."}\n`);
   }
   if (!values["no-open"]) openBrowser(dashboardUrl);
   const stopSim = values.simulate ? simulate(session, int(values.simulate, "--simulate", 0), key) : null;
