@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-26
+
 ### Changed
 
 - **Phone Wand.app** is now a proper Mac app: it shows in the Dock while the relay runs, has Open
