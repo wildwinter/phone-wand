@@ -265,7 +265,8 @@ know:
 
 **Cursors** (import it from the Package Manager's **Samples** tab) draws every player's cursor over
 the game view: a disc in their colour where they point, their name, a ripple when they press the
-main button, and an arrow at the screen edge when they point off it. It uses `OnGUI` only, so it
+main button, an arrow at the screen edge when they point off it, and a line for each player who
+hasn't set up their aim yet (they have no cursor until they do). It uses `OnGUI` only, so it
 needs no canvas. Open `Cursors.unity` and press Play, or add the **Cursors Sample** component to any
 GameObject.
 

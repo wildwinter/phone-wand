@@ -18,7 +18,8 @@ func _ready() -> void:
             print(player.name, " fired"))
 ```
 
-The demo scene, `demo/cursors.tscn`, draws a cursor for every player and shows the join QR code.
+The demo scene, `demo/cursors.tscn`, draws a cursor for every player who has set up their aim, a line asking the others to, and the
+join QR code.
 
 Full documentation: [docs/clients/godot.md](https://github.com/wildwinter/phone-wand/blob/main/docs/clients/godot.md).
 

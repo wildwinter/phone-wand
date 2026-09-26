@@ -2,8 +2,10 @@
 //
 // Each player gets a disc in their colour where they point, with their name beside it. Pressing
 // the main button on the phone sends out a ripple. When a player points off the screen, an arrow
-// at the edge shows which way to turn. Everything is drawn with OnGUI, so the sample needs no
-// canvas, prefabs or other packages.
+// at the edge shows which way to turn. Players have no screen position until they have set up
+// their aim once (or while they calibrate), so for them a line at the bottom left says what they
+// still need to do on their phone. Everything is drawn with OnGUI, so the sample needs no canvas,
+// prefabs or other packages.
 //
 // Put this on any GameObject. It uses a PhoneWandClient on the same GameObject, adding one
 // (with the default relay address) if there is none.
@@ -36,6 +38,7 @@ namespace StoryTools.PhoneWand.Samples
         readonly List<Ripple> ripples = new List<Ripple>();
         Texture2D disc, ring, arrow;
         GUIStyle labelStyle, statusStyle;
+        readonly List<Player> waiting = new List<Player>();
 
         void Awake()
         {
@@ -87,6 +90,7 @@ namespace StoryTools.PhoneWand.Samples
 
             DrawRipples();
             foreach (var player in wand.Players) DrawPlayer(player);
+            DrawWaiting();
             if (showStatus) DrawStatus();
         }
 
@@ -101,6 +105,8 @@ namespace StoryTools.PhoneWand.Samples
             float size = cursorSize * Scale;
             var screen = new Vector2(Screen.width, Screen.height);
             Vector2? at = PhoneWandClient.GuiPosition(pose);
+            // No cursor until the player has aimed once, nor while they calibrate: DrawWaiting says why.
+            if (!at.HasValue && IsWaiting(player)) return;
 
             if (at.HasValue && at.Value.x >= 0 && at.Value.y >= 0 && at.Value.x <= screen.x && at.Value.y <= screen.y)
             {
@@ -142,6 +148,40 @@ namespace StoryTools.PhoneWand.Samples
             if (toward.x > 0.3f) labelAt.x -= textSize.x;
             else if (Mathf.Abs(toward.x) <= 0.3f) labelAt.x -= textSize.x / 2;
             DrawLabel(labelAt, name, colour);
+            GUI.color = Color.white;
+        }
+
+        // True for a player who still has to do something before they get a cursor.
+        static bool IsWaiting(Player player)
+        {
+            return player.State == PlayerState.Waiting || player.Calibration == Calibration.None || player.Calibrating.HasValue;
+        }
+
+        // Lists, bottom left, what each player without a cursor still needs to do on their phone.
+        void DrawWaiting()
+        {
+            waiting.Clear();
+            foreach (var player in wand.Players)
+                if (IsWaiting(player)) waiting.Add(player);
+            if (waiting.Count == 0) return;
+            float size = labelStyle.fontSize;
+            float left = 20 * Scale;
+            float bottom = Screen.height - 20 * Scale;
+            for (int i = 0; i < waiting.Count; i++)
+            {
+                Player player = waiting[i];
+                string what = player.Calibrating.HasValue ? "is calibrating: aim at the marked corner"
+                    : player.State == PlayerState.Waiting ? "tap Tap to start on your phone"
+                    : "set up your aim on your phone";
+                string numbered = "Player " + (player.Slot + 1);
+                string who = player.Name == numbered ? player.Name : numbered + ", " + player.Name;
+                float middle = bottom - (waiting.Count - 1 - i) * size * 1.5f - size * 0.5f;
+                Color colour = player.UnityColour();
+                float dot = size * 0.7f;
+                GUI.color = colour;
+                GUI.DrawTexture(new Rect(left, middle - dot / 2, dot, dot), disc);
+                DrawLabel(new Vector2(left + size, middle), who + ": " + what, colour);
+            }
             GUI.color = Color.white;
         }
 

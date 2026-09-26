@@ -1,6 +1,8 @@
 // Phone Wand demo: cursors for every player, plus a panel with the join QR code, the player list
 // and their connection stats. It also shows the app-to-phone messages: a welcome prompt on
-// join, a buzz (Android) on every click, and keys to ask everyone to calibrate.
+// join, a buzz (Android) on every click, and keys to ask everyone to calibrate. Players have no
+// cursor until they have set up their aim once (or while they calibrate), so a line at the bottom
+// left says what each of them still needs to do on their phone.
 //
 //   C: ask every player to calibrate the screen (two corners)
 //   R: ask every player to recentre (point at the middle and press Recentre)
@@ -39,6 +41,7 @@ public class PhoneWandDemo : MonoBehaviour
     Texture2D disc, ring, arrow, qr;
     string qrFor;
     GUIStyle label, panel;
+    readonly List<Player> waiting = new List<Player>();
 
     void Awake()
     {
@@ -158,6 +161,7 @@ public class PhoneWandDemo : MonoBehaviour
         DrawCornerMarkers();
         DrawRipples();
         foreach (var player in wand.Players) DrawPlayer(player);
+        DrawWaiting();
         if (showPanel) DrawPanel();
     }
 
@@ -170,6 +174,8 @@ public class PhoneWandDemo : MonoBehaviour
         float size = cursorSize * Scale;
         var screen = new Vector2(Screen.width, Screen.height);
         Vector2? at = PhoneWandClient.GuiPosition(pose);
+        // No cursor until the player has aimed once, nor while they calibrate: DrawWaiting says why.
+        if (!at.HasValue && IsWaiting(player)) return;
 
         if (at.HasValue && new Rect(0, 0, screen.x, screen.y).Contains(at.Value))
         {
@@ -201,6 +207,40 @@ public class PhoneWandDemo : MonoBehaviour
         if (toward.x > 0.3f) labelAt.x -= width;
         else if (Mathf.Abs(toward.x) <= 0.3f) labelAt.x -= width / 2;
         Label(labelAt, player.Name, colour);
+        GUI.color = Color.white;
+    }
+
+    // True for a player who still has to do something before they get a cursor.
+    static bool IsWaiting(Player player)
+    {
+        return player.State == PlayerState.Waiting || player.Calibration == Calibration.None || player.Calibrating.HasValue;
+    }
+
+    // Lists, bottom left, what each player without a cursor still needs to do on their phone.
+    void DrawWaiting()
+    {
+        waiting.Clear();
+        foreach (var player in wand.Players)
+            if (IsWaiting(player)) waiting.Add(player);
+        if (waiting.Count == 0) return;
+        float size = label.fontSize;
+        float left = 20 * Scale;
+        float bottom = Screen.height - 20 * Scale;
+        for (int i = 0; i < waiting.Count; i++)
+        {
+            Player player = waiting[i];
+            string what = player.Calibrating.HasValue ? "is calibrating: aim at the marked corner"
+                : player.State == PlayerState.Waiting ? "tap Tap to start on your phone"
+                : "set up your aim on your phone";
+            string numbered = "Player " + (player.Slot + 1);
+            string who = player.Name == numbered ? player.Name : numbered + ", " + player.Name;
+            float middle = bottom - (waiting.Count - 1 - i) * size * 1.5f - size * 0.5f;
+            Color colour = player.UnityColour();
+            float dot = size * 0.7f;
+            GUI.color = colour;
+            GUI.DrawTexture(new Rect(left, middle - dot / 2, dot, dot), disc);
+            Label(new Vector2(left + size, middle), who + ": " + what, colour);
+        }
         GUI.color = Color.white;
     }
 

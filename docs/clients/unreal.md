@@ -259,6 +259,8 @@ which draws:
 - a disc in each player's colour at their screen position, with their name,
 - a ripple when a player presses the primary button,
 - an arrow at the edge of the screen, pointing the right way, when a player points off the screen,
+- a line for each player who hasn't set up their aim yet ("Player 2, Bea: set up your aim on your
+  phone"), since they have no cursor until they do,
 - the join URL, the QR code (fetched from the relay's `qrUrl`) and a player list.
 
 To run it: start the relay, open `PhoneWandDemo.uproject`, let it build, and press **Play**. Its

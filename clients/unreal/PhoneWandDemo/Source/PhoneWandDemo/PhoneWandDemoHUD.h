@@ -13,7 +13,9 @@ class UTexture2D;
 /**
  * Draws every player's cursor: a disc in the player's colour at their screen position with their
  * name beside it, a ripple when they press the primary button, and an arrow at the edge of the
- * screen when they point off it. Also shows the join QR code and a player list.
+ * screen when they point off it. Also shows the join QR code and a player list. Players have no
+ * screen position until they have set up their aim once (or while they calibrate), so above the
+ * player list a line in each such player's colour says what they still need to do on their phone.
  */
 UCLASS()
 class APhoneWandDemoHUD : public AHUD
@@ -39,6 +41,7 @@ private:
 
 	void DrawStatus(UPhoneWandSubsystem* Wand);
 	void DrawCursor(const FPhoneWandPlayer& Player);
+	void DrawWaiting(const TArray<FPhoneWandPlayer>& Players);
 	void DrawEdgeArrow(const FPhoneWandPlayer& Player, FVector2D Target);
 	void DrawRipples();
 	void DrawRing(FVector2D Centre, float Radius, FLinearColor Colour, float Thickness);

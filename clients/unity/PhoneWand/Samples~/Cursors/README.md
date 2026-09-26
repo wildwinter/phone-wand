@@ -2,7 +2,9 @@
 
 Draws every player's cursor over the game view: a disc in the player's colour where they point,
 their name beside it, a ripple when they press the main button, and an arrow at the edge of the
-screen when they point off it.
+screen when they point off it. Players have no screen position until they have set up their aim
+once (Recentre or two-corner calibration) or while they are calibrating, so for each of them a line
+in their colour at the bottom left says what they still need to do on their phone.
 
 1. Start the Phone Wand relay (`bun run relay` in the phone-wand repository, or `--simulate 3` to
    try it without phones).

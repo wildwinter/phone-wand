@@ -24,6 +24,13 @@ namespace
 	constexpr double RippleSeconds = 0.6;
 	constexpr float EdgeMargin = 36.0f;
 	const FLinearColor Panel(0.0f, 0.0f, 0.0f, 0.55f);
+
+	// True for a player who still has to do something before they get a cursor.
+	bool IsWaiting(const FPhoneWandPlayer& Player)
+	{
+		return Player.State == EPhoneWandPlayerState::Waiting || Player.Calibration == EPhoneWandCalibration::None
+			|| Player.Calibrating != EPhoneWandCalibrationStep::None;
+	}
 }
 
 void APhoneWandDemoHUD::BeginPlay()
@@ -111,10 +118,12 @@ void APhoneWandDemoHUD::DrawHUD()
 	{
 		return;
 	}
-	for (const FPhoneWandPlayer& Player : Subsystem->GetPlayers())
+	const TArray<FPhoneWandPlayer> Players = Subsystem->GetPlayers();
+	for (const FPhoneWandPlayer& Player : Players)
 	{
 		DrawCursor(Player);
 	}
+	DrawWaiting(Players);
 }
 
 void APhoneWandDemoHUD::DrawLabel(const FString& Text, FVector2D Position, FLinearColor Colour, float Scale)
@@ -189,6 +198,11 @@ void APhoneWandDemoHUD::DrawCursor(const FPhoneWandPlayer& Player)
 	}
 	const FVector2D Size(Canvas->SizeX, Canvas->SizeY);
 	const FPhoneWandPose& Pose = Player.Pose;
+	if (!Pose.bHasScreen && IsWaiting(Player))
+	{
+		// No cursor until the player has aimed once, nor while they calibrate: DrawWaiting says why.
+		return;
+	}
 	const bool bPaused = Player.State != EPhoneWandPlayerState::Active;
 	FLinearColor Colour = Player.LinearColour;
 	if (bPaused)
@@ -224,6 +238,43 @@ void APhoneWandDemoHUD::DrawCursor(const FPhoneWandPlayer& Player)
 		Name += TEXT(" - paused");
 	}
 	DrawLabel(Name, At + FVector2D(CursorRadius + 8.0f, -10.0f), Colour);
+}
+
+void APhoneWandDemoHUD::DrawWaiting(const TArray<FPhoneWandPlayer>& Players)
+{
+	TArray<const FPhoneWandPlayer*> Waiting;
+	for (const FPhoneWandPlayer& P : Players)
+	{
+		if (IsWaiting(P))
+		{
+			Waiting.Add(&P);
+		}
+	}
+	if (Waiting.Num() == 0)
+	{
+		return;
+	}
+	// Stacked upwards from just above the player list, one line per player in slot order.
+	UFont* Font = GEngine ? GEngine->GetMediumFont() : nullptr;
+	const float Scale = 1.2f;
+	float TextW = 0.0f, TextH = 0.0f;
+	GetTextSize(TEXT("Player"), TextW, TextH, Font, Scale);
+	const float LineHeight = TextH * 1.5f;
+	const float Bottom = Canvas->SizeY - 24.0f - 24.0f * Players.Num() - 12.0f;
+	const float Left = 24.0f;
+	for (int32 i = 0; i < Waiting.Num(); ++i)
+	{
+		const FPhoneWandPlayer& P = *Waiting[i];
+		const TCHAR* What = P.Calibrating != EPhoneWandCalibrationStep::None ? TEXT("is calibrating: aim at the marked corner")
+			: P.State == EPhoneWandPlayerState::Waiting ? TEXT("tap Tap to start on your phone")
+			: TEXT("set up your aim on your phone");
+		const FString Numbered = FString::Printf(TEXT("Player %d"), P.Slot + 1);
+		const FString Who = P.Name == Numbered ? P.Name : Numbered + TEXT(", ") + P.Name;
+		const float Top = Bottom - (Waiting.Num() - i) * LineHeight;
+		const float Dot = TextH * 0.35f;
+		Canvas->K2_DrawPolygon(nullptr, FVector2D(Left + Dot, Top + TextH * 0.5f), FVector2D(Dot), 24, P.LinearColour);
+		DrawLabel(Who + TEXT(": ") + What, FVector2D(Left + TextH * 1.2f, Top), P.LinearColour, Scale);
+	}
 }
 
 void APhoneWandDemoHUD::DrawEdgeArrow(const FPhoneWandPlayer& Player, FVector2D Target)

@@ -4,6 +4,8 @@ extends Control
 ## - A coloured ring with the player's name at their screen position.
 ## - A ripple when they press the primary button (and a filled ring while it is held).
 ## - An arrow at the edge of the window when they point off the screen.
+## - A line of text at the bottom left for each player who still has to set up their aim (players
+##   have no screen position until they have calibrated once, or while they are calibrating).
 ## - The join QR code (loaded from the relay as a PNG) and the join URL as text.
 ##
 ## Uses the PhoneWand autoload when the plugin is enabled, or makes its own client if not.
@@ -11,6 +13,8 @@ extends Control
 const CURSOR_RADIUS := 18.0
 const RIPPLE_TIME := 0.6
 const EDGE_MARGIN := 28.0
+## Space kept clear below the waiting list for the status line.
+const WAITING_BOTTOM := 48.0
 
 ## The relay to use when this scene makes its own client (no PhoneWand autoload).
 @export var relay_url: String = PhoneWandClient.DEFAULT_URL
@@ -125,6 +129,9 @@ func _draw() -> void:
 	for player in wand.players_by_slot():
 		if not player.has_pose:
 			continue
+		# No cursor until the player has aimed once, nor while they calibrate: _draw_waiting says why.
+		if not player.has_screen and _is_waiting(player):
+			continue
 		var colour := player.colour
 		if player.state != "active":
 			colour = colour.darkened(0.5)
@@ -138,6 +145,37 @@ func _draw() -> void:
 			_draw_name(font, font_size, pos, player, colour, false)
 		else:
 			_draw_edge_arrow(font, font_size, player, colour)
+	_draw_waiting(font, font_size)
+
+
+# True for a player who still has to do something before they get a cursor.
+func _is_waiting(player: PhoneWandPlayer) -> bool:
+	return player.state == "waiting" or player.calibration == "none" or player.calibrating != ""
+
+
+# Lists, bottom left, what each player without a cursor still needs to do on their phone.
+func _draw_waiting(font: Font, font_size: int) -> void:
+	var waiting: Array[PhoneWandPlayer] = []
+	for player in wand.players_by_slot():
+		if _is_waiting(player):
+			waiting.append(player)
+	var line_height := font_size * 1.5
+	var left := 16.0
+	for i in waiting.size():
+		var player := waiting[i]
+		var what := "set up your aim on your phone"
+		if player.calibrating != "":
+			what = "is calibrating: aim at the marked corner"
+		elif player.state == "waiting":
+			what = "tap Tap to start on your phone"
+		var numbered := "Player %d" % (player.slot + 1)
+		var who := player.name if player.name == numbered else "%s, %s" % [numbered, player.name]
+		var y := size.y - WAITING_BOTTOM - (waiting.size() - 1 - i) * line_height
+		draw_circle(Vector2(left + font_size * 0.35, y - font_size * 0.35), font_size * 0.35, player.colour)
+		var pos := Vector2(left + font_size, y)
+		var text := "%s: %s" % [who, what]
+		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, 4, Color(0, 0, 0, 0.8))
+		draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, player.colour)
 
 
 func _draw_edge_arrow(font: Font, font_size: int, player: PhoneWandPlayer, colour: Color) -> void:

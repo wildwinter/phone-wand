@@ -223,6 +223,8 @@ in the addon so you can run it in your own project. It:
 - draws each player's coloured ring and name where they point, filled while primary is held,
 - plays a ripple when primary is pressed,
 - shows an arrow at the edge of the window when a player points off the screen,
+- lists each player who hasn't set up their aim yet ("Player 2, Bea: set up your aim on your
+  phone"), since they have no cursor until they do,
 - loads the join QR code from the relay as a texture (with `HTTPRequest`) and shows the join URL,
 - lets you try the app-to-relay messages from the keyboard: **C** asks everyone to calibrate the
   screen, **R** asks them to recentre, **P** sends a prompt, **H** a vibration, and **Q** hides or
