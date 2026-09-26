@@ -54,6 +54,37 @@ export interface Pose {
   dir: Vec3;
   /** Normalised screen position ([0,0] top-left, [1,1] bottom-right), or null. */
   screen: [number, number] | null;
+  /** The phone's acceleration in m/s^2, gravity removed, [right, up, forward], when it sends one. */
+  accel?: Vec3;
+}
+
+export type GestureName =
+  | "push" | "pull" | "left" | "right" | "up" | "down" | "shake" | "twist-left" | "twist-right";
+
+export interface GestureEvent {
+  id: string;
+  gesture: GestureName;
+  /** 0 to 1: how vigorous. */
+  strength: number;
+  /** Peak speed of the movement, m/s (0 for twists). */
+  speed: number;
+  /** Unit direction of the movement [right, up, forward] (zeros for shakes and twists). */
+  dir: Vec3;
+  /** How long it took, ms. */
+  duration: number;
+  /** Relay time it started. */
+  t: number;
+  /** Button ids held when it started: "hold Primary and pull" is buttons.includes("primary"). */
+  buttons: string[];
+}
+
+export interface GestureSensitivity {
+  /** Acceleration (m/s^2) that starts a movement; lower is more sensitive. Default 7. */
+  threshold: number;
+  /** Peak speed (m/s) a movement must reach. Default 0.35. */
+  minSpeed: number;
+  /** Roll rate (degrees per second) for a twist. Default 360. */
+  twistRate: number;
 }
 
 export interface ButtonEvent { id: string; button: ButtonName; down: boolean }
@@ -87,6 +118,7 @@ export interface PhoneWandEvents {
   pose: [pose: Pose, player: Player];
   button: [event: ButtonEvent, player: Player];
   control: [event: ControlEvent, player: Player];
+  gesture: [event: GestureEvent, player: Player];
   /** The relay could not use something this app sent; the message says why. */
   error: [message: string];
   calibrating: [step: "top-left" | "bottom-right" | "cancelled", player: Player];
@@ -101,6 +133,8 @@ export interface PhoneWandOptions {
   reconnect?: boolean;
   /** Smoothing for this app's poses, or false for raw. Default: the relay's default. */
   smoothing?: Partial<Smoothing> | false;
+  /** Gesture sensitivity for this app, or false for no gesture events. Default: the relay's default. */
+  gestures?: Partial<GestureSensitivity> | false;
   /** Connect in the constructor. Default true. */
   autoConnect?: boolean;
 }
@@ -161,7 +195,9 @@ export class PhoneWand {
     this.ws = ws;
     ws.onopen = () => {
       this.retry = 500;
-      if (this.options.smoothing !== undefined) this.configure({ smoothing: this.options.smoothing });
+      if (this.options.smoothing !== undefined || this.options.gestures !== undefined) {
+        this.configure({ smoothing: this.options.smoothing, gestures: this.options.gestures });
+      }
     };
     ws.onmessage = (e) => {
       let msg: any;
@@ -195,7 +231,7 @@ export class PhoneWand {
 
   // ---------------------------------------------------------------- app -> relay
 
-  configure(options: { smoothing?: Partial<Smoothing> | false }): void {
+  configure(options: { smoothing?: Partial<Smoothing> | false; gestures?: Partial<GestureSensitivity> | false }): void {
     this.send({ type: "configure", ...options });
   }
 
@@ -305,6 +341,13 @@ export class PhoneWand {
         if (!p) return;
         p.controls = { ...p.controls, [msg.control]: msg.value };
         this.emit("control", { id: msg.id, control: msg.control, value: msg.value }, p);
+        break;
+      }
+      case "gesture": {
+        const p = this.players.get(msg.id);
+        if (!p) return;
+        const { type: _t, ...gesture } = msg;
+        this.emit("gesture", gesture, p);
         break;
       }
       case "error":

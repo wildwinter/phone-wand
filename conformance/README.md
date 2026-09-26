@@ -44,6 +44,7 @@ leave <id>
 pose <id> seq=<seq> screen=<yes|no>
 button <id> <button> <down|up>
 control <id> <control>
+gesture <id> <gesture> buttons=<held button ids, comma separated, or ->
 calibrating <id> <top-left|bottom-right|cancelled>
 calibrated <id> <calibration>
 stats <id>

@@ -6,6 +6,7 @@
     "players",
     "app-commands",
     "layouts",
+    "gestures",
     "raw"
   ]
 }

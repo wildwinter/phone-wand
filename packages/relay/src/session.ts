@@ -8,6 +8,7 @@ import {
   type SmoothingOptions, type Transport, type Layout, type ControlValue,
   DEFAULT_LAYOUT, DEFAULT_SMOOTHING, PointerCalibration, PoseSmoother, PROTOCOL_VERSION, SLOT_COLOURS,
   controlValue, derivePose, layoutValues, validateLayout,
+  DEFAULT_GESTURES, GestureDetector, type GestureOptions, qrotate, round,
 } from "@phone-wand/core";
 
 export interface PhoneLink {
@@ -45,6 +46,7 @@ export interface SessionOptions {
 interface App {
   link: AppLink;
   smoothing: SmoothingOptions | false;
+  gestures: GestureOptions | false;
 }
 
 class Player {
@@ -70,6 +72,9 @@ class Player {
   layout: Layout = structuredClone(DEFAULT_LAYOUT);
   values: Record<string, ControlValue> = layoutValues(DEFAULT_LAYOUT);
   smoothers = new Map<App, PoseSmoother>();
+  detectors = new Map<App, GestureDetector>();
+  /** When each button last went down and up, to tell which were held when a gesture began. */
+  buttonTimes = new Map<string, { down: number; up: number | null }>();
   // stats, reset every second
   poses = 0;
   dropped = 0;
@@ -127,7 +132,7 @@ export class Session {
   // ---------------------------------------------------------------- apps
 
   addApp(link: AppLink): App {
-    const app: App = { link, smoothing: { ...DEFAULT_SMOOTHING } };
+    const app: App = { link, smoothing: { ...DEFAULT_SMOOTHING }, gestures: { ...DEFAULT_GESTURES } };
     this.apps.add(app);
     link.send({
       type: "hello", protocol: PROTOCOL_VERSION, relay: this.options.version,
@@ -157,6 +162,16 @@ export class Session {
           };
         }
         for (const p of this.players.values()) p.smoothers.get(app)?.setOptions(app.smoothing);
+        if (msg.gestures === false) app.gestures = false;
+        else if (msg.gestures && typeof msg.gestures === "object") {
+          const cur = app.gestures || DEFAULT_GESTURES;
+          app.gestures = {
+            threshold: num(msg.gestures.threshold, cur.threshold),
+            minSpeed: num(msg.gestures.minSpeed, cur.minSpeed),
+            twistRate: num(msg.gestures.twistRate, cur.twistRate),
+          };
+        }
+        for (const p of this.players.values()) p.detectors.delete(app);
         break;
       }
       case "style": {
@@ -258,7 +273,7 @@ export class Session {
         this.setState(p, "active");
         break;
       case "pose":
-        this.pose(p, msg.seq, msg.q, msg.ts, t);
+        this.pose(p, msg.seq, msg.q, msg.ts, t, msg.a);
         break;
       case "button": {
         if (!p.layout.controls.some((c) => c.id === msg.button && c.type === "button")) return;
@@ -266,6 +281,11 @@ export class Session {
         if (down === p.buttons.has(msg.button)) return; // ignore repeats
         if (down) p.buttons.add(msg.button);
         else p.buttons.delete(msg.button);
+        if (down) p.buttonTimes.set(msg.button, { down: t, up: null });
+        else {
+          const bt = p.buttonTimes.get(msg.button);
+          if (bt) bt.up = t;
+        }
         this.broadcast({ type: "button", id: p.id, button: msg.button, down });
         break;
       }
@@ -396,7 +416,7 @@ export class Session {
     this.setState(p, "paused");
   }
 
-  private pose(p: Player, seq: number, q: Quat, ts: number, t: number): void {
+  private pose(p: Player, seq: number, q: Quat, ts: number, t: number, a?: unknown): void {
     if (!isQuat(q) || typeof seq !== "number") return;
     if (seq <= p.lastSeq) {
       p.dropped++; // late or duplicate: newer data already went out
@@ -410,6 +430,10 @@ export class Session {
     if (!p.paused) this.setState(p, "active");
     const calibrated = p.calibration.calibrate(q);
     const stamp = typeof ts === "number" && isFinite(ts) ? ts : t;
+    // The phone's acceleration (gravity removed), from its own axes to the calibrated rig frame:
+    // device x, y, z are body right, forward, up.
+    const accel = isVec3(a) ? qrotate(calibrated, [a[0], a[2], a[1]]).map((v) => round(v, 3)) as [number, number, number] : null;
+    const roll = accel ? derivePose(calibrated, p.calibration.screen).roll : 0;
     for (const app of this.apps) {
       let s = p.smoothers.get(app);
       if (!s) p.smoothers.set(app, (s = new PoseSmoother(app.smoothing)));
@@ -417,8 +441,22 @@ export class Session {
       // No cursor until the player has aimed at least once this run (Recentre or screen
       // calibration), nor while they calibrate: apps show a prompt instead of a misleading cursor.
       if (p.calibratingScreen || p.calibration.kind === "none") d.screen = null;
-      app.link.send({ type: "pose", id: p.id, seq, t, ...d });
+      app.link.send(accel ? { type: "pose", id: p.id, seq, t, ...d, accel } : { type: "pose", id: p.id, seq, t, ...d });
+      if (accel && app.gestures && !p.paused) {
+        let g = p.detectors.get(app);
+        if (!g) p.detectors.set(app, (g = new GestureDetector(app.gestures)));
+        for (const found of g.update(accel, roll, t)) {
+          app.link.send({ type: "gesture", id: p.id, ...found, buttons: this.heldAt(p, found.t) });
+        }
+      }
     }
+  }
+
+  /** Buttons that were down at time t: the ones held when a gesture began. */
+  private heldAt(p: Player, t: number): string[] {
+    const held: string[] = [];
+    for (const [id, bt] of p.buttonTimes) if (bt.down <= t && (bt.up === null || bt.up >= t)) held.push(id);
+    return held.sort();
   }
 
   private calibrated(p: Player): void {
@@ -497,6 +535,10 @@ export class Session {
 
 function num(v: unknown, fallback: number): number {
   return typeof v === "number" && isFinite(v) ? v : fallback;
+}
+
+function isVec3(v: unknown): v is [number, number, number] {
+  return Array.isArray(v) && v.length === 3 && v.every((x) => typeof x === "number" && isFinite(x));
 }
 
 function isQuat(q: unknown): q is Quat {

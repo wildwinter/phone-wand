@@ -82,6 +82,21 @@ class Script {
     }
     return this;
   }
+  /**
+   * Poses at 60 Hz with the phone's acceleration, for gestures: path(seconds) gives W3C Euler angles
+   * and the acceleration in the phone's own axes (x right edge, y top edge, z out of the screen).
+   */
+  motion(link: number, ms: number, path: (s: number) => { angles: [number, number, number]; a: [number, number, number] }): this {
+    const steps = Math.round(ms / 16.7);
+    for (let i = 0; i < steps; i++) {
+      const { angles, a } = path(i * 0.0167);
+      const seq = this.seqs.get(link) ?? 0;
+      this.seqs.set(link, seq + 1);
+      this.send(link, { type: "pose", seq, ts: 1000 + this.t, q: q(...angles), a: a.map((v) => round(v, 3)) as [number, number, number] });
+      this.wait(16.7);
+    }
+    return this;
+  }
   end(): Line[] {
     this.lines.push({ t: this.t, end: true });
     return this.lines;
@@ -228,6 +243,39 @@ const SESSIONS: Record<string, () => Line[]> = {
     return s.end();
   },
 
+  // Gestures from the phone's motion: flicks each way, one while a button is held, a shake, a
+  // twist of the wrist, and slow movement that must not count.
+  gestures: () => {
+    const s = new Script(DEFAULT).join(1, "Kit");
+    s.move(1, 200, () => [0, 0, 0]);
+    s.send(1, { type: "recentre" });
+    const still = { angles: [0, 0, 0] as [number, number, number], a: [0, 0, 0] as [number, number, number] };
+    // A flick along one of the phone's axes: speed up, then slow down, over 200 ms.
+    const flick = (axis: number, sign: number, peak = 20) => (t: number) => {
+      const u = t / 0.2;
+      const v = u <= 1 ? sign * peak * Math.sin(2 * Math.PI * u) : 0;
+      const a: [number, number, number] = [0, 0, 0];
+      a[axis] = v;
+      return { angles: [0, 0, 0] as [number, number, number], a };
+    };
+    s.motion(1, 400, flick(1, 1)); // top edge forwards: push
+    s.motion(1, 400, () => still);
+    s.motion(1, 400, flick(0, -1)); // left edge first: left
+    s.motion(1, 400, () => still);
+    s.motion(1, 400, flick(2, 1)); // out of the screen: up
+    s.motion(1, 400, () => still);
+    s.send(1, { type: "button", button: "primary", down: true });
+    s.motion(1, 400, flick(1, -1)); // pull, with Primary held
+    s.send(1, { type: "button", button: "primary", down: false });
+    s.motion(1, 400, () => still);
+    s.motion(1, 1000, (t) => ({ angles: [0, 0, 0], a: [25 * Math.sin(2 * Math.PI * 5 * t), 0, 0] })); // shake
+    s.motion(1, 500, () => still);
+    s.motion(1, 500, (t) => ({ angles: [0, 0, t < 0.15 ? (80 * t) / 0.15 : 80], a: [0, 0, 0] })); // twist
+    s.motion(1, 400, () => ({ angles: [0, 0, 80], a: [0, 0, 0] }));
+    s.motion(1, 1200, (t) => ({ angles: [0, 0, 80], a: [0, 3 * Math.sin(Math.PI * t), 0] })); // slow: nothing
+    return s.end();
+  },
+
   // The same wandering as basic, with smoothing off, so raw calibrated values are pinned too.
   raw: () => {
     const s = new Script({ maxPlayers: 4, key: "k", smoothing: false }).join(1, "Hal");
@@ -292,6 +340,7 @@ function clientTrace(stream: RelayToApp[]): { events: string[]; state: object } 
   wand.on("pose", (pose) => events.push(`pose ${pose.id} seq=${pose.seq} screen=${pose.screen ? "yes" : "no"}`));
   wand.on("button", (e) => events.push(`button ${e.id} ${e.button} ${e.down ? "down" : "up"}`));
   wand.on("control", (e) => events.push(`control ${e.id} ${e.control}`));
+  wand.on("gesture", (g) => events.push(`gesture ${g.id} ${g.gesture} buttons=${g.buttons.join(",") || "-"}`));
   wand.on("error", () => {}); // errors are for the app's developer, not part of the log
   wand.on("calibrating", (step, p) => events.push(`calibrating ${p.id} ${step}`));
   wand.on("calibrated", (c, p) => events.push(`calibrated ${p.id} ${c}`));

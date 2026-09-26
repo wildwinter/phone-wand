@@ -1,0 +1,38 @@
+{
+  "players": [
+    {
+      "id": "p1",
+      "slot": 0,
+      "name": "Kit",
+      "colour": "#ff4d6d",
+      "label": "",
+      "state": "active",
+      "calibration": "ray",
+      "transport": "ws",
+      "buttons": [],
+      "template": "primary-secondary",
+      "controls": {},
+      "pose": {
+        "seq": 413,
+        "yaw": 0,
+        "pitch": 0,
+        "roll": 80,
+        "q": [
+          0,
+          0,
+          -0.64279,
+          0.76604
+        ],
+        "dir": [
+          0,
+          0,
+          1
+        ],
+        "screen": [
+          0.5,
+          0.5
+        ]
+      }
+    }
+  ]
+}

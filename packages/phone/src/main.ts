@@ -317,20 +317,41 @@ let seq = 0;
 let lastQ: Quat | null = null;
 let lastSample = 0;
 
+// The latest acceleration (gravity removed, m/s^2, the phone's own axes), sent with each pose so the
+// relay can spot gestures. Only if fresh: a stale reading would look like a movement.
+let lastAccel: [number, number, number] | null = null;
+let lastAccelAt = 0;
+
 function onQuat(q: Quat): void {
   lastQ = q;
   lastSample = performance.now();
   if (!welcomed || document.hidden) return;
-  send({ type: "pose", seq: seq++, ts: lastSample, q });
+  const fresh = lastAccel && lastSample - lastAccelAt < 100;
+  send(fresh ? { type: "pose", seq: seq++, ts: lastSample, q, a: lastAccel! } : { type: "pose", seq: seq++, ts: lastSample, q });
+}
+
+function startMotion(): void {
+  window.addEventListener("devicemotion", (e) => {
+    const a = e.acceleration;
+    if (!a || a.x === null || a.y === null || a.z === null) return;
+    lastAccel = [Math.round(a.x * 100) / 100, Math.round(a.y * 100) / 100, Math.round(a.z * 100) / 100];
+    lastAccelAt = performance.now();
+  });
 }
 
 async function startSensor(): Promise<SensorKind> {
   const DOE = (window as any).DeviceOrientationEvent;
+  const DME = (window as any).DeviceMotionEvent;
   if (DOE && typeof DOE.requestPermission === "function") {
-    // iOS: must be called from a tap.
-    const result = await DOE.requestPermission();
-    if (result !== "granted") throw new Error("denied");
+    // iOS: must be called from a tap, so both requests start together, before anything is awaited.
+    // Motion (for gestures) is optional; orientation is not.
+    const [orientation] = await Promise.all([
+      DOE.requestPermission(),
+      DME && typeof DME.requestPermission === "function" ? DME.requestPermission().catch(() => "denied") : "granted",
+    ]);
+    if (orientation !== "granted") throw new Error("denied");
   }
+  startMotion();
 
   const ROS = (window as any).RelativeOrientationSensor;
   if (ROS) {

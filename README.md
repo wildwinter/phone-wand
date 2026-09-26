@@ -72,6 +72,7 @@ To ship a game that starts the relay itself, hidden, so players never see it, se
 - [The relay](docs/relay.md): command-line options, the dashboard and networking
 - [Phones and certificates](docs/phones.md): HTTPS, removing the warning, iPhone and Android notes
 - [Layouts](docs/layouts.md): choosing the phone's buttons, toggles, sliders and other controls
+- [Gestures](docs/gestures.md): push, pull, flick, shake and twist, alone or with a button held
 - [Calibration and precision](docs/calibration.md): Recentre, screen calibration, smoothing and
   designing for phone pointing
 - Client libraries: [JavaScript](docs/clients/js.md), [Unity](docs/clients/unity.md),

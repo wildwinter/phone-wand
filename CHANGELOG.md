@@ -7,6 +7,16 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- **Gestures**: push, pull, left, right, up, down, shake, twist-left and twist-right, detected by
+  the relay from the phone's motion, in the calibrated frame, with strength, speed, direction and
+  the buttons held when they started ("hold Primary and pull"). Each app sets its own sensitivity
+  with `configure`. See `docs/gestures.md`.
+- Poses carry `accel`, the phone's acceleration without gravity, for apps that recognise their own
+  movements.
+- The dashboard shows gestures on the test screen, with a sensitivity slider.
+
 ### Tested
 
 - The 0.4.0 layouts, settings and Recentre placement on a real phone, right- and left-handed.

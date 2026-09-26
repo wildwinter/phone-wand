@@ -19,6 +19,7 @@ wand.on("connected", (hello) => {
   $<HTMLImageElement>("qr").src = qr;
   $<HTMLImageElement>("qr2").src = qr;
   applySmoothing();
+  applyGestures();
   renderPlayers();
 });
 
@@ -146,6 +147,16 @@ wand.on("control", (e, p) => {
   ripples.push({ x: 0.5, y: 0.08, colour: p.colour, start: performance.now(), big: false });
   lastControl = { text: `${p.name}: ${e.control} = ${JSON.stringify(e.value)}`, colour: p.colour, at: performance.now() };
 });
+// Each gesture shows on the test screen: its name, an arrow for movements, and any held buttons.
+interface Shown { name: string; dir: [number, number, number]; strength: number; colour: string; at: number; x: number; y: number }
+const gestures: Shown[] = [];
+wand.on("gesture", (g, p) => {
+  const [x, y] = p.pose?.screen ?? [0.5, 0.5];
+  const held = g.buttons.length ? ` + ${g.buttons.join(", ")}` : "";
+  gestures.push({ name: `${g.gesture}${held}`, dir: g.dir, strength: g.strength, colour: p.colour, at: performance.now(), x, y });
+  lastControl = { text: `${p.name}: ${g.gesture}${held} (strength ${g.strength.toFixed(2)}, ${g.speed.toFixed(2)} m/s)`, colour: p.colour, at: performance.now() };
+});
+
 wand.on("error", (message) => {
   lastControl = { text: `Relay error: ${message}`, colour: "#ff5c6c", at: performance.now() };
 });
@@ -176,6 +187,31 @@ try {
 } catch {
   // ignore
 }
+
+// Gesture sensitivity 1 (needs a vigorous flick) to 10 (a light one), as the movement threshold.
+const gs = $<HTMLInputElement>("gs");
+const gsOff = $<HTMLInputElement>("gs-off");
+try {
+  const saved = JSON.parse(localStorage.getItem("phone-wand:gestures") || "null");
+  if (saved) {
+    gs.value = saved.gs;
+    gsOff.checked = saved.off;
+  }
+} catch {
+  // ignore
+}
+const gestureThreshold = () => 16 - Number(gs.value) * 1.8; // 1 -> 14.2, 5 -> 7, 10 -> -2 -> clamp
+function applyGestures(): void {
+  const threshold = Math.max(2.5, gestureThreshold());
+  $("gs-v").textContent = `${gs.value} (starts at ${threshold.toFixed(1)} m/s²)`;
+  wand.configure({ gestures: gsOff.checked ? false : { threshold } });
+  try {
+    localStorage.setItem("phone-wand:gestures", JSON.stringify({ gs: gs.value, off: gsOff.checked }));
+  } catch {
+    // ignore
+  }
+}
+for (const el of [gs, gsOff]) el.addEventListener("input", applyGestures);
 
 function applySmoothing(): void {
   $("mc-v").textContent = `${mc.value} Hz`;
@@ -295,6 +331,7 @@ function draw(now: number): void {
 
   for (const p of wand.list) drawCursor(p, w, h, unit);
   drawWaiting(w, h, unit);
+  drawGestures(now, w, h, unit);
   if (lastControl && now - lastControl.at < 2500) {
     ctx.globalAlpha = 1 - (now - lastControl.at) / 2500;
     ctx.fillStyle = lastControl.colour;
@@ -305,6 +342,48 @@ function draw(now: number): void {
     ctx.globalAlpha = 1;
   }
   requestAnimationFrame(draw);
+}
+
+function drawGestures(now: number, w: number, h: number, unit: number): void {
+  for (let i = gestures.length - 1; i >= 0; i--) {
+    const g = gestures[i];
+    const age = (now - g.at) / 1200;
+    if (age > 1) {
+      gestures.splice(i, 1);
+      continue;
+    }
+    const cx = Math.min(Math.max(g.x, 0.1), 0.9) * w, cy = Math.min(Math.max(g.y, 0.1), 0.9) * h;
+    ctx.globalAlpha = 1 - age;
+    ctx.strokeStyle = g.colour;
+    ctx.fillStyle = g.colour;
+    // Movements: an arrow the way the phone moved (right and up on screen; push and pull shown by size).
+    const [r, u, f] = g.dir;
+    const len = unit * (0.08 + 0.12 * g.strength);
+    if (Math.abs(r) + Math.abs(u) > 0.3) {
+      const ex = cx + r * len, ey = cy - u * len;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      const a = Math.atan2(ey - cy, ex - cx);
+      ctx.beginPath();
+      ctx.moveTo(ex + Math.cos(a) * 14, ey + Math.sin(a) * 14);
+      ctx.lineTo(ex + Math.cos(a + 2.4) * 16, ey + Math.sin(a + 2.4) * 16);
+      ctx.lineTo(ex + Math.cos(a - 2.4) * 16, ey + Math.sin(a - 2.4) * 16);
+      ctx.fill();
+    } else if (Math.abs(f) > 0.3) {
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, f > 0 ? len * (1 - age * 0.8) : len * (0.3 + age), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.font = `800 ${Math.round(unit * 0.045)}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(g.name, cx, cy + unit * 0.05);
+    ctx.globalAlpha = 1;
+  }
 }
 
 // Players have no cursor until they have aimed once, so say what each one still needs to do.

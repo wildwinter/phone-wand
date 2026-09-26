@@ -151,6 +151,7 @@ Sent every time a phone sends orientation, typically 60 times a second.
 | `yaw`, `pitch`, `roll` | Calibrated angles in degrees. |
 | `dir` | Calibrated unit pointing direction `[right, up, forward]`. |
 | `screen` | Normalised screen position, or `null`. |
+| `accel` | The phone's acceleration in m/s², gravity removed, as `[right, up, forward]` in the rig frame. Only when the phone sends it (it does unless motion access was refused). Unsmoothed. |
 
 All values are smoothed with the app's filter settings (see `configure`).
 
@@ -175,6 +176,27 @@ player's `controls` hold the latest values.
 `{ "type": "error", "message": "layout: template grid holds at most 6 controls" }`
 
 Sent only to the app whose message the relay couldn't use, saying why.
+
+### `gesture`
+
+```json
+{ "type": "gesture", "id": "p1", "gesture": "pull", "strength": 0.62, "speed": 1.55,
+  "dir": [0.05, -0.1, -0.99], "duration": 240, "t": 1790300000123.4, "buttons": ["primary"] }
+```
+
+The player moved the phone deliberately. See [Gestures](gestures.md).
+
+| Field | Meaning |
+|---|---|
+| `gesture` | `push` (towards the screen), `pull` (back towards the player), `left`, `right`, `up`, `down`, `shake`, `twist-left` or `twist-right` (a quick roll of the wrist; right is clockwise from behind). |
+| `strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
+| `speed` | Peak speed of the movement in m/s (0 for twists). |
+| `dir` | Unit direction of the movement, `[right, up, forward]` (zeros for shakes and twists). |
+| `duration` | How long it took, in ms. |
+| `t` | Relay time it started. |
+| `buttons` | Button ids that were held when it started, sorted. |
+
+Each app gets gestures detected with its own sensitivity (see `configure`).
 
 ### `calibrating`
 
@@ -208,11 +230,17 @@ All optional. Messages naming an `id` that does not exist are ignored.
 Sets this app connection's options. Every field is optional.
 
 ```json
-{ "type": "configure", "smoothing": { "minCutoff": 1.0, "beta": 5.0, "dCutoff": 1.0 } }
+{ "type": "configure", "smoothing": { "minCutoff": 1.0, "beta": 5.0, "dCutoff": 1.0 },
+  "gestures": { "threshold": 7, "minSpeed": 0.35, "twistRate": 360 } }
 ```
 
 `smoothing` sets the One Euro filter for poses sent to this app; `false` turns smoothing off. Lower
 `minCutoff` means steadier when still; higher `beta` means quicker when moving.
+
+`gestures` sets this app's gesture sensitivity, or `false` for no `gesture` messages: `threshold`
+is the acceleration in m/s² that starts a movement (lower is more sensitive), `minSpeed` the peak
+speed in m/s a movement must reach, and `twistRate` the roll rate in degrees per second that makes
+a twist.
 
 ### `style`
 
@@ -308,7 +336,7 @@ Phone to relay:
 |---|---|
 | `hello` | `key` (join key from the QR code), `token` (reconnect token, if any), `name`, `platform`, `sensor` |
 | `ready` | Motion access granted; poses follow. |
-| `pose` | `seq`, `ts` (phone clock, ms), `q` (`[x, y, z, w]`, device to sensor world, W3C `DeviceOrientation` frame) |
+| `pose` | `seq`, `ts` (phone clock, ms), `q` (`[x, y, z, w]`, device to sensor world, W3C `DeviceOrientation` frame), and `a` (optional: acceleration in m/s² without gravity, in the phone's own axes `[x, y, z]`, from `devicemotion`) |
 | `button` | `button` (a button id from the layout), `down` |
 | `control` | `control`, `value` |
 | `recentre` | |

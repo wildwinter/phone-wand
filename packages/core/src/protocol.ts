@@ -55,22 +55,42 @@ export interface PoseMessage {
   roll: number;
   dir: Vec3;
   screen: [number, number] | null;
+  /** The phone's acceleration in m/s^2 (gravity removed), [right, up, forward]; when the phone sends it. */
+  accel?: Vec3;
 }
 export interface ButtonMessage { type: "button"; id: string; button: ButtonName; down: boolean }
 export interface ControlMessage { type: "control"; id: string; control: string; value: ControlValue }
 export interface CalibratingMessage { type: "calibrating"; id: string; step: CornerStep | "cancelled" }
 export interface CalibratedMessage { type: "calibrated"; id: string; calibration: CalibrationKind }
 export interface StatsMessage { type: "stats"; id: string; rtt: number; rate: number; dropped: number }
+export interface GestureMessage {
+  type: "gesture";
+  id: string;
+  gesture: import("./gestures.js").GestureName;
+  strength: number;
+  speed: number;
+  dir: Vec3;
+  duration: number;
+  /** Relay time the gesture started. */
+  t: number;
+  /** Button ids that were held when the gesture started. */
+  buttons: string[];
+}
 /** Sent only to the app whose message the relay could not use, saying why. */
 export interface ErrorMessage { type: "error"; message: string }
 
 export type RelayToApp =
   | HelloMessage | JoinMessage | LeaveMessage | PlayerMessage | PoseMessage
-  | ButtonMessage | ControlMessage | CalibratingMessage | CalibratedMessage | StatsMessage | ErrorMessage;
+  | ButtonMessage | ControlMessage | CalibratingMessage | CalibratedMessage | StatsMessage | ErrorMessage | GestureMessage;
 
 // ---- app -> relay ----
 
-export interface ConfigureMessage { type: "configure"; smoothing?: SmoothingOptions | false }
+export interface ConfigureMessage {
+  type: "configure";
+  smoothing?: SmoothingOptions | false;
+  /** Gesture sensitivity for this app, or false for no gesture events. */
+  gestures?: Partial<import("./gestures.js").GestureOptions> | false;
+}
 export interface StyleMessage { type: "style"; id: string; colour?: string; label?: string }
 export interface PromptMessage { type: "prompt"; id?: string; text: string; duration?: number }
 export interface HapticMessage { type: "haptic"; id?: string; pattern: number[] }
@@ -88,7 +108,7 @@ export type AppToRelay =
 export type PhoneToRelay =
   | { type: "hello"; key: string; token?: string; name: string; platform: string; sensor: SensorKind | "" }
   | { type: "ready"; sensor: SensorKind }
-  | { type: "pose"; seq: number; ts: number; q: Quat }
+  | { type: "pose"; seq: number; ts: number; q: Quat; a?: Vec3 }
   | { type: "button"; button: ButtonName; down: boolean }
   | { type: "control"; control: string; value: ControlValue }
   | { type: "recentre" }
