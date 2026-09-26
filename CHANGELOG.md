@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-26
+
 ### Added
 
 - **Phone Wand.app** for macOS, in the disk image next to the command-line relay. Double-click it and

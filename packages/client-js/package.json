@@ -1,6 +1,6 @@
 {
   "name": "phone-wand",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "JavaScript and TypeScript client for Phone Wand: phones as shared pointers for a screen.",
   "license": "MIT",
   "author": "Ian Thomas (storytools.se)",
