@@ -173,3 +173,11 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .panel .message-title { text-align: center; }
 .setting { display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 15px; }
 .wide { width: 100%; }
+
+/* Recentre: in the top bar, the corner nearest the thumb (opposite settings). Used often, and at the
+   pointing end of the phone, so it's easy to find but hard to press by accident. */
+.recentre {
+  display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; flex: none;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; font-weight: 700;
+}
+.recentre:active, .recentre.flash { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }

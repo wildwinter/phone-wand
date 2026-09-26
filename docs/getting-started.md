@@ -51,8 +51,9 @@ The phone must be on the **same network** as the relay's computer.
    bottom-right corner, tap; or point at the middle of the screen and tap the button below.
 
 Your cursor now appears on the dashboard's test screen. The **Primary** button is the big area in
-the middle; **Secondary** is below it. The small button in the top corner opens **Settings**, with
-Recentre, Calibrate screen, your name, and which hand you hold the phone in.
+the middle; **Secondary** is below it. **Recentre** is at the top, in the corner nearest your thumb; the
+small button in the other top corner opens **Settings**, with Calibrate screen, your name, and which
+hand you hold the phone in.
 
 ## 3. Calibrate to the screen
 

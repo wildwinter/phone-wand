@@ -15,7 +15,7 @@ the protocol.
   for value changes, and an `error` message when the relay can't use something an app sent. The
   relay remembers each player's layout and values through reconnects. See `docs/layouts.md`.
 - A settings button on the phone, in the top corner away from the thumb: which hand the player
-  uses (the layout mirrors for the left hand), Recentre, Calibrate screen, and their name.
+  uses (the layout mirrors for the left hand), Calibrate screen, and their name.
 - The dashboard can send sample layouts to every phone, and shows control changes.
 
 ### Changed
@@ -23,8 +23,8 @@ the protocol.
 - **Unity: breaking.** `PhoneButton` is no longer an enum but a class of string constants, because
   button ids now come from the layout. `e.Button == PhoneButton.Primary` and
   `player.IsHeld(PhoneButton.Primary)` still work; variables typed as `PhoneButton` become `string`.
-- Recentre and Calibrate screen moved from the main phone screen into settings, so the game's
-  controls get the space. Button names can be any id from the layout, not just `primary` and
+- Recentre moved into the phone's top bar, in the corner nearest the thumb, and Calibrate screen into
+  settings, so the game's controls get the rest of the screen. Button names can be any id from the layout, not just `primary` and
   `secondary` (which remain the default).
 
 ## [0.3.1] - 2026-09-26

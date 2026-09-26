@@ -80,10 +80,10 @@ libraries print it, or pass it to your error handler.
 
 ## On the phone
 
-The small button in the top corner opens **Settings**: which hand the player holds the phone in
-(this mirrors the layout, and moves the settings button to the corner away from the thumb),
-**Recentre**, **Calibrate screen**, and their name. These stay available whatever layout your app
-chooses.
+Whatever layout your app chooses, the top bar keeps two buttons of Phone Wand's own: **Recentre**,
+in the corner nearest the thumb, and a small settings button in the other corner. **Settings** has
+which hand the player holds the phone in (this mirrors the layout, and swaps the two top corners),
+**Calibrate screen**, and their name.
 
 ## Trying layouts
 

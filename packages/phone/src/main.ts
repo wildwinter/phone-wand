@@ -502,9 +502,11 @@ settingsName.addEventListener("keydown", (e) => {
 });
 
 $("recentre").addEventListener("click", () => {
+  if (!tapAllowed()) return;
   send({ type: "recentre" });
   navigator.vibrate?.(20);
-  closeSettings();
+  $("recentre").classList.add("flash");
+  setTimeout(() => $("recentre").classList.remove("flash"), 400);
 });
 
 // ------------------------------------------------------------------ screen calibration

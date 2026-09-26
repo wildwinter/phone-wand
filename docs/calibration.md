@@ -30,7 +30,7 @@ After a Recentre alone, the screen position assumes a screen 40 degrees wide and
 
 ## Recentre
 
-Pressing **Recentre** (in the phone's **Settings**, the small button in the top corner) makes the direction the phone points right now the new forward, including its
+Pressing **Recentre** (the button in the phone's top bar) makes the direction the phone points right now the new forward, including its
 up or down tilt. Point at the middle of the screen (or, for a surround rig, the middle of the centre
 screen) and press it.
 
