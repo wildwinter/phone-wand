@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-26
+
 ### Added
 
 - Games can start the relay themselves, hidden, and stop it when they stop: a **Start Relay**
