@@ -265,6 +265,14 @@ namespace StoryTools.PhoneWand
         public const string Down = "down";
         /// <summary>Several quick movements back and forth.</summary>
         public const string Shake = "shake";
+        /// <summary>The pointing direction turned quickly upwards.</summary>
+        public const string FlickUp = "flick-up";
+        /// <summary>The pointing direction turned quickly downwards.</summary>
+        public const string FlickDown = "flick-down";
+        /// <summary>The pointing direction turned quickly to the left.</summary>
+        public const string FlickLeft = "flick-left";
+        /// <summary>The pointing direction turned quickly to the right.</summary>
+        public const string FlickRight = "flick-right";
         /// <summary>A quick anticlockwise roll of the wrist, seen from behind.</summary>
         public const string TwistLeft = "twist-left";
         /// <summary>A quick clockwise roll of the wrist, seen from behind.</summary>
@@ -282,10 +290,12 @@ namespace StoryTools.PhoneWand
         public string Gesture { get; }
         /// <summary>0 to 1: how vigorous, relative to a strong flick, shake or twist.</summary>
         public double Strength { get; }
-        /// <summary>Peak speed of the movement in m/s (0 for twists).</summary>
+        /// <summary>Movements and shakes: peak speed in m/s (0 for flicks and twists).</summary>
         public double Speed { get; }
-        /// <summary>Unit direction of the movement in the rig frame (zero for shakes and twists).</summary>
+        /// <summary>Movements: unit direction in the rig frame (zero otherwise).</summary>
         public RigVector3 Dir { get; }
+        /// <summary>Flicks and twists: how far the phone turned, in degrees (0 for movements).</summary>
+        public double Angle { get; }
         /// <summary>How long it took, in ms.</summary>
         public double Duration { get; }
         /// <summary>Relay time it started, in ms since the Unix epoch.</summary>
@@ -294,13 +304,14 @@ namespace StoryTools.PhoneWand
         public IReadOnlyList<string> Buttons { get; }
 
         public GestureEvent(string id, string gesture, double strength, double speed, RigVector3 dir, double duration,
-            double t, IReadOnlyList<string> buttons)
+            double t, IReadOnlyList<string> buttons, double angle = 0)
         {
             Id = id;
             Gesture = gesture ?? "";
             Strength = strength;
             Speed = speed;
             Dir = dir;
+            Angle = angle;
             Duration = duration;
             T = t;
             Buttons = buttons ?? NoButtons;
@@ -468,6 +479,8 @@ namespace StoryTools.PhoneWand
         public const double DefaultThreshold = 7;
         /// <summary>The relay's default minimum speed, in m/s.</summary>
         public const double DefaultMinSpeed = 0.35;
+        /// <summary>The relay's default flick rate, in degrees per second.</summary>
+        public const double DefaultFlickRate = 250;
         /// <summary>The relay's default twist rate, in degrees per second.</summary>
         public const double DefaultTwistRate = 360;
 
@@ -475,7 +488,9 @@ namespace StoryTools.PhoneWand
         public double? Threshold;
         /// <summary>Peak speed in m/s a movement must reach. Relay default 0.35.</summary>
         public double? MinSpeed;
-        /// <summary>Roll rate in degrees per second that makes a twist. Relay default 360.</summary>
+        /// <summary>Turning speed in degrees per second that makes a flick. Relay default 250.</summary>
+        public double? FlickRate;
+        /// <summary>Rolling speed in degrees per second that makes a twist. Relay default 360.</summary>
         public double? TwistRate;
 
         /// <summary>True for "no gestures" (sent as gestures: false).</summary>
@@ -485,17 +500,19 @@ namespace StoryTools.PhoneWand
         public static GestureSensitivity Off => new GestureSensitivity { IsOff = true };
 
         /// <summary>The relay's defaults, stated explicitly.</summary>
-        public static GestureSensitivity Default => new GestureSensitivity(DefaultThreshold, DefaultMinSpeed, DefaultTwistRate);
+        public static GestureSensitivity Default => new GestureSensitivity(DefaultThreshold, DefaultMinSpeed, DefaultTwistRate, DefaultFlickRate);
 
         public GestureSensitivity()
         {
         }
 
-        public GestureSensitivity(double threshold, double minSpeed = DefaultMinSpeed, double twistRate = DefaultTwistRate)
+        public GestureSensitivity(double threshold, double minSpeed = DefaultMinSpeed, double twistRate = DefaultTwistRate,
+            double flickRate = DefaultFlickRate)
         {
             Threshold = threshold;
             MinSpeed = minSpeed;
             TwistRate = twistRate;
+            FlickRate = flickRate;
         }
 
         internal object ToJsonValue()
@@ -504,6 +521,7 @@ namespace StoryTools.PhoneWand
             var o = new Dictionary<string, object>();
             if (Threshold.HasValue) o["threshold"] = Threshold.Value;
             if (MinSpeed.HasValue) o["minSpeed"] = MinSpeed.Value;
+            if (FlickRate.HasValue) o["flickRate"] = FlickRate.Value;
             if (TwistRate.HasValue) o["twistRate"] = TwistRate.Value;
             return o;
         }

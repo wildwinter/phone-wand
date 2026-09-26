@@ -271,8 +271,20 @@ const SESSIONS: Record<string, () => Line[]> = {
     s.motion(1, 1000, (t) => ({ angles: [0, 0, 0], a: [25 * Math.sin(2 * Math.PI * 5 * t), 0, 0] })); // shake
     s.motion(1, 500, () => still);
     s.motion(1, 500, (t) => ({ angles: [0, 0, t < 0.15 ? (80 * t) / 0.15 : 80], a: [0, 0, 0] })); // twist
-    s.motion(1, 400, () => ({ angles: [0, 0, 80], a: [0, 0, 0] }));
-    s.motion(1, 1200, (t) => ({ angles: [0, 0, 80], a: [0, 3 * Math.sin(Math.PI * t), 0] })); // slow: nothing
+    s.motion(1, 1200, (t) => ({ angles: [0, 0, 80 * (1 - t / 1.2)], a: [0, 0, 0] })); // back, slowly
+    // A wrist flick upward (beta is the top edge tipping up): a flick, not a twist or a movement.
+    const ease = (u: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, u)))) / 2;
+    s.motion(1, 500, (t) => ({ angles: [0, 45 * ease(t / 0.15), 0], a: [0, 0, 0] }));
+    s.motion(1, 1200, (t) => ({ angles: [0, 45 * (1 - t / 1.2), 0], a: [0, 0, 0] })); // back, slowly
+    // A fast turn right (alpha turns left, so it goes negative), with the swing around the wrist
+    // picked up as strong sideways motion: a flick-right and nothing else.
+    s.motion(1, 500, (t) => {
+      const u = t / 0.18;
+      const swing = u <= 1 ? 30 * Math.sin(2 * Math.PI * u) : 0;
+      return { angles: [-60 * ease(u), 0, 0], a: [swing, 0, 0] };
+    });
+    s.motion(1, 1500, (t) => ({ angles: [-60 * (1 - t / 1.5), 0, 0], a: [0, 0, 0] })); // back, slowly
+    s.motion(1, 1200, (t) => ({ angles: [0, 0, 0], a: [0, 3 * Math.sin(Math.PI * t), 0] })); // slow: nothing
     return s.end();
   },
 

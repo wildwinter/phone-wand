@@ -832,11 +832,11 @@ bool FPhoneWandGestureConfigureTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("gestures on again"), Wand->AreGesturesEnabled());
 
 	const TCHAR* Expected[] = {
-		TEXT("{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
+		TEXT("{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"flickRate\":250,\"twistRate\":400}}"),
 		TEXT("{\"type\":\"configure\",\"gestures\":false}"),
 		TEXT("{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1.5,\"beta\":4,\"dCutoff\":1},\"gestures\":false}"),
-		TEXT("{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1.5,\"beta\":4,\"dCutoff\":1},\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
-		TEXT("{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"twistRate\":400}}"),
+		TEXT("{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1.5,\"beta\":4,\"dCutoff\":1},\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"flickRate\":250,\"twistRate\":400}}"),
+		TEXT("{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":9,\"minSpeed\":0.5,\"flickRate\":250,\"twistRate\":400}}"),
 	};
 	if (TestEqual(TEXT("messages sent"), Sent.Num(), (int32)UE_ARRAY_COUNT(Expected)))
 	{
@@ -899,7 +899,7 @@ bool FPhoneWandGestureClientTest::RunTest(const FString& Parameters)
 	}
 
 	// Every name round-trips.
-	for (const TCHAR* Name : { TEXT("push"), TEXT("pull"), TEXT("left"), TEXT("right"), TEXT("up"), TEXT("down"), TEXT("shake"), TEXT("twist-left"), TEXT("twist-right") })
+	for (const TCHAR* Name : { TEXT("push"), TEXT("pull"), TEXT("left"), TEXT("right"), TEXT("up"), TEXT("down"), TEXT("shake"), TEXT("twist-left"), TEXT("twist-right"), TEXT("flick-up"), TEXT("flick-down"), TEXT("flick-left"), TEXT("flick-right") })
 	{
 		const EPhoneWandGesture G = PhoneWand::ParseGesture(Name);
 		TestNotEqual(FString::Printf(TEXT("%s is known"), Name), G, EPhoneWandGesture::Unknown);

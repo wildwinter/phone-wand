@@ -120,6 +120,7 @@ namespace
 		G.Gesture = PhoneWand::ParseGesture(G.GestureName);
 		Msg.TryGetNumberField(TEXT("strength"), G.Strength);
 		Msg.TryGetNumberField(TEXT("speed"), G.Speed);
+		Msg.TryGetNumberField(TEXT("angle"), G.Angle);
 		double D[3] = { 0.0, 0.0, 0.0 };
 		if (ReadNumbers(Msg, TEXT("dir"), D, 3))
 		{
@@ -200,6 +201,10 @@ namespace PhoneWand
 		case EPhoneWandGesture::Shake: return TEXT("shake");
 		case EPhoneWandGesture::TwistLeft: return TEXT("twist-left");
 		case EPhoneWandGesture::TwistRight: return TEXT("twist-right");
+		case EPhoneWandGesture::FlickUp: return TEXT("flick-up");
+		case EPhoneWandGesture::FlickDown: return TEXT("flick-down");
+		case EPhoneWandGesture::FlickLeft: return TEXT("flick-left");
+		case EPhoneWandGesture::FlickRight: return TEXT("flick-right");
 		default: return FString();
 		}
 	}
@@ -233,12 +238,14 @@ void UPhoneWandSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	GestureThreshold = Settings->GestureThreshold;
 	GestureMinSpeed = Settings->GestureMinSpeed;
 	GestureTwistRate = Settings->GestureTwistRate;
+	GestureFlickRate = Settings->GestureFlickRate;
 	// Only tell the relay about gestures when the project changed them, so a relay started with
 	// its own defaults keeps them.
 	bGesturesConfigured = !bGesturesEnabled
 		|| !FMath::IsNearlyEqual(GestureThreshold, PhoneWand::DefaultGestureThreshold)
 		|| !FMath::IsNearlyEqual(GestureMinSpeed, PhoneWand::DefaultGestureMinSpeed)
-		|| !FMath::IsNearlyEqual(GestureTwistRate, PhoneWand::DefaultGestureTwistRate);
+		|| !FMath::IsNearlyEqual(GestureTwistRate, PhoneWand::DefaultGestureTwistRate)
+		|| !FMath::IsNearlyEqual(GestureFlickRate, PhoneWand::DefaultGestureFlickRate);
 
 	bStartRelay = Settings->bStartRelay || FParse::Param(FCommandLine::Get(), TEXT("PhoneWandStartRelay"));
 	RelayPathSetting = Settings->RelayPath;
@@ -863,6 +870,7 @@ TSharedPtr<FJsonObject> UPhoneWandSubsystem::MakeConfigure() const
 			TSharedRef<FJsonObject> G = MakeShared<FJsonObject>();
 			G->SetNumberField(TEXT("threshold"), GestureThreshold);
 			G->SetNumberField(TEXT("minSpeed"), GestureMinSpeed);
+			G->SetNumberField(TEXT("flickRate"), GestureFlickRate);
 			G->SetNumberField(TEXT("twistRate"), GestureTwistRate);
 			Msg->SetObjectField(TEXT("gestures"), G);
 		}
@@ -884,13 +892,14 @@ void UPhoneWandSubsystem::SendConfigure()
 	}
 }
 
-void UPhoneWandSubsystem::SetGestureSensitivity(double Threshold, double MinSpeed, double TwistRate)
+void UPhoneWandSubsystem::SetGestureSensitivity(double Threshold, double MinSpeed, double TwistRate, double FlickRate)
 {
 	bGesturesConfigured = true;
 	bGesturesEnabled = true;
 	GestureThreshold = Threshold;
 	GestureMinSpeed = MinSpeed;
 	GestureTwistRate = TwistRate;
+	GestureFlickRate = FlickRate;
 	SendConfigure();
 }
 

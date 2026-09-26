@@ -234,20 +234,22 @@ void AMyGame::BeginPlay()
 
 | Field | Meaning |
 |---|---|
-| `Gesture` | `Push` (towards the screen), `Pull`, `Left`, `Right`, `Up`, `Down`, `Shake`, `TwistLeft` or `TwistRight`; `Unknown` for a gesture from a newer relay that this plugin doesn't know. |
+| `Gesture` | Movements: `Push` (towards the screen), `Pull`, `Left`, `Right`, `Up`, `Down`, `Shake`. Fast rotations: `FlickUp`, `FlickDown`, `FlickLeft`, `FlickRight`, `TwistLeft`, `TwistRight`. `Unknown` for a gesture from a newer relay that this plugin doesn't know. |
 | `GestureName` | The protocol name (`push`, `twist-left`, ...), set even for `Unknown`. |
 | `Strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
-| `Speed` | Peak speed of the movement in m/s (0 for twists). |
-| `Direction` | Unit direction of the movement in Unreal's frame, so a push is about +X; zero for shakes and twists. |
+| `Speed` | Movements and shakes: peak speed in m/s (0 for flicks and twists). |
+| `Angle` | Flicks and twists: how far the phone turned, in degrees (0 for movements). |
+| `Direction` | Movements: unit direction in Unreal's frame, so a push is about +X; zero otherwise. |
 | `RawDirection` | The same in the rig frame (`[right, up, forward]`) as sent by the relay. |
 | `Duration` | How long it took, in milliseconds. |
 | `Time` | Relay time it started, in milliseconds since the Unix epoch. |
 | `Buttons` | Ids of the buttons held when it started, sorted. `IsButtonHeld(Button)` in C++, **Is Button Held (Gesture)** in Blueprint. |
 | `Id` | The player's id. |
 
-Sensitivity is per app: **Gestures**, **Gesture Threshold**, **Gesture Min Speed** and **Gesture
-Twist Rate** in the [project settings](#project-settings), or `SetGestureSensitivity(Threshold,
-MinSpeed, TwistRate)` and `SetGesturesEnabled(false)` at run time. The subsystem sends them in its
+Sensitivity is per app: **Gestures**, **Gesture Threshold**, **Gesture Min Speed**, **Gesture Flick
+Rate** and **Gesture Twist Rate** in the [project settings](#project-settings), or
+`SetGestureSensitivity(Threshold, MinSpeed, TwistRate, FlickRate)` and `SetGesturesEnabled(false)`
+at run time. The subsystem sends them in its
 `configure` message, with the smoothing, when it connects and again after every reconnect. Left at
 the defaults, nothing is sent and the relay uses its own defaults.
 
@@ -278,7 +280,7 @@ Phone Wand**. C++: `GetGameInstance()->GetSubsystem<UPhoneWandSubsystem>()`.
 | `FindPlayer(Id)` | C++ only: a pointer to the live player, or null. |
 | `SetSmoothing(MinCutoff, Beta, DCutoff)` | Set the One Euro filter the relay applies to this app's poses. Lower `MinCutoff` is steadier when still; higher `Beta` is quicker when moving. |
 | `SetRaw()` | Turn smoothing off for this app. |
-| `SetGestureSensitivity(Threshold, MinSpeed, TwistRate)` | Set this app's gesture sensitivity and turn gestures on (see [Gestures](#gestures)). Defaults 7, 0.35 and 360. |
+| `SetGestureSensitivity(Threshold, MinSpeed, TwistRate, FlickRate)` | Set this app's gesture sensitivity and turn gestures on (see [Gestures](#gestures)). Defaults 7, 0.35, 360 and 250. |
 | `SetGesturesEnabled(bEnabled)` | Turn `OnGesture` on or off for this app. |
 | `AreGesturesEnabled()` | False once gestures have been turned off. |
 | `GetConfigureJson()` | C++ only: the `configure` message the subsystem sends when it connects, or empty when it sends none. |
@@ -442,6 +444,7 @@ Blueprint function library, also callable from C++.
 | **Gestures** | on | Send this app `OnGesture` events. |
 | **Gesture Threshold** | 7 | Acceleration in m/s² that starts a movement. Lower is more sensitive. |
 | **Gesture Min Speed** | 0.35 | Peak speed in m/s a movement must reach. |
+| **Gesture Flick Rate** | 250 | Turning speed in degrees per second that makes a flick. |
 | **Gesture Twist Rate** | 360 | Roll speed in degrees per second that makes a twist. |
 
 Command-line switches: `-PhoneWandUrl=ws://host:port/app` overrides the URL,

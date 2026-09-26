@@ -84,7 +84,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Gestures", meta = (DisplayName = "Is Button Held (Gesture)"))
 	static bool IsGestureButtonHeld(const FPhoneWandGesture& Gesture, const FString& Button = TEXT("primary")) { return Gesture.IsButtonHeld(Button); }
 
-	/** Protocol name of a gesture ("push", "pull", "left", "right", "up", "down", "shake", "twist-left", "twist-right"; empty for Unknown). */
+	/** Protocol name of a gesture ("push", "pull", "left", "right", "up", "down", "shake", "flick-up", "flick-down", "flick-left", "flick-right", "twist-left", "twist-right"; empty for Unknown). */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Gestures", meta = (DisplayName = "To String (Gesture)", CompactNodeTitle = "->", BlueprintAutocast))
 	static FString GestureToString(EPhoneWandGesture Gesture) { return PhoneWand::ToString(Gesture); }
 

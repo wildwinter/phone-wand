@@ -371,13 +371,13 @@ namespace StoryTools.PhoneWand.TestHost
             string Last() => sent.Count > 0 ? sent[sent.Count - 1] : null;
 
             core.Configure(new GestureSensitivity(9));
-            Expect("Configure gestures", "{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.35,\"twistRate\":360}}", Last());
+            Expect("Configure gestures", "{\"type\":\"configure\",\"gestures\":{\"threshold\":9,\"minSpeed\":0.35,\"flickRate\":250,\"twistRate\":360}}", Last());
             core.Configure(new GestureSensitivity { Threshold = 5 });
             Expect("Configure gestures partial", "{\"type\":\"configure\",\"gestures\":{\"threshold\":5}}", Last());
             core.Configure(GestureSensitivity.Off);
             Expect("Configure gestures off", "{\"type\":\"configure\",\"gestures\":false}", Last());
             core.Configure(Smoothing.Off, GestureSensitivity.Default);
-            Expect("Configure both", "{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":7,\"minSpeed\":0.35,\"twistRate\":360}}", Last());
+            Expect("Configure both", "{\"type\":\"configure\",\"smoothing\":false,\"gestures\":{\"threshold\":7,\"minSpeed\":0.35,\"flickRate\":250,\"twistRate\":360}}", Last());
             int before = sent.Count;
             core.Configure(null, null);
             Expect("Configure neither sends nothing", before, sent.Count);
@@ -394,7 +394,7 @@ namespace StoryTools.PhoneWand.TestHost
             Expect("configure on open", "{\"type\":\"configure\",\"smoothing\":{\"minCutoff\":1,\"beta\":5,\"dCutoff\":1},\"gestures\":false}",
                 transport.Sent.Count == 1 ? transport.Sent[0] : Show(transport.Sent.Cast<object>().ToList()));
             connection.Gestures = new GestureSensitivity(8, 0.4, 300);
-            Expect("configure while open", "{\"type\":\"configure\",\"gestures\":{\"threshold\":8,\"minSpeed\":0.4,\"twistRate\":300}}",
+            Expect("configure while open", "{\"type\":\"configure\",\"gestures\":{\"threshold\":8,\"minSpeed\":0.4,\"flickRate\":250,\"twistRate\":300}}",
                 transport.Sent.Count == 2 ? transport.Sent[1] : null);
             connection.Close();
 

@@ -1,26 +1,37 @@
-// Gestures from phone movement: quick pushes and pulls, sideways and up-and-down flicks, shakes
-// and wrist twists. The phone reports its acceleration (gravity removed); the relay turns it into
-// the calibrated rig frame, so "pull" is always towards the player, and runs one detector per
-// player per app, since each app can choose its own sensitivity. See docs/gestures.md.
+// Gestures from phone movement. Two kinds:
 //
-// A phone measures acceleration, not position, so this finds deliberate movements, not distances.
-// A flick is a burst of acceleration: speeding up in one direction, then slowing down. Integrating
-// the acceleration over the burst gives the velocity, whose largest value points the way the phone
-// moved. Many reversals within one burst make a shake.
+//   Movements (push, pull, left, right, up, down, shake): the whole phone moves. Found from its
+//   acceleration (gravity removed), turned into the calibrated rig frame, so "pull" is always
+//   towards the player.
+//   Rotations (flick-up, flick-down, flick-left, flick-right, twist-left, twist-right): the phone
+//   turns quickly, the way a wrist flick aims the cursor. Found from the orientation itself.
+//
+// A phone held out in the hand swings around the wrist when it rotates, and its motion sensor reads
+// that swing as movement. So a fast rotation suppresses movement gestures: one action, one gesture.
+//
+// A phone measures acceleration, not position, so movements are found as bursts of acceleration:
+// speeding up, then slowing down. Integrating the acceleration over the burst gives the velocity,
+// whose largest value points the way the phone moved. The burst includes the gentle start that led
+// up to it, so a flick that stops harder than it started still reads the right way. Many reversals
+// within one burst make a shake. See docs/gestures.md.
 
-import { type Vec3, round } from "./math.js";
+import { type Quat, type Vec3, DEG, qconj, qdot, qmul, round } from "./math.js";
 
 export type GestureName =
-  | "push" | "pull" | "left" | "right" | "up" | "down" | "shake" | "twist-left" | "twist-right";
+  | "push" | "pull" | "left" | "right" | "up" | "down" | "shake"
+  | "flick-up" | "flick-down" | "flick-left" | "flick-right"
+  | "twist-left" | "twist-right";
 
 export interface Gesture {
   gesture: GestureName;
-  /** 0 to 1: how vigorous, relative to a strong flick (or shake, or twist). */
+  /** 0 to 1: how vigorous, relative to a strong movement, shake, flick or twist. */
   strength: number;
-  /** Peak speed of the movement in m/s (movements and shakes; 0 for twists). */
+  /** Movements and shakes: peak speed in m/s. 0 for rotations. */
   speed: number;
-  /** Unit direction of the movement [right, up, forward] (movements only; zeros otherwise). */
+  /** Movements: unit direction [right, up, forward]. Zeros otherwise. */
   dir: Vec3;
+  /** Flicks and twists: how far the phone turned, in degrees. 0 for movements. */
+  angle: number;
   /** How long the gesture took, in ms. */
   duration: number;
   /** Relay time the gesture started, ms. */
@@ -32,35 +43,60 @@ export interface GestureOptions {
   threshold: number;
   /** Peak speed (m/s) a movement must reach to count. */
   minSpeed: number;
-  /** Roll rate (degrees per second) that makes a twist. */
+  /** Turning speed (degrees per second) that makes a flick. */
+  flickRate: number;
+  /** Rolling speed (degrees per second) that makes a twist. */
   twistRate: number;
 }
 
-export const DEFAULT_GESTURES: GestureOptions = { threshold: 7, minSpeed: 0.35, twistRate: 360 };
+export const DEFAULT_GESTURES: GestureOptions = { threshold: 7, minSpeed: 0.35, flickRate: 250, twistRate: 360 };
 
-/** Movements must mostly go one way: the main axis carries at least this share of the speed (within about 40 degrees). */
+/** The main axis must carry at least this share of a movement's speed or a rotation's angle. */
 const DOMINANCE = 0.75;
-/** A burst ends when acceleration stays below this share of the threshold for END_HOLD ms. */
+/** A movement burst ends when acceleration stays below this share of the threshold for END_HOLD ms. */
 const END_SHARE = 0.4;
 const END_HOLD = 70;
+/** How far back the start of a movement is looked for, and how gentle that start may be. */
+const LEAD_IN = 300;
+const LEAD_SHARE = 0.2;
+/** Quiet samples the look-back may step over (the zero crossing mid-flick). */
+const LEAD_GAP = 2;
 /** Longer bursts without enough reversals are sustained movement (walking, turning): ignored. */
 const MAX_FLICK = 600;
 const MAX_SHAKE = 3000;
 /** Strong reversals within one burst that make a shake. */
 const SHAKE_REVERSALS = 4;
+/** Turning faster than this (degrees per second) means movement readings are the swing, not real. */
+const SWING = 150;
 /** Nothing new for this long after a gesture, so its own wobble isn't read as another. */
 const COOLDOWN = 250;
-/** Speeds (m/s) and roll (degrees) counted as full strength. */
+/** Rotation bursts end when turning stays below this share of the lower rate for ROT_HOLD ms. */
+const ROT_END_SHARE = 0.3;
+const ROT_HOLD = 60;
+const MAX_ROTATION = 700;
+/** Smallest turn that counts, in degrees. */
+const MIN_FLICK_ANGLE = 20;
+const MIN_TWIST_ANGLE = 40;
+/** Full strength. */
 const STRONG_SPEED = 2.5;
+const STRONG_FLICK = 90;
 const STRONG_TWIST = 120;
 
-const AXES: [GestureName, GestureName][] = [["right", "left"], ["up", "down"], ["push", "pull"]];
+const MOVES: [GestureName, GestureName][] = [["right", "left"], ["up", "down"], ["push", "pull"]];
+
+interface Sample {
+  a: Vec3;
+  dt: number;
+  t: number;
+  /** Turning speed, degrees per second. */
+  turn: number;
+}
 
 export class GestureDetector {
   options: GestureOptions;
-  private burst: {
+  private history: Sample[] = [];
+  private move: {
     start: number;
-    /** Last time acceleration was above END_SHARE of the threshold: the burst is still going. */
     lastActive: number;
     v: Vec3;
     peak: Vec3;
@@ -68,135 +104,201 @@ export class GestureDetector {
     reversals: number;
     sign: number;
     axis: number;
+    maxTurn: number;
   } | null = null;
+  private turn: { start: number; lastActive: number; angle: Vec3; peakRate: Vec3 } | null = null;
+  private lastQ: Quat | null = null;
   private lastT = -1;
   private cooldownUntil = -Infinity;
-  private twist: { start: number; roll: number; lastRoll: number; dir: number } | null = null;
-  private lastRoll: number | null = null;
 
   constructor(options: Partial<GestureOptions> = {}) {
     this.options = { ...DEFAULT_GESTURES, ...options };
   }
 
   reset(): void {
-    this.burst = null;
-    this.twist = null;
+    this.move = null;
+    this.turn = null;
+    this.history = [];
+    this.lastQ = null;
     this.lastT = -1;
-    this.lastRoll = null;
   }
 
   /**
-   * Feed one sample: acceleration in the rig frame (m/s^2, gravity removed), the calibrated roll in
-   * degrees, and the time in ms. Returns any gestures that completed.
+   * Feed one sample: acceleration in the rig frame (m/s^2, gravity removed; null if the phone sent
+   * none), the calibrated orientation (body to rig), and the time in ms. Returns finished gestures.
    */
-  update(accel: Vec3, roll: number, t: number): Gesture[] {
+  update(accel: Vec3 | null, q: Quat, t: number): Gesture[] {
     const out: Gesture[] = [];
     const dt = this.lastT < 0 ? 0 : (t - this.lastT) / 1000;
+    const prevQ = this.lastQ;
     this.lastT = t;
-    if (!(dt >= 0) || dt > 0.25) {
+    this.lastQ = q;
+    if (!prevQ || !(dt > 0) || dt > 0.25) {
       // First sample, or a gap (the phone paused): start afresh.
-      this.burst = null;
-      this.twist = null;
-      this.lastRoll = roll;
+      this.move = null;
+      this.turn = null;
+      this.history = [];
       return out;
     }
-    this.movement(accel, t, dt, out);
-    this.rotation(roll, t, dt, out);
+    const w = angularVelocity(prevQ, q, dt);
+    const turn = Math.hypot(w[0], w[1], w[2]);
+    this.rotation(w, turn, dt, t, out);
+    if (accel) this.movement(accel, dt, t, turn, out);
     return out;
   }
 
-  private movement(a: Vec3, t: number, dt: number, out: Gesture[]): void {
-    const { threshold, minSpeed } = this.options;
-    const mag = Math.hypot(a[0], a[1], a[2]);
-    if (!this.burst) {
-      if (mag < threshold || t < this.cooldownUntil) return;
-      this.burst = { start: t, lastActive: t, v: [0, 0, 0], peak: [0, 0, 0], peakSpeed: 0, reversals: 0, sign: 0, axis: -1 };
-    }
-    const b = this.burst;
-    b.v = [b.v[0] + a[0] * dt, b.v[1] + a[1] * dt, b.v[2] + a[2] * dt];
-    const speed = Math.hypot(b.v[0], b.v[1], b.v[2]);
-    if (speed > b.peakSpeed) {
-      b.peakSpeed = speed;
-      b.peak = [...b.v];
-    }
-    if (mag >= threshold * END_SHARE) b.lastActive = t;
-    if (mag >= threshold) {
-      // Count reversals of strong acceleration along its main axis.
-      const axis = mainAxis(a);
-      const sign = Math.sign(a[axis]);
-      if (b.axis === axis && b.sign !== 0 && sign !== b.sign) b.reversals++;
-      b.axis = axis;
-      b.sign = sign;
-    }
+  // ---------------------------------------------------------------- rotations
 
-    const age = t - b.start;
-    const ended = t - b.lastActive >= END_HOLD;
-    if (b.reversals >= SHAKE_REVERSALS && (ended || age > MAX_SHAKE)) {
-      out.push({
-        gesture: "shake", strength: clamp01(b.peakSpeed / STRONG_SPEED), speed: round(b.peakSpeed, 3),
-        dir: [0, 0, 0], duration: Math.round(age), t: round(b.start, 1),
-      });
-      this.finish(t);
+  private rotation(w: Vec3, turn: number, dt: number, t: number, out: Gesture[]): void {
+    const { flickRate, twistRate } = this.options;
+    const start = Math.min(flickRate, twistRate);
+    if (!this.turn) {
+      if (turn < start || t < this.cooldownUntil) return;
+      this.turn = { start: t - dt * 1000, lastActive: t, angle: [0, 0, 0], peakRate: [0, 0, 0] };
+    }
+    const r = this.turn;
+    r.angle = [r.angle[0] + w[0] * dt, r.angle[1] + w[1] * dt, r.angle[2] + w[2] * dt];
+    for (let i = 0; i < 3; i++) if (Math.abs(w[i]) > Math.abs(r.peakRate[i])) r.peakRate[i] = w[i];
+    if (turn >= start * ROT_END_SHARE) r.lastActive = t;
+    const age = t - r.start;
+    if (t - r.lastActive < ROT_HOLD && age < MAX_ROTATION) return;
+
+    // Finished: which way did it mostly turn? Body axes: x right (pitch), y up (yaw), z forward (roll).
+    this.turn = null;
+    const total = Math.hypot(r.angle[0], r.angle[1], r.angle[2]);
+    const axis = mainAxis(r.angle);
+    if (age >= MAX_ROTATION || Math.abs(r.angle[axis]) < DOMINANCE * total) return;
+    const angle = Math.abs(r.angle[axis]);
+    const rate = Math.abs(r.peakRate[axis]);
+    let gesture: GestureName;
+    let strength: number;
+    if (axis === 2) {
+      if (angle < MIN_TWIST_ANGLE || rate < twistRate) return;
+      // Positive rotation about forward lifts the right edge: anticlockwise from behind.
+      gesture = r.angle[2] > 0 ? "twist-left" : "twist-right";
+      strength = angle / STRONG_TWIST;
+    } else {
+      if (angle < MIN_FLICK_ANGLE || rate < flickRate) return;
+      // Positive rotation about right tips the pointing direction down; about up, to the right.
+      gesture = axis === 0 ? (r.angle[0] > 0 ? "flick-down" : "flick-up") : r.angle[1] > 0 ? "flick-right" : "flick-left";
+      strength = angle / STRONG_FLICK;
+    }
+    out.push({
+      gesture, strength: clamp01(strength), speed: 0, dir: [0, 0, 0], angle: round(angle, 1),
+      duration: Math.round(age), t: round(r.start, 1),
+    });
+    this.finish(t);
+  }
+
+  // ---------------------------------------------------------------- movements
+
+  private movement(a: Vec3, dt: number, t: number, turn: number, out: Gesture[]): void {
+    const { threshold, minSpeed } = this.options;
+    const mag = magnitude(a);
+    this.history.push({ a, dt, t, turn });
+    while (this.history.length && t - this.history[0].t > LEAD_IN) this.history.shift();
+
+    if (!this.move) {
+      if (mag < threshold || t < this.cooldownUntil || this.turn) return;
+      // Start from the gentle beginning: walk back while the acceleration was building, stepping
+      // over the moment it passes through zero between speeding up and slowing down.
+      let first = this.history.length - 1;
+      let quiet = 0;
+      for (let i = this.history.length - 2; i >= 0; i--) {
+        if (magnitude(this.history[i].a) >= threshold * LEAD_SHARE) {
+          first = i;
+          quiet = 0;
+        } else if (++quiet > LEAD_GAP) break;
+      }
+      this.move = {
+        start: this.history[first].t - this.history[first].dt * 1000, lastActive: t, v: [0, 0, 0],
+        peak: [0, 0, 0], peakSpeed: 0, reversals: 0, sign: 0, axis: -1, maxTurn: 0,
+      };
+      for (let i = first; i < this.history.length - 1; i++) this.integrate(this.history[i], threshold);
+    }
+    this.integrate(this.history[this.history.length - 1], threshold);
+
+    const m = this.move;
+    if (mag >= threshold * END_SHARE) m.lastActive = t;
+    const age = t - m.start;
+    const ended = t - m.lastActive >= END_HOLD;
+    // Turning fast means these readings are the phone swinging around the wrist: not a movement.
+    const swung = m.maxTurn > SWING;
+    if (m.reversals >= SHAKE_REVERSALS && (ended || age > MAX_SHAKE)) {
+      if (!swung) {
+        out.push({
+          gesture: "shake", strength: clamp01(m.peakSpeed / STRONG_SPEED), speed: round(m.peakSpeed, 3),
+          dir: [0, 0, 0], angle: 0, duration: Math.round(age), t: round(m.start, 1),
+        });
+        this.finish(t);
+      } else this.move = null;
       return;
     }
     if (!ended) {
-      if (age > MAX_SHAKE) this.finish(t);
+      if (age > MAX_SHAKE) this.move = null;
       return;
     }
-    // A flick: one clear direction, fast enough, short enough, and not a half-finished shake.
-    const s = b.peakSpeed;
-    const axis = mainAxis(b.peak);
-    if (age <= MAX_FLICK && b.reversals < SHAKE_REVERSALS && s >= minSpeed && Math.abs(b.peak[axis]) >= DOMINANCE * s) {
+    const s = m.peakSpeed;
+    const axis = mainAxis(m.peak);
+    if (!swung && age <= MAX_FLICK && m.reversals < SHAKE_REVERSALS && s >= minSpeed && Math.abs(m.peak[axis]) >= DOMINANCE * s) {
       out.push({
-        gesture: AXES[axis][b.peak[axis] > 0 ? 0 : 1],
+        gesture: MOVES[axis][m.peak[axis] > 0 ? 0 : 1],
         strength: clamp01(s / STRONG_SPEED),
         speed: round(s, 3),
-        dir: b.peak.map((x) => round(x / s, 4)) as Vec3,
+        dir: m.peak.map((x) => round(x / s, 4)) as Vec3,
+        angle: 0,
         duration: Math.round(age),
-        t: round(b.start, 1),
+        t: round(m.start, 1),
       });
       this.finish(t);
     } else {
-      this.burst = null;
+      this.move = null;
     }
   }
 
-  private rotation(roll: number, t: number, dt: number, out: Gesture[]): void {
-    const last = this.lastRoll;
-    this.lastRoll = roll;
-    if (last === null || dt <= 0) return;
-    let d = roll - last;
-    if (d > 180) d -= 360;
-    if (d < -180) d += 360;
-    const rate = d / dt;
-    const { twistRate } = this.options;
-    if (!this.twist) {
-      if (Math.abs(rate) < twistRate || t < this.cooldownUntil) return;
-      this.twist = { start: t, roll: 0, lastRoll: roll, dir: Math.sign(rate) };
+  private integrate(sample: Sample, threshold: number): void {
+    const m = this.move!;
+    const { a, dt } = sample;
+    m.maxTurn = Math.max(m.maxTurn, sample.turn);
+    m.v = [m.v[0] + a[0] * dt, m.v[1] + a[1] * dt, m.v[2] + a[2] * dt];
+    const speed = magnitude(m.v);
+    if (speed > m.peakSpeed) {
+      m.peakSpeed = speed;
+      m.peak = [...m.v];
     }
-    const tw = this.twist;
-    tw.roll += d;
-    if (Math.sign(rate) === tw.dir && Math.abs(rate) >= twistRate * 0.3) {
-      if (t - tw.start > 500) this.twist = null; // a slow roll, not a twist
-      return;
+    if (magnitude(a) >= threshold) {
+      // Count reversals of strong acceleration along its main axis.
+      const axis = mainAxis(a);
+      const sign = Math.sign(a[axis]);
+      if (m.axis === axis && m.sign !== 0 && sign !== m.sign) m.reversals++;
+      m.axis = axis;
+      m.sign = sign;
     }
-    // The twist slowed or reversed: it's over. Count it if it turned far enough.
-    if (Math.abs(tw.roll) >= 40) {
-      out.push({
-        gesture: tw.roll > 0 ? "twist-right" : "twist-left",
-        strength: clamp01(Math.abs(tw.roll) / STRONG_TWIST),
-        speed: 0, dir: [0, 0, 0], duration: Math.round(t - tw.start), t: round(tw.start, 1),
-      });
-      this.cooldownUntil = t + COOLDOWN;
-      this.burst = null; // a twist shakes the phone too; don't also call that a flick
-    }
-    this.twist = null;
   }
 
   private finish(t: number): void {
-    this.burst = null;
+    this.move = null;
+    this.turn = null;
     this.cooldownUntil = t + COOLDOWN;
   }
+}
+
+/**
+ * Angular velocity in degrees per second, in the phone's own axes [right, up, forward], from two
+ * orientations (body to rig) dt seconds apart.
+ */
+export function angularVelocity(from: Quat, to: Quat, dt: number): Vec3 {
+  let d = qmul(qconj(from), to);
+  if (qdot(d, [0, 0, 0, 1]) < 0) d = [-d[0], -d[1], -d[2], -d[3]]; // the short way round
+  const s = Math.hypot(d[0], d[1], d[2]);
+  if (s < 1e-9 || !(dt > 0)) return [0, 0, 0];
+  const angle = 2 * Math.atan2(s, d[3]) * DEG;
+  const k = angle / s / dt;
+  return [d[0] * k, d[1] * k, d[2] * k];
+}
+
+function magnitude(v: Vec3): number {
+  return Math.hypot(v[0], v[1], v[2]);
 }
 
 function mainAxis(v: Vec3): number {

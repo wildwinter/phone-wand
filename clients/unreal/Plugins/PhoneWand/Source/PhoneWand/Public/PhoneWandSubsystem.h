@@ -175,10 +175,10 @@ public:
 	 * Set this app's gesture sensitivity (see docs/gestures.md) and turn gestures on. Threshold is
 	 * the acceleration in m/s^2 that starts a movement (lower is more sensitive), MinSpeed the peak
 	 * speed in m/s a movement must reach, TwistRate the roll speed in degrees per second that makes
-	 * a twist. Remembered across reconnects.
+	 * a twist, FlickRate the turning speed that makes a flick. Remembered across reconnects.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Gestures")
-	void SetGestureSensitivity(double Threshold = 7.0, double MinSpeed = 0.35, double TwistRate = 360.0);
+	void SetGestureSensitivity(double Threshold = 7.0, double MinSpeed = 0.35, double TwistRate = 360.0, double FlickRate = 250.0);
 
 	/** Turn gesture events on or off for this app. Remembered across reconnects. */
 	UFUNCTION(BlueprintCallable, Category = "Phone Wand|Gestures")
@@ -405,6 +405,7 @@ private:
 	double GestureThreshold = PhoneWand::DefaultGestureThreshold;
 	double GestureMinSpeed = PhoneWand::DefaultGestureMinSpeed;
 	double GestureTwistRate = PhoneWand::DefaultGestureTwistRate;
+	double GestureFlickRate = PhoneWand::DefaultGestureFlickRate;
 
 	bool bStartRelay = false;
 	FString RelayPathSetting;

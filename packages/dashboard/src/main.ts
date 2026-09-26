@@ -153,8 +153,13 @@ const gestures: Shown[] = [];
 wand.on("gesture", (g, p) => {
   const [x, y] = p.pose?.screen ?? [0.5, 0.5];
   const held = g.buttons.length ? ` + ${g.buttons.join(", ")}` : "";
-  gestures.push({ name: `${g.gesture}${held}`, dir: g.dir, strength: g.strength, colour: p.colour, at: performance.now(), x, y });
-  lastControl = { text: `${p.name}: ${g.gesture}${held} (strength ${g.strength.toFixed(2)}, ${g.speed.toFixed(2)} m/s)`, colour: p.colour, at: performance.now() };
+  // Flicks have no movement direction; show the way the phone turned.
+  const turned: Record<string, [number, number, number]> = {
+    "flick-up": [0, 1, 0], "flick-down": [0, -1, 0], "flick-left": [-1, 0, 0], "flick-right": [1, 0, 0],
+  };
+  gestures.push({ name: `${g.gesture}${held}`, dir: turned[g.gesture] ?? g.dir, strength: g.strength, colour: p.colour, at: performance.now(), x, y });
+  const size = g.angle ? `${Math.round(g.angle)} degrees` : `${g.speed.toFixed(2)} m/s`;
+  lastControl = { text: `${p.name}: ${g.gesture}${held} (strength ${g.strength.toFixed(2)}, ${size})`, colour: p.colour, at: performance.now() };
 });
 
 wand.on("error", (message) => {

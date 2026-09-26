@@ -179,17 +179,19 @@ A `GestureEvent` has:
 | Property | Meaning |
 |---|---|
 | `Id` | The player's id. |
-| `Gesture` | `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`, `"twist-left"` or `"twist-right"`. The `GestureName` constants (`GestureName.Push`, `GestureName.TwistLeft`, ...) hold them; `Is(name)` compares. |
+| `Gesture` | Movements: `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`. Fast rotations: `"flick-up"`, `"flick-down"`, `"flick-left"`, `"flick-right"`, `"twist-left"`, `"twist-right"`. The `GestureName` constants (`GestureName.Push`, `GestureName.TwistLeft`, ...) hold them; `Is(name)` compares. |
 | `Strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
-| `Speed` | Peak speed of the movement in m/s (0 for twists). |
-| `Dir` | `RigVector3`: unit direction of the movement (zero for shakes and twists). `PhoneWandClient.GestureDirection(g)` or `g.DirectionVector()` gives a `Vector3`, so a push is about `Vector3.forward`. |
+| `Speed` | Movements and shakes: peak speed in m/s (0 for flicks and twists). |
+| `Angle` | Flicks and twists: how far the phone turned, in degrees (0 for movements). |
+| `Dir` | `RigVector3`: movements' unit direction (zero otherwise). `PhoneWandClient.GestureDirection(g)` or `g.DirectionVector()` gives a `Vector3`, so a push is about `Vector3.forward`. |
 | `Duration` | How long it took, in ms. |
 | `T` | Relay time it started, in ms since the Unix epoch. |
 | `Buttons`, `WasHeld(id)` | The ids of the buttons held when it started, sorted. |
 
 Sensitivity is set per app, in the inspector under **Gestures** (Gestures Enabled, Gesture
-Threshold, Gesture Min Speed, Gesture Twist Rate; the defaults are the relay's: on, 7, 0.35, 360),
-from code with the matching properties, or with `ConfigureGestures(threshold, minSpeed, twistRate)`.
+Threshold, Gesture Min Speed, Gesture Flick Rate, Gesture Twist Rate; the defaults are the relay's:
+on, 7, 0.35, 250, 360),
+from code with the matching properties, or with `ConfigureGestures(threshold, minSpeed, twistRate, flickRate)`.
 Set `GesturesEnabled = false` for no gesture events. The client sends the settings when it connects
 and again after every reconnect, and a change while connected (including in the inspector during
 Play) reaches the relay at once.
@@ -213,7 +215,7 @@ Inspector settings:
 | Min Cutoff, Beta, D Cutoff | 1, 5, 1 | One Euro filter settings for `Custom`. |
 | Log Events | off | Log connections, joins and leaves to the console. |
 | Gestures Enabled | on | Send this app `Gesture` events. See [Gestures](#gestures). |
-| Gesture Threshold, Gesture Min Speed, Gesture Twist Rate | 7, 0.35, 360 | Acceleration in m/s² that starts a movement (lower is more sensitive), peak speed in m/s a movement must reach, and roll rate in degrees per second that makes a twist. |
+| Gesture Threshold, Gesture Min Speed, Gesture Flick Rate, Gesture Twist Rate | 7, 0.35, 250, 360 | Acceleration in m/s² that starts a movement (lower is more sensitive), peak speed in m/s a movement must reach, and the turning and rolling speeds in degrees per second that make a flick and a twist. |
 | Start Relay | off | Start the relay yourself, hidden, and stop it with the game. See [Starting the relay from your game](#starting-the-relay-from-your-game). |
 | Relay Path | empty | A `phone-wand-relay` folder or the relay program. Empty means `Application.streamingAssetsPath/phone-wand-relay`. |
 | Relay Arguments | empty | Extra relay options, for example `--max-players 8 --key party`. |
@@ -230,8 +232,8 @@ Properties and methods:
 | `Connect()`, `Disconnect()` | Start connecting, or disconnect and stop retrying. `Disconnect` fires `PlayerLeft` for every player and then `Disconnected` before it returns. Disabling the component disconnects. |
 | `ConfigureSmoothing(minCutoff, beta, dCutoff)` | Set the relay's One Euro filter for this app. Lower `minCutoff` is steadier when still; higher `beta` is quicker when moving. Kept across reconnects. |
 | `ConfigureRaw()` | Turn smoothing off for this app. Kept across reconnects. |
-| `ConfigureGestures(threshold = 7, minSpeed = 0.35, twistRate = 360)` | Set this app's gesture sensitivity and turn gestures on. Kept across reconnects. |
-| `bool GesturesEnabled`, `float GestureThreshold`, `GestureMinSpeed`, `GestureTwistRate` | As in the inspector. Setting one while connected sends it straight away; all are sent again on every connect. |
+| `ConfigureGestures(threshold = 7, minSpeed = 0.35, twistRate = 360, flickRate = 250)` | Set this app's gesture sensitivity and turn gestures on. Kept across reconnects. |
+| `bool GesturesEnabled`, `float GestureThreshold`, `GestureMinSpeed`, `GestureFlickRate`, `GestureTwistRate` | As in the inspector. Setting one while connected sends it straight away; all are sent again on every connect. |
 | `Style(id, colour, label)` | Change a player's colour (a `Color`, or a `"#rrggbb"` string) and label. Both show on their phone. Pass null to leave one alone. |
 | `Prompt(text, id, duration)` | Show text on a phone, or on every phone when `id` is null. `duration` in ms (relay default 3000); 0 keeps it until the next prompt; empty text clears it. |
 | `Haptic(ms, id)`, `Haptic(int[] pattern, id)` | Vibrate one phone, or all when `id` is null. The pattern alternates on and off milliseconds. Android only: iPhones do not allow it. |
@@ -253,7 +255,7 @@ Static helpers:
 | `PhoneWandClient.ScreenPosition(pose, camera = null)` | `Vector2?` in Unity screen pixels, origin bottom-left (the same space as `Input.mousePosition` and `Camera.ScreenPointToRay`). With a camera, the position is within that camera's pixel rect. Null when there is no pose or the phone points far from the screen. Values outside the screen mean the player is pointing off it. |
 | `PhoneWandClient.GuiPosition(pose)` | `Vector2?` in GUI pixels, origin top-left, for `OnGUI`. |
 | `PhoneWandClient.Accel(pose)` | `Vector3?`: the phone's acceleration in m/s², gravity removed, or null when the pose has none. |
-| `PhoneWandClient.GestureDirection(gesture)` | A gesture's direction of movement as a `Vector3` (zero for shakes and twists). |
+| `PhoneWandClient.GestureDirection(gesture)` | A gesture's direction of movement as a `Vector3` (zero for shakes, flicks and twists). |
 
 ### Events
 

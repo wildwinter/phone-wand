@@ -74,7 +74,10 @@ namespace StoryTools.PhoneWand
         [Tooltip("Peak speed in m/s a movement must reach. Relay default 0.35.")]
         [SerializeField, Min(0f)] float gestureMinSpeed = (float)GestureSensitivity.DefaultMinSpeed;
 
-        [Tooltip("Roll rate in degrees per second that makes a twist. Relay default 360.")]
+        [Tooltip("Turning speed in degrees per second that makes a flick. Relay default 250.")]
+        [SerializeField, Min(0f)] float gestureFlickRate = (float)GestureSensitivity.DefaultFlickRate;
+
+        [Tooltip("Rolling speed in degrees per second that makes a twist. Relay default 360.")]
         [SerializeField, Min(0f)] float gestureTwistRate = (float)GestureSensitivity.DefaultTwistRate;
 
         [Header("Managed relay")]
@@ -167,7 +170,14 @@ namespace StoryTools.PhoneWand
             set { gestureMinSpeed = value; connection.Gestures = GesturesFromSettings(); }
         }
 
-        /// <summary>Roll rate in degrees per second that makes a twist. Default 360.</summary>
+        /// <summary>Turning speed in degrees per second that makes a flick. Default 250.</summary>
+        public float GestureFlickRate
+        {
+            get { return gestureFlickRate; }
+            set { gestureFlickRate = value; connection.Gestures = GesturesFromSettings(); }
+        }
+
+        /// <summary>Rolling speed in degrees per second that makes a twist. Default 360.</summary>
         public float GestureTwistRate
         {
             get { return gestureTwistRate; }
@@ -434,7 +444,7 @@ namespace StoryTools.PhoneWand
         GestureSensitivity GesturesFromSettings()
         {
             if (!gesturesEnabled) return GestureSensitivity.Off;
-            return new GestureSensitivity(Tidy(gestureThreshold), Tidy(gestureMinSpeed), Tidy(gestureTwistRate));
+            return new GestureSensitivity(Tidy(gestureThreshold), Tidy(gestureMinSpeed), Tidy(gestureTwistRate), Tidy(gestureFlickRate));
         }
 
         // A float as the double it was typed as (0.35f as 0.35, not 0.3499999940395355), via decimal.
@@ -471,12 +481,14 @@ namespace StoryTools.PhoneWand
         /// threshold is more sensitive. The defaults are the relay's.
         /// </summary>
         public void ConfigureGestures(float threshold = (float)GestureSensitivity.DefaultThreshold,
-            float minSpeed = (float)GestureSensitivity.DefaultMinSpeed, float twistRate = (float)GestureSensitivity.DefaultTwistRate)
+            float minSpeed = (float)GestureSensitivity.DefaultMinSpeed, float twistRate = (float)GestureSensitivity.DefaultTwistRate,
+            float flickRate = (float)GestureSensitivity.DefaultFlickRate)
         {
             gesturesEnabled = true;
             gestureThreshold = threshold;
             gestureMinSpeed = minSpeed;
             gestureTwistRate = twistRate;
+            gestureFlickRate = flickRate;
             connection.Gestures = GesturesFromSettings();
         }
 

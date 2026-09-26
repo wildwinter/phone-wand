@@ -339,7 +339,7 @@ namespace StoryTools.PhoneWand
                             if (b is string s) held.Add(s);
                     held.Sort(StringComparer.Ordinal);
                     var e = new GestureEvent(p.Id, gesture, Num(msg, "strength"), Num(msg, "speed"),
-                        new RigVector3(At(dir, 0), At(dir, 1), At(dir, 2)), Num(msg, "duration"), Num(msg, "t"), held);
+                        new RigVector3(At(dir, 0), At(dir, 1), At(dir, 2)), Num(msg, "duration"), Num(msg, "t"), held, Num(msg, "angle"));
                     Emit(Gesture, e, p);
                     break;
                 }

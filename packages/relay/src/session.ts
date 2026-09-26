@@ -168,6 +168,7 @@ export class Session {
           app.gestures = {
             threshold: num(msg.gestures.threshold, cur.threshold),
             minSpeed: num(msg.gestures.minSpeed, cur.minSpeed),
+            flickRate: num(msg.gestures.flickRate, cur.flickRate),
             twistRate: num(msg.gestures.twistRate, cur.twistRate),
           };
         }
@@ -433,7 +434,6 @@ export class Session {
     // The phone's acceleration (gravity removed), from its own axes to the calibrated rig frame:
     // device x, y, z are body right, forward, up.
     const accel = isVec3(a) ? qrotate(calibrated, [a[0], a[2], a[1]]).map((v) => round(v, 3)) as [number, number, number] : null;
-    const roll = accel ? derivePose(calibrated, p.calibration.screen).roll : 0;
     for (const app of this.apps) {
       let s = p.smoothers.get(app);
       if (!s) p.smoothers.set(app, (s = new PoseSmoother(app.smoothing)));
@@ -442,10 +442,11 @@ export class Session {
       // calibration), nor while they calibrate: apps show a prompt instead of a misleading cursor.
       if (p.calibratingScreen || p.calibration.kind === "none") d.screen = null;
       app.link.send(accel ? { type: "pose", id: p.id, seq, t, ...d, accel } : { type: "pose", id: p.id, seq, t, ...d });
-      if (accel && app.gestures && !p.paused) {
+      // Flicks and twists come from the orientation alone; movements also need the acceleration.
+      if (app.gestures && !p.paused) {
         let g = p.detectors.get(app);
         if (!g) p.detectors.set(app, (g = new GestureDetector(app.gestures)));
-        for (const found of g.update(accel, roll, t)) {
+        for (const found of g.update(accel, calibrated, t)) {
           app.link.send({ type: "gesture", id: p.id, ...found, buttons: this.heldAt(p, found.t) });
         }
       }

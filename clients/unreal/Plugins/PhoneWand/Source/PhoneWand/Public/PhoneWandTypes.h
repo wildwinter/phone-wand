@@ -144,6 +144,14 @@ enum class EPhoneWandGesture : uint8
 	TwistLeft,
 	/** A quick roll of the wrist, clockwise as seen from behind. */
 	TwistRight,
+	/** The pointing direction turned quickly upwards. (After the twists, so saved values keep their meaning.) */
+	FlickUp,
+	/** The pointing direction turned quickly downwards. */
+	FlickDown,
+	/** The pointing direction turned quickly to the left. */
+	FlickLeft,
+	/** The pointing direction turned quickly to the right. */
+	FlickRight,
 	/** A gesture this plugin does not know yet (from a newer relay): see GestureName. */
 	Unknown,
 };
@@ -384,7 +392,7 @@ struct PHONEWAND_API FPhoneWandGesture
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	EPhoneWandGesture Gesture = EPhoneWandGesture::Unknown;
 
-	/** The gesture's protocol name: "push", "pull", "left", "right", "up", "down", "shake", "twist-left" or "twist-right". */
+	/** The gesture's protocol name: movements "push", "pull", "left", "right", "up", "down", "shake"; fast rotations "flick-up", "flick-down", "flick-left", "flick-right", "twist-left", "twist-right". */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	FString GestureName;
 
@@ -392,9 +400,13 @@ struct PHONEWAND_API FPhoneWandGesture
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	double Strength = 0.0;
 
-	/** The movement's peak speed in m/s (0 for twists). */
+	/** Movements and shakes: peak speed in m/s (0 for flicks and twists). */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	double Speed = 0.0;
+
+	/** Flicks and twists: how far the phone turned, in degrees (0 for movements). */
+	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
+	double Angle = 0.0;
 
 	/** Unit direction of the movement in Unreal's frame (X forward, Y right, Z up), for aiming a throw. Zero for shakes and twists. */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
@@ -573,4 +585,5 @@ namespace PhoneWand
 	inline constexpr double DefaultGestureThreshold = 7.0;
 	inline constexpr double DefaultGestureMinSpeed = 0.35;
 	inline constexpr double DefaultGestureTwistRate = 360.0;
+	inline constexpr double DefaultGestureFlickRate = 250.0;
 }

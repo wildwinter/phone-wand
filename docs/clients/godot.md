@@ -155,15 +155,16 @@ The `gesture` Dictionary holds:
 
 | Key | Meaning |
 |---|---|
-| `gesture: String` | `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`, `"twist-left"` or `"twist-right"`. |
+| `gesture: String` | Movements: `"push"` (towards the screen), `"pull"`, `"left"`, `"right"`, `"up"`, `"down"`, `"shake"`. Fast rotations: `"flick-up"`, `"flick-down"`, `"flick-left"`, `"flick-right"`, `"twist-left"`, `"twist-right"`. |
 | `strength: float` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
-| `speed: float` | Peak speed of the movement in m/s (0 for twists). |
-| `dir: Vector3` | Unit direction of the movement in Godot's frame (so a push is about `Vector3.FORWARD`); zero for shakes and twists. |
+| `speed: float` | Movements and shakes: peak speed in m/s (0 for flicks and twists). |
+| `dir: Vector3` | Movements: unit direction in Godot's frame (so a push is about `Vector3.FORWARD`); zero otherwise. |
+| `angle: float` | Flicks and twists: how far the phone turned, in degrees (0 for movements). |
 | `duration: float` | How long it took, in milliseconds. |
 | `t: float` | Relay time it started. |
 | `buttons: PackedStringArray` | Button ids held when it started, sorted. |
 
-Sensitivity is set per app with the `gesture_threshold`, `gesture_min_speed`, `gesture_twist_rate`
+Sensitivity is set per app with the `gesture_threshold`, `gesture_min_speed`, `gesture_flick_rate`, `gesture_twist_rate`
 and `gestures_enabled` properties (in the inspector under Gestures), or with
 `configure_gestures(threshold, min_speed, twist_rate)` and `set_gestures_enabled(false)`. The
 client sends them when it connects and again after every reconnect.
@@ -188,7 +189,8 @@ Properties:
 | `gestures_enabled: bool` | Send this app `gesture` signals. Default `true`. See [Gestures](#gestures). |
 | `gesture_threshold: float` | Acceleration in m/s² that starts a movement; lower is more sensitive. Default `7.0`. |
 | `gesture_min_speed: float` | Peak speed in m/s a movement must reach. Default `0.35`. |
-| `gesture_twist_rate: float` | Roll rate in degrees per second that makes a twist. Default `360.0`. |
+| `gesture_flick_rate: float` | Turning speed in degrees per second that makes a flick. Default `250.0`. |
+| `gesture_twist_rate: float` | Rolling speed in degrees per second that makes a twist. Default `360.0`. |
 | `players: Dictionary` | Players by id (`String` to `PhoneWandPlayer`). |
 | `hello: Dictionary` | The relay's hello: `protocol`, `relay` (its version), `joinUrl`, `qrUrl`, `maxPlayers`. Empty when not connected. |
 
@@ -228,7 +230,7 @@ Methods:
 | `get_qr_url(size := 0) -> String` | A PNG QR code of the join URL, optionally at a size in pixels. |
 | `configure_smoothing(min_cutoff := 1.0, beta := 5.0, d_cutoff := 1.0)` | Sets the One Euro filter the relay applies to this app's poses. Lower `min_cutoff` is steadier when still; higher `beta` follows fast movement more closely. |
 | `set_raw()` | Turns smoothing off for this app. |
-| `configure_gestures(threshold := 7.0, min_speed := 0.35, twist_rate := 360.0)` | Sets this app's gesture sensitivity (the `gesture_*` properties) and turns gestures on. |
+| `configure_gestures(threshold := 7.0, min_speed := 0.35, twist_rate := 360.0, flick_rate := 250.0)` | Sets this app's gesture sensitivity (the `gesture_*` properties) and turns gestures on. |
 | `set_gestures_enabled(enabled: bool)` | Turns `gesture` signals on or off for this app. |
 | `style(id, colour = null, label = null)` | Changes a player's colour (a `Color` or `"#rrggbb"`) and label, shown on their phone. Pass `null` to leave one unchanged. |
 | `prompt(text, id := "", duration := 3000)` | Shows text on a phone, or on every phone when `id` is empty. `duration` is in milliseconds; `0` keeps it up until the next prompt; empty text clears it. |

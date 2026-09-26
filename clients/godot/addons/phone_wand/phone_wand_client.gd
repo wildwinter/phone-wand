@@ -50,9 +50,10 @@ signal calibrated(player: PhoneWandPlayer, calibration: String)
 ## Connection statistics for the player arrived (once a second). See player.rtt, rate, dropped.
 signal stats(player: PhoneWandPlayer)
 ## The player moved the phone deliberately (see docs/gestures.md). gesture holds:
-## "gesture" (String: push, pull, left, right, up, down, shake, twist-left or twist-right),
-## "strength" (float, 0 to 1), "speed" (float, peak m/s, 0 for twists), "dir" (Vector3, unit
-## direction of the movement in Godot's frame, zero for shakes and twists), "duration" (float, ms),
+## "gesture" (String: movements push, pull, left, right, up, down, shake; fast rotations flick-up,
+## flick-down, flick-left, flick-right, twist-left, twist-right), "strength" (float, 0 to 1),
+## "speed" (float, movements' peak m/s, else 0), "dir" (Vector3, movements' unit direction in
+## Godot's frame, else zero), "angle" (float, flicks' and twists' degrees turned, else 0), "duration" (float, ms),
 ## "t" (float, relay time it started) and "buttons" (PackedStringArray, button ids held when it
 ## started, sorted). "Hold primary and pull" is gesture == "pull" and buttons.has("primary").
 signal gesture(player: PhoneWandPlayer, gesture: Dictionary)
@@ -114,7 +115,12 @@ const _HANDSHAKE_TIMEOUT_MS := 5000
 	set(value):
 		gesture_min_speed = value
 		_send_gestures()
-## Roll rate in degrees per second that makes a twist.
+## Turning speed in degrees per second that makes a flick.
+@export_range(30.0, 1440.0, 1.0, "or_greater") var gesture_flick_rate: float = 250.0:
+	set(value):
+		gesture_flick_rate = value
+		_send_gestures()
+## Rolling speed in degrees per second that makes a twist.
 @export_range(30.0, 1440.0, 1.0, "or_greater") var gesture_twist_rate: float = 360.0:
 	set(value):
 		gesture_twist_rate = value
@@ -565,14 +571,15 @@ func set_raw() -> void:
 
 ## Sets this app's gesture sensitivity (see docs/gestures.md): threshold is the acceleration in
 ## m/s² that starts a movement (lower is more sensitive), min_speed the peak speed in m/s a movement
-## must reach, and twist_rate the roll rate in degrees per second that makes a twist. Turns gestures
-## on. The same as setting gesture_threshold, gesture_min_speed and gesture_twist_rate, and sent
-## again after reconnecting.
-func configure_gestures(threshold: float = 7.0, min_speed: float = 0.35, twist_rate: float = 360.0) -> void:
+## must reach, twist_rate the rolling speed in degrees per second that makes a twist, and flick_rate
+## the turning speed that makes a flick. Turns gestures on. The same as setting the gesture_*
+## properties, and sent again after reconnecting.
+func configure_gestures(threshold: float = 7.0, min_speed: float = 0.35, twist_rate: float = 360.0, flick_rate: float = 250.0) -> void:
 	_gestures_batch = true
 	gesture_threshold = threshold
 	gesture_min_speed = min_speed
 	gesture_twist_rate = twist_rate
+	gesture_flick_rate = flick_rate
 	gestures_enabled = true
 	_gestures_batch = false
 	_send_gestures()
@@ -587,7 +594,7 @@ func set_gestures_enabled(enabled: bool) -> void:
 func _gesture_settings() -> Variant:
 	if not gestures_enabled:
 		return false
-	return {"threshold": gesture_threshold, "minSpeed": gesture_min_speed, "twistRate": gesture_twist_rate}
+	return {"threshold": gesture_threshold, "minSpeed": gesture_min_speed, "flickRate": gesture_flick_rate, "twistRate": gesture_twist_rate}
 
 
 func _send_gestures() -> void:
@@ -798,6 +805,7 @@ static func _gesture_event(msg: Dictionary) -> Dictionary:
 		"strength": float(msg.get("strength", 0.0)),
 		"speed": float(msg.get("speed", 0.0)),
 		"dir": PhoneWandFrames.dir_to_godot(msg.get("dir")),
+		"angle": float(msg.get("angle", 0.0)),
 		"duration": float(msg.get("duration", 0.0)),
 		"t": float(msg.get("t", 0.0)),
 		"buttons": held,

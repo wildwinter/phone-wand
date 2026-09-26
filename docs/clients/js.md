@@ -56,7 +56,7 @@ With the `<script>` build, use `new PhoneWand()` and `PhoneWand.toPixels(...)`.
 | `url` | `ws://127.0.0.1:8480/app` | The relay's app address. |
 | `reconnect` | `true` | Reconnect when the relay goes away (backing off up to 5 seconds). |
 | `smoothing` | relay default | `{ minCutoff, beta, dCutoff }`, or `false` for raw poses. |
-| `gestures` | relay default | `{ threshold, minSpeed, twistRate }`, or `false` for no gesture events. |
+| `gestures` | relay default | `{ threshold, minSpeed, flickRate, twistRate }`, or `false` for no gesture events. |
 | `autoConnect` | `true` | Connect straight away. Otherwise call `connect()`. |
 
 ### Properties
@@ -96,7 +96,7 @@ Subscribe with `on(event, listener)`, which returns a function that unsubscribes
 | `calibrated` | `calibration`, `player` |
 | `stats` | `{ id, rtt, rate, dropped }, player` |
 | `control` | `{ id, control, value }, player`: a toggle, slider, choice or label changed |
-| `gesture` | `{ id, gesture, strength, speed, dir, duration, t, buttons }, player`: see [Gestures](../gestures.md) |
+| `gesture` | `{ id, gesture, strength, speed, dir, angle, duration, t, buttons }, player`: see [Gestures](../gestures.md) |
 | `error` | `message`: the relay couldn't use something this app sent (printed as a warning if nothing listens) |
 
 When the relay goes away, every player gets a `leave`, then `disconnected` fires. When it comes back,

@@ -70,6 +70,8 @@ export interface GestureMessage {
   strength: number;
   speed: number;
   dir: Vec3;
+  /** Flicks and twists: degrees turned. */
+  angle: number;
   duration: number;
   /** Relay time the gesture started. */
   t: number;

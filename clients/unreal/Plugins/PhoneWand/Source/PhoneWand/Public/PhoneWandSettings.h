@@ -82,6 +82,10 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "0.0"))
 	double GestureMinSpeed = PhoneWand::DefaultGestureMinSpeed;
 
+	/** Turning speed in degrees per second that makes a flick. The relay's default is 250. */
+	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "1.0"))
+	double GestureFlickRate = PhoneWand::DefaultGestureFlickRate;
+
 	/** Roll speed in degrees per second that makes a twist. The relay's default is 360. */
 	UPROPERTY(Config, EditAnywhere, Category = "Gestures", meta = (EditCondition = "bGestures", ClampMin = "1.0"))
 	double GestureTwistRate = PhoneWand::DefaultGestureTwistRate;

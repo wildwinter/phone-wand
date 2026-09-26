@@ -59,17 +59,21 @@ export interface Pose {
 }
 
 export type GestureName =
-  | "push" | "pull" | "left" | "right" | "up" | "down" | "shake" | "twist-left" | "twist-right";
+  | "push" | "pull" | "left" | "right" | "up" | "down" | "shake"
+  | "flick-up" | "flick-down" | "flick-left" | "flick-right"
+  | "twist-left" | "twist-right";
 
 export interface GestureEvent {
   id: string;
   gesture: GestureName;
   /** 0 to 1: how vigorous. */
   strength: number;
-  /** Peak speed of the movement, m/s (0 for twists). */
+  /** Movements and shakes: peak speed, m/s (0 for flicks and twists). */
   speed: number;
-  /** Unit direction of the movement [right, up, forward] (zeros for shakes and twists). */
+  /** Movements: unit direction [right, up, forward] (zeros otherwise). */
   dir: Vec3;
+  /** Flicks and twists: how far the phone turned, degrees (0 for movements). */
+  angle: number;
   /** How long it took, ms. */
   duration: number;
   /** Relay time it started. */
@@ -83,7 +87,9 @@ export interface GestureSensitivity {
   threshold: number;
   /** Peak speed (m/s) a movement must reach. Default 0.35. */
   minSpeed: number;
-  /** Roll rate (degrees per second) for a twist. Default 360. */
+  /** Turning speed (degrees per second) for a flick. Default 250. */
+  flickRate: number;
+  /** Rolling speed (degrees per second) for a twist. Default 360. */
   twistRate: number;
 }
 

@@ -4,6 +4,8 @@ Besides pointing, players can move the phone to do things: flick it towards the 
 pull it back like a bowstring, shake it, or twist their wrist. Phone Wand spots these movements and
 sends your app a `gesture` event.
 
+Two kinds. **Movements** of the whole phone:
+
 | Gesture | The movement |
 |---|---|
 | `push` | A quick movement towards the screen |
@@ -11,7 +13,17 @@ sends your app a `gesture` event.
 | `left`, `right` | A quick sideways movement |
 | `up`, `down` | A quick movement up or down |
 | `shake` | Several quick movements back and forth |
+
+And **fast rotations**, the way a flick of the wrist whips the cursor across:
+
+| Gesture | The rotation |
+|---|---|
+| `flick-up`, `flick-down`, `flick-left`, `flick-right` | The pointing direction turned quickly that way |
 | `twist-left`, `twist-right` | A quick roll of the wrist (right is clockwise, seen from behind) |
+
+A fast rotation also swings the phone around your wrist, which its motion sensor reads as movement.
+Phone Wand knows that, so a flick gives a flick and not a push or a sideways movement as well: one
+action, one gesture.
 
 Directions follow the player's calibration: "push" is always towards the screen, however they
 hold the phone.
@@ -22,8 +34,9 @@ hold the phone.
 |---|---|
 | `gesture` | Which one, from the table above |
 | `strength` | 0 to 1: how vigorous, relative to a strong flick (or shake, or twist) |
-| `speed` | The movement's peak speed in m/s |
-| `dir` | The exact direction of the movement, `[right, up, forward]`, for aiming a throw |
+| `speed` | Movements: peak speed in m/s |
+| `dir` | Movements: the exact direction, `[right, up, forward]`, for aiming a throw |
+| `angle` | Flicks and twists: how far the phone turned, in degrees |
 | `duration` | How long it took, in ms |
 | `buttons` | Which buttons were held when it started |
 
@@ -46,9 +59,9 @@ A phone measures how fast it's speeding up or slowing down, not where it is. So 
 **deliberate, quick movements**. It can't tell you how far the phone moved, and it ignores slow
 movements, so walking about or gently repositioning doesn't trigger anything.
 
-Turning the phone to aim moves the cursor; it isn't a gesture. A quick sideways flick of the whole
-arm is. Very fast aiming can occasionally register as a `left` or `right`; if that's a problem in
-your game, lower the sensitivity.
+Turning the phone at an ordinary pace moves the cursor; it isn't a gesture. Turning it fast is a
+flick. If your players aim fast and you don't want flicks, raise `flickRate` (or ignore the flick
+events).
 
 ## Sensitivity
 
@@ -63,7 +76,8 @@ wand.configure({ gestures: false });            // no gesture events at all
 |---|---|---|
 | `threshold` | 7 | Acceleration in m/s² that starts a movement. Lower is more sensitive. |
 | `minSpeed` | 0.35 | Peak speed in m/s a movement must reach. |
-| `twistRate` | 360 | Roll speed in degrees per second that makes a twist. |
+| `flickRate` | 250 | Turning speed in degrees per second that makes a flick. |
+| `twistRate` | 360 | Rolling speed in degrees per second that makes a twist. |
 
 The dashboard's **Gestures** section has a sensitivity slider, and shows every gesture on the test
 screen as it happens: an arrow for movements, its name, and any held buttons. Try it with a phone

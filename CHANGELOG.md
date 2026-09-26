@@ -7,6 +7,21 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- **Flicks**: `flick-up`, `flick-down`, `flick-left` and `flick-right`, for turning the phone fast,
+  found from its orientation. Gestures carry `angle` (degrees turned) for flicks and twists, and
+  apps can set `flickRate`.
+
+### Fixed
+
+- Fast rotations no longer also produce push, pull or sideways gestures: turning the phone swings it
+  around the wrist, which its motion sensor reads as movement, so movement gestures are ignored
+  while the phone turns fast.
+- A flick upward could also give a twist; twists now need the roll to clearly dominate.
+- A sideways flick that started gently and stopped hard could read the wrong way round; movements
+  now include their gentle start.
+
 ## [0.5.1] - 2026-09-26
 
 ### Fixed

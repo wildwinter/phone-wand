@@ -181,17 +181,18 @@ Sent only to the app whose message the relay couldn't use, saying why.
 
 ```json
 { "type": "gesture", "id": "p1", "gesture": "pull", "strength": 0.62, "speed": 1.55,
-  "dir": [0.05, -0.1, -0.99], "duration": 240, "t": 1790300000123.4, "buttons": ["primary"] }
+  "dir": [0.05, -0.1, -0.99], "angle": 0, "duration": 240, "t": 1790300000123.4, "buttons": ["primary"] }
 ```
 
 The player moved the phone deliberately. See [Gestures](gestures.md).
 
 | Field | Meaning |
 |---|---|
-| `gesture` | `push` (towards the screen), `pull` (back towards the player), `left`, `right`, `up`, `down`, `shake`, `twist-left` or `twist-right` (a quick roll of the wrist; right is clockwise from behind). |
+| `gesture` | Movements of the whole phone: `push` (towards the screen), `pull` (back towards the player), `left`, `right`, `up`, `down`, `shake`. Fast rotations: `flick-up`, `flick-down`, `flick-left`, `flick-right` (the pointing direction turned quickly), `twist-left`, `twist-right` (a quick roll of the wrist; right is clockwise from behind). |
 | `strength` | 0 to 1: how vigorous, relative to a strong flick, shake or twist. |
-| `speed` | Peak speed of the movement in m/s (0 for twists). |
-| `dir` | Unit direction of the movement, `[right, up, forward]` (zeros for shakes and twists). |
+| `speed` | Movements and shakes: peak speed in m/s (0 for flicks and twists). |
+| `dir` | Movements: unit direction, `[right, up, forward]` (zeros otherwise). |
+| `angle` | Flicks and twists: how far the phone turned, in degrees (0 for movements). |
 | `duration` | How long it took, in ms. |
 | `t` | Relay time it started. |
 | `buttons` | Button ids that were held when it started, sorted. |
@@ -231,7 +232,7 @@ Sets this app connection's options. Every field is optional.
 
 ```json
 { "type": "configure", "smoothing": { "minCutoff": 1.0, "beta": 5.0, "dCutoff": 1.0 },
-  "gestures": { "threshold": 7, "minSpeed": 0.35, "twistRate": 360 } }
+  "gestures": { "threshold": 7, "minSpeed": 0.35, "flickRate": 250, "twistRate": 360 } }
 ```
 
 `smoothing` sets the One Euro filter for poses sent to this app; `false` turns smoothing off. Lower
@@ -239,8 +240,8 @@ Sets this app connection's options. Every field is optional.
 
 `gestures` sets this app's gesture sensitivity, or `false` for no `gesture` messages: `threshold`
 is the acceleration in m/s² that starts a movement (lower is more sensitive), `minSpeed` the peak
-speed in m/s a movement must reach, and `twistRate` the roll rate in degrees per second that makes
-a twist.
+speed in m/s a movement must reach, `flickRate` the turning speed in degrees per second that makes
+a flick, and `twistRate` the rolling speed that makes a twist.
 
 ### `style`
 

@@ -290,10 +290,10 @@ func _check_gestures() -> void:
 		[accel_after_first.is_equal_approx(Vector3(1, 2, -3)), true],
 		[p.has_accel, false],
 		[p.accel, Vector3.ZERO],
-		[JSON.stringify(client._gesture_settings()), '{"minSpeed":0.35,"threshold":7.0,"twistRate":360.0}'],
+		[JSON.stringify(client._gesture_settings()), '{"flickRate":250.0,"minSpeed":0.35,"threshold":7.0,"twistRate":360.0}'],
 	]
-	client.configure_gestures(9.0, 0.5, 400.0)
-	checks.append([JSON.stringify(client._gesture_settings()), '{"minSpeed":0.5,"threshold":9.0,"twistRate":400.0}'])
+	client.configure_gestures(9.0, 0.5, 400.0, 300.0)
+	checks.append([JSON.stringify(client._gesture_settings()), '{"flickRate":300.0,"minSpeed":0.5,"threshold":9.0,"twistRate":400.0}'])
 	client.set_gestures_enabled(false)
 	checks.append([client._gesture_settings(), false])
 	client.configure_gestures()
