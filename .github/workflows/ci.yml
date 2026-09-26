@@ -54,7 +54,7 @@ jobs:
       - name: Conformance
         run: ./godot --headless --path clients/godot --script res://test/test_conformance.gd
 
-  unity-core:
+  dotnet:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -63,3 +63,5 @@ jobs:
           dotnet-version: "8.0.x"
       - name: Conformance (Unity package C# core)
         run: dotnet run --project clients/unity/TestHost
+      - name: The Windows tray app compiles
+        run: dotnet build scripts/windows/PhoneWandTray -c Release -nologo

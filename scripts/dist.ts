@@ -2,7 +2,7 @@
 //
 //   phone-wand-relay-<ver>-macos-arm64.dmg     signed, notarized and stapled disk image
 //   phone-wand-relay-<ver>-macos-x64.dmg       (a zip instead when built off macOS)
-//   phone-wand-relay-<ver>-windows-x64.zip     unsigned by policy
+//   phone-wand-relay-<ver>-windows-x64.zip     tray app and relay, unsigned by policy
 //   phone-wand-relay-<ver>-linux-x64.tar.gz
 //   phone-wand-relay-<ver>-linux-arm64.tar.gz
 //   phone-wand-js-<ver>.zip                    ES module, <script> build, types, examples
@@ -37,7 +37,7 @@ const probe = (cmd: string, args: string[]) => execFileSync(cmd, args, { cwd: ro
 const RELAY_TARGETS: Record<string, { name: string; exe: string; archive: "zip" | "tar" | "dmg" }> = {
   "darwin-arm64": { name: "macos-arm64", exe: "phone-wand", archive: "dmg" },
   "darwin-x64": { name: "macos-x64", exe: "phone-wand", archive: "dmg" },
-  "windows-x64": { name: "windows-x64", exe: "phone-wand.exe", archive: "zip" },
+  "windows-x64": { name: "windows-x64", exe: "phone-wand-relay.exe", archive: "zip" },
   "linux-x64": { name: "linux-x64", exe: "phone-wand", archive: "tar" },
   "linux-arm64": { name: "linux-arm64", exe: "phone-wand", archive: "tar" },
 };
@@ -132,6 +132,7 @@ async function buildRelay(): Promise<void> {
       }
     }
 
+    if (target.startsWith("windows")) buildTray(dir);
     common(dir);
     writeFileSync(join(dir, "README.txt"), relayReadme(t.exe, target));
     if (t.archive === "dmg" && process.platform === "darwin") {
@@ -186,6 +187,25 @@ async function buildRelay(): Promise<void> {
   }
 }
 
+/**
+ * Phone Wand.exe, the Windows tray app (scripts/windows/PhoneWandTray), beside the relay. Needs the
+ * dotnet SDK; without it the zip has only the relay, with a note.
+ */
+function buildTray(dir: string): void {
+  const out = join(staging, "tray");
+  try {
+    run("dotnet", [
+      "build", join(root, "scripts/windows/PhoneWandTray"), "-c", "Release", `-p:Version=${version}`,
+      "-o", out, "-nologo", "-v", "quiet",
+    ]);
+  } catch {
+    console.log("  (no dotnet SDK: the Windows zip has the relay but not the tray app)");
+    return;
+  }
+  cpSync(join(out, "Phone Wand.exe"), join(dir, "Phone Wand.exe"));
+  cpSync(join(out, "Phone Wand.exe.config"), join(dir, "Phone Wand.exe.config"));
+}
+
 function infoPlist(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -209,7 +229,7 @@ function infoPlist(): string {
 
 function relayReadme(exe: string, target: string): string {
   const start = target.startsWith("windows")
-    ? `Double-click ${exe}, or run it from a terminal.`
+    ? `Double-click Phone Wand.exe. Its icon appears in the notification area (bottom right, perhaps under\nthe ^ arrow) while the relay runs, and the dashboard opens in your browser. Click the icon to reopen\nthe dashboard; right-click it and choose Quit to stop the relay. Keep phone-wand-relay.exe in the same\nfolder.\n\nThe first time, SmartScreen may say it doesn't recognise the app: choose More info, then Run anyway.\nWhen Windows Firewall asks, allow access on private networks, or phones can't connect.\n\nThe relay also runs from a terminal, with options: phone-wand-relay.exe --help`
     : target.startsWith("darwin")
       ? `Drag Phone Wand to Applications, then open it. It shows in the Dock while the relay runs and opens\nthe dashboard in your browser. Click its Dock icon to reopen the dashboard; quit it to stop the relay.\n\nThe relay also runs from Terminal, with options:\n  "/Applications/Phone Wand.app/Contents/MacOS/phone-wand-relay" --help`
       : `Run ./${exe} from a terminal.`;
@@ -218,7 +238,7 @@ function relayReadme(exe: string, target: string): string {
 Turns phones into shared pointers for a screen.
 
 ${start}
-The dashboard shows a QR code; phones on the same Wi-Fi scan it to join.${target.startsWith("darwin") ? "" : `\nRun "${exe} --help" for the command-line options.`}
+The dashboard shows a QR code; phones on the same Wi-Fi scan it to join.${target.startsWith("linux") ? `\nRun "${exe} --help" for the command-line options.` : ""}
 
 Full documentation: https://github.com/wildwinter/phone-wand
 `;

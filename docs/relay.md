@@ -10,21 +10,26 @@ The relay is one program that runs on the computer driving the display. It:
 
 Several apps can connect at once, for example your game plus the dashboard.
 
-## The Mac app
+## The Mac and Windows apps
 
-On macOS the relay comes as **Phone Wand.app**. Open it and the dashboard opens in your browser.
-The app stays in the Dock while the relay runs:
+On macOS the relay comes as **Phone Wand.app**, and on Windows as **Phone Wand.exe** beside the
+relay itself. Open it and the dashboard opens in your browser. The app stays in the Dock (macOS) or
+the notification area (Windows) while the relay runs:
 
-- click the Dock icon, or choose **Open Dashboard** (Command-D), to bring the dashboard back,
-- **Show Log** opens the relay's output, kept in `~/Library/Logs/Phone Wand/relay.log`,
-- quitting the app stops the relay, and stopping the relay from the dashboard quits the app.
+- click the icon, or choose **Open Dashboard**, to bring the dashboard back,
+- **Show Log** opens the relay's output, kept in `~/Library/Logs/Phone Wand/relay.log` on macOS
+  and `%LOCALAPPDATA%\Phone Wand\relay.log` on Windows,
+- quitting the app stops the relay, and stopping the relay from the dashboard closes the app.
 
 If the relay can't start (say, a port is taken), a dialog says why. The app uses the default
-options. For others, run the relay inside it from Terminal:
+options. For others, run the relay from a terminal:
 
 ```bash
 "/Applications/Phone Wand.app/Contents/MacOS/phone-wand-relay" --help
 ```
+
+On Windows, `phone-wand-relay.exe --help` in the unzipped folder. On Linux there is no app: run
+`./phone-wand` from a terminal.
 
 ## Options
 

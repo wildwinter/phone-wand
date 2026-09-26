@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "R8qkB+0NIxA=",
+  "success": true,
+  "projectFilePath": "/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/PhoneWandTray.csproj",
+  "expectedPackageFiles": [
+    "/Users/ian/.nuget/packages/microsoft.netframework.referenceassemblies/1.0.3/microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "/Users/ian/.nuget/packages/microsoft.netframework.referenceassemblies.net48/1.0.3/microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

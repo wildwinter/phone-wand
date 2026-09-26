@@ -20,9 +20,13 @@ Open or unzip it, and run it:
   notarized by Apple, so it opens without a warning. It shows in the Dock while the relay runs, and
   the dashboard opens in your browser. Click the Dock icon to bring the dashboard back, and quit the
   app to stop the relay.
-- **Windows:** double-click `phone-wand.exe`. The first time, Windows SmartScreen may say it doesn't
-  recognise the app: choose **More info**, then **Run anyway**. When Windows Firewall asks, allow
-  access on **private networks**, or phones won't be able to connect.
+- **Windows:** unzip it and double-click **Phone Wand.exe** (keep `phone-wand-relay.exe` in the
+  same folder). Its icon appears in the notification area at the bottom right of the screen, perhaps
+  under the **^** arrow, while the relay runs, and the dashboard opens in your browser. Click the icon
+  to bring the dashboard back; right-click it and choose **Quit** to stop the relay. The first time,
+  Windows SmartScreen may say it doesn't recognise the app: choose **More info**, then **Run
+  anyway**. When Windows Firewall asks, allow access on **private networks**, or phones won't be
+  able to connect.
 - **Linux:** run `./phone-wand`.
 
 The relay opens the dashboard in your browser, with the QR code phones scan. Run from a terminal, it

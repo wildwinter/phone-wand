@@ -56,11 +56,15 @@ Other:
 
 Docs: https://github.com/wildwinter/phone-wand`;
 
-// Started by "Phone Wand.app" on macOS (which sets PHONE_WAND_APP): there is no terminal, so output
-// goes to a log file, the dashboard is the interface, and errors are shown in a dialog. Run by hand
-// from Terminal, even from inside the app, the relay behaves as the ordinary command line.
-const APP_MODE = process.platform === "darwin" && process.env.PHONE_WAND_APP === "1";
-const LOG_FILE = join(homedir(), "Library/Logs/Phone Wand/relay.log");
+// Started by "Phone Wand.app" on macOS or "Phone Wand.exe" on Windows (which set PHONE_WAND_APP):
+// there is no terminal, so output goes to a log file and the dashboard is the interface. Run by
+// hand from a terminal, even from inside the app, the relay behaves as the ordinary command line.
+const APP_MODE = process.env.PHONE_WAND_APP === "1";
+const LOG_FILE = process.platform === "win32"
+  ? join(process.env.LOCALAPPDATA || join(homedir(), "AppData/Local"), "Phone Wand", "relay.log")
+  : process.platform === "darwin"
+    ? join(homedir(), "Library/Logs/Phone Wand/relay.log")
+    : join(homedir(), ".phone-wand", "relay.log");
 
 if (APP_MODE) {
   mkdirSync(join(LOG_FILE, ".."), { recursive: true });
@@ -88,7 +92,8 @@ function alertDialog(title: string, message: string): void {
 
 function fail(message: string): never {
   console.error(`phone-wand: ${message}`);
-  if (APP_MODE) alertDialog("Phone Wand could not start", `${message}\n\nThe log is in ${LOG_FILE}.`);
+  // On Windows the tray app shows the error itself, from the log.
+  if (APP_MODE && process.platform === "darwin") alertDialog("Phone Wand could not start", `${message}\n\nThe log is in ${LOG_FILE}.`);
   // Double-clicking the relay on Windows opens a console that closes the moment it exits, so the
   // message would vanish unread. Wait for Enter first.
   if (process.platform === "win32" && process.stdin.isTTY) {
@@ -300,7 +305,7 @@ async function main() {
     if (lan.length > 1 && !values.host) {
       console.log(`  Other addresses: ${lan.slice(1).map((a) => `${a.address} (${a.iface})`).join(", ")}  (use --host to pick one)`);
     }
-    console.log(`\n  ${maxPlayers} player slots. ${APP_MODE ? "Stop it with the dashboard's Stop relay button." : "Press Ctrl+C to stop."}\n`);
+    console.log(`\n  ${maxPlayers} player slots. ${APP_MODE ? "Quit Phone Wand, or use the dashboard's Stop relay button, to stop." : "Press Ctrl+C to stop."}\n`);
   }
   if (!values["no-open"]) openBrowser(dashboardUrl);
   const stopSim = values.simulate ? simulate(session, int(values.simulate, "--simulate", 0), key) : null;

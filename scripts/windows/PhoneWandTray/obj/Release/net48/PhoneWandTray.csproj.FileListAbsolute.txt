@@ -1,0 +1,10 @@
+/private/tmp/claude-501/-Volumes-Data-GitHub-phone-wand/ecef2167-4083-4784-8069-af3202c9b578/scratchpad/tray/Phone Wand.exe.config
+/private/tmp/claude-501/-Volumes-Data-GitHub-phone-wand/ecef2167-4083-4784-8069-af3202c9b578/scratchpad/tray/Phone Wand.exe
+/private/tmp/claude-501/-Volumes-Data-GitHub-phone-wand/ecef2167-4083-4784-8069-af3202c9b578/scratchpad/tray/Phone Wand.pdb
+/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/obj/Release/net48/PhoneWandTray.GeneratedMSBuildEditorConfig.editorconfig
+/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/obj/Release/net48/PhoneWandTray.AssemblyInfoInputs.cache
+/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/obj/Release/net48/PhoneWandTray.AssemblyInfo.cs
+/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/obj/Release/net48/PhoneWandTray.csproj.CoreCompileInputs.cache
+/Volumes/Data/GitHub/phone-wand/scripts/windows/PhoneWandTray/obj/Release/net48/Phone Wand.exe
+/Volumes/Data/GitHub/phone-wand/dist/.staging/tray/Phone Wand.exe.config
+/Volumes/Data/GitHub/phone-wand/dist/.staging/tray/Phone Wand.exe

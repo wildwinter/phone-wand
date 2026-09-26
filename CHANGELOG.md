@@ -12,6 +12,9 @@ the protocol.
 - **Phone Wand.app** is now a proper Mac app: it shows in the Dock while the relay runs, has Open
   Dashboard and Show Log in its menus, reopens the dashboard when its Dock icon is clicked, and
   stops the relay when it quits. Stopping the relay from the dashboard quits the app.
+- **Phone Wand.exe** for Windows: a notification-area (tray) app beside the relay, with the same
+  behaviour. The relay program in the Windows zip is now called `phone-wand-relay.exe`, and runs
+  without a console window when started by the tray app.
 - The macOS disk image no longer has a separate command-line relay beside the app. The relay inside
   the app still runs from Terminal, with options.
 
