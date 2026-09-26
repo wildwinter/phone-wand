@@ -35,7 +35,7 @@ jobs:
           dist/phone-wand-relay-*-linux-x64/phone-wand --version
       - name: No em-dashes
         run: |
-          if git grep -nI $'—' -- . ':!bun.lock'; then echo "Em-dashes found (see above)"; exit 1; fi
+          if git grep -nIP '\xE2\x80\x94' -- . ':!bun.lock'; then echo "Em-dashes found (see above)"; exit 1; fi
 
   godot:
     runs-on: ubuntu-latest
