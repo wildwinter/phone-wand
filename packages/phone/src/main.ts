@@ -178,13 +178,26 @@ function connect(): void {
   if (preferHttp) {
     transport = httpTransport(events);
   } else {
-    transport = wsTransport(events, () => {
-      // Safari can refuse a secure WebSocket to a self-signed server even after the page was
-      // accepted. Fall back to plain HTTP requests on the same (already trusted) origin.
-      preferHttp = true;
-      sessionStorage.setItem(`${STORE}:http`, "1");
+    transport = wsTransport(events, async () => {
       transport = null;
-      connect();
+      // Safari can refuse a secure WebSocket to a self-signed server even after the page was
+      // accepted. If the relay answers plain requests but the WebSocket failed, that is what
+      // happened: switch to HTTP requests on the same (already trusted) origin for this session.
+      // If the relay does not answer at all, it is down or restarting: keep trying the WebSocket,
+      // so a relay restart does not leave the phone on the slower fallback.
+      let relayUp = false;
+      try {
+        relayUp = (await fetch("/ping", { cache: "no-store" })).ok;
+      } catch {
+        // not reachable
+      }
+      if (relayUp) {
+        preferHttp = true;
+        sessionStorage.setItem(`${STORE}:http`, "1");
+        connect();
+      } else {
+        events.close();
+      }
     });
   }
 }
