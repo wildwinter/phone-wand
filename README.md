@@ -56,9 +56,9 @@ Phones need a browser with motion sensors: Safari or Chrome on iPhone and iPad, 
 
 | Engine | Get it | Docs |
 |---|---|---|
-| Unity (tested with Unity 6; 2021.3 or later should work) | Package Manager, **Add package from git URL**: `https://github.com/wildwinter/phone-wand.git?path=clients/unity/PhoneWand`, or unzip `phone-wand-unity-<version>.zip` into `Packages/` | [Unity](docs/clients/unity.md) |
-| Unreal 5.7 (source plugin; rebuilds for other versions) | Unzip `phone-wand-unreal-<version>.zip`, copy `PhoneWand` into your project's `Plugins/` (a demo project comes with it) | [Unreal](docs/clients/unreal.md) |
-| Godot 4.4 or later (tested with 4.7; GDScript, web exports too) | Unzip `phone-wand-godot-<version>.zip` into your project, then enable **Phone Wand** under Project Settings, Plugins | [Godot](docs/clients/godot.md) |
+| Unity 6.4 (6000.4) | Package Manager, **Add package from git URL**: `https://github.com/wildwinter/phone-wand.git?path=clients/unity/PhoneWand`, or unzip `phone-wand-unity-<version>.zip` into `Packages/` | [Unity](docs/clients/unity.md) |
+| Unreal 5.7 | Unzip `phone-wand-unreal-<version>.zip`, copy `PhoneWand` into your project's `Plugins/` (a demo project comes with it) | [Unreal](docs/clients/unreal.md) |
+| Godot 4.7 (GDScript, so web exports work too) | Unzip `phone-wand-godot-<version>.zip` into your project, then enable **Phone Wand** under Project Settings, Plugins | [Godot](docs/clients/godot.md) |
 | JavaScript and TypeScript (browsers, Node 22+, Bun, Deno) | `phone-wand-js-<version>.zip`, or `<script src="http://127.0.0.1:8480/phone-wand.js">` from a running relay | [JavaScript](docs/clients/js.md) |
 
 Each comes with a sample that draws a coloured cursor for every player. Anything that can open a

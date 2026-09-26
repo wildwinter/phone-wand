@@ -289,20 +289,18 @@ phone and allow motion access. `Paused` means the phone is locked or the page is
 [Calibration and precision](../calibration.md).
 
 **"The following modules are missing or built with a different engine version".** The plugin is
-source only; Unreal offers to rebuild it, so say yes. If that fails, or you use a different engine
-version (5.8, say), rebuild it yourself from a terminal:
+source only; Unreal offers to rebuild it, so say yes. If that fails, rebuild it yourself from a
+terminal:
 
 ```sh
 # macOS (Windows: Engine\Build\BatchFiles\RunUAT.bat with the same arguments)
-"/path/to/UE_5.x/Engine/Build/BatchFiles/RunUAT.sh" BuildPlugin \
+"/path/to/UE_5.7/Engine/Build/BatchFiles/RunUAT.sh" BuildPlugin \
   -Plugin="$PWD/Plugins/PhoneWand/PhoneWand.uplugin" -Package="$PWD/PhoneWandBuilt"
 ```
 
 Then replace `Plugins/PhoneWand` with the contents of `PhoneWandBuilt`. Or delete
 `Plugins/PhoneWand/Binaries` and `Plugins/PhoneWand/Intermediate` and build your project's editor
-target from your IDE. To open the demo with another engine version, right-click
-`PhoneWandDemo.uproject` and choose **Switch Unreal Engine Version** (on macOS, set
-`EngineAssociation` in the file).
+target from your IDE. The plugin targets Unreal 5.7.
 
 **Blueprint events stop firing after a level change.** The subsystem lives as long as the game
 instance, but Blueprint bindings belong to the object that made them. Bind again in the new

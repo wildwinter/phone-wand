@@ -2,8 +2,8 @@
 
 The Phone Wand addon for Godot connects your game to a running relay and turns what it sends into
 Godot signals, `Vector3`, `Quaternion` and `Vector2` values. It is written entirely in GDScript, so
-it works in desktop, mobile and web exports. It is written for Godot 4.4 and newer, and tested with
-Godot 4.7 on macOS and in a web export.
+it works in desktop, mobile and web exports. It targets Godot 4.7, and is tested on macOS and in a
+web export.
 
 If you have not run the relay yet, start with [Getting started](../getting-started.md). No phone
 to hand? `phone-wand --simulate 3` gives you three simulated players to develop against.
@@ -24,7 +24,7 @@ You do not have to use the autoload. `PhoneWandClient` is an ordinary node: add 
 create one with `PhoneWandClient.new()`) if you would rather own its lifetime, want to connect to
 more than one relay, or have not enabled the plugin.
 
-The `.gd.uid` files next to each script are part of the addon. Keep them: Godot 4.4 and later use
+The `.gd.uid` files next to each script are part of the addon. Keep them: Godot uses
 them to keep references stable when files move.
 
 ## Quick start
@@ -307,7 +307,7 @@ turns away a page's origin.
 ## Testing
 
 The project in `clients/godot` contains the tests (they are not part of the addon). From the
-repository root, with Godot 4.4 or newer:
+repository root, with Godot 4.7:
 
 ```sh
 clients/godot/test/run_tests.sh                     # parse check and conformance suite

@@ -1,5 +1,5 @@
 ; Small project for the Phone Wand Godot addon: runs the demo and the tests.
-; Open it in Godot 4.7 (the addon itself supports Godot 4.4 and newer).
+; Open it in Godot 4.7.
 
 config_version=5
 

@@ -7,6 +7,12 @@ the protocol.
 
 ## [Unreleased]
 
+### Changed
+
+- The supported engine versions are stated as Unity 6.4 (6000.4), Godot 4.7 and Unreal 5.7, the
+  versions the clients are built and tested with. The Unity package now declares 6000.4 rather than
+  2021.3, and the docs no longer suggest older versions.
+
 ## [0.1.0] - 2026-09-26
 
 The first release.

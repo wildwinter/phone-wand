@@ -5,7 +5,7 @@ Godot game to a running [Phone Wand](https://github.com/wildwinter/phone-wand) r
 every player's pointing direction, cursor position and button presses as Godot signals and
 Godot-native vectors.
 
-- Godot 4.4 or newer, GDScript only, so it works in desktop, mobile and web exports.
+- Godot 4.7, GDScript only, so it works in desktop, mobile and web exports.
 - Enable the plugin and the `PhoneWand` autoload is ready to use:
 
 ```gdscript
