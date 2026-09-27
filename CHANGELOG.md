@@ -18,6 +18,10 @@ the protocol.
   pad fits a half-height row well. Every client library has builders for them, and the dashboard's
   layout menu has samples.
 
+### Fixed
+
+- A slider's knob hung half off the end of its track at 0 and 1; it now stays inside.
+
 ## [0.7.0] - 2026-09-27
 
 ### Added

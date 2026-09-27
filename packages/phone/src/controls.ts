@@ -21,6 +21,9 @@ export interface RenderedLayout {
 
 const vibrate = (ms: number) => navigator.vibrate?.(ms);
 
+/** A slider knob's size in px; matches .slider .knob in style.css. */
+const KNOB = 36;
+
 // Icons for the d-pad and crawl pad, drawn pointing up in a 24 by 24 box. Text arrows would do, but
 // some phones draw them as colour emoji.
 const ARROW = "M12 3 21 13h-5.5v8h-7v-8H3z";
@@ -175,14 +178,16 @@ export function renderLayout(
         track.append(fill, knob);
         box.append(el("span", "lbl", c.label ?? c.id), track);
         let value = typeof values[c.id] === "number" ? (values[c.id] as number) : 0;
+        // The knob travels between the track's ends, never past them; the fill reaches its middle.
         const show = () => {
-          const pct = `${(value * 100).toFixed(1)}%`;
+          const at = `calc(${value.toFixed(4)} * (100% - ${KNOB}px))`;
+          const reach = `calc(${value.toFixed(4)} * (100% - ${KNOB}px) + ${KNOB / 2}px)`;
           if (vertical) {
-            fill.style.height = pct;
-            knob.style.bottom = pct;
+            fill.style.height = reach;
+            knob.style.bottom = at;
           } else {
-            fill.style.width = pct;
-            knob.style.left = pct;
+            fill.style.width = reach;
+            knob.style.left = at;
           }
         };
         show();
@@ -198,7 +203,9 @@ export function renderLayout(
         };
         const fromPointer = (e: PointerEvent) => {
           const r = track.getBoundingClientRect();
-          const v = vertical ? (r.bottom - e.clientY) / r.height : (e.clientX - r.left) / r.width;
+          const v = vertical
+            ? (r.bottom - KNOB / 2 - e.clientY) / (r.height - KNOB)
+            : (e.clientX - r.left - KNOB / 2) / (r.width - KNOB);
           value = Math.min(1, Math.max(0, v));
           show();
           sendValue(false);

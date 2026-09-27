@@ -160,9 +160,9 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .slider.h { justify-content: center; }
 .slider.h .track { flex: none; height: 52px; }
 .slider.h .fill { left: 0; top: 0; bottom: 0; }
-.slider.h .knob { top: 50%; transform: translate(-50%, -50%); }
+.slider.h .knob { top: 50%; transform: translateY(-50%); }
 .slider.v .fill { left: 0; right: 0; bottom: 0; }
-.slider.v .knob { left: 50%; transform: translate(-50%, 50%); }
+.slider.v .knob { left: 50%; transform: translateX(-50%); }
 .slider.down { border-color: var(--accent); }
 
 .choice { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 12px; }
