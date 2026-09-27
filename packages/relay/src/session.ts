@@ -443,7 +443,9 @@ export class Session {
       if (p.calibratingScreen || p.calibration.kind === "none") d.screen = null;
       app.link.send(accel ? { type: "pose", id: p.id, seq, t, ...d, accel } : { type: "pose", id: p.id, seq, t, ...d });
       // Flicks and twists come from the orientation alone; movements also need the acceleration.
-      if (app.gestures && !p.paused) {
+      // None until the player has aimed: moving between calibration corners isn't a gesture, and
+      // directions mean nothing before then.
+      if (app.gestures && !p.paused && p.calibration.kind !== "none" && !p.calibratingScreen) {
         let g = p.detectors.get(app);
         if (!g) p.detectors.set(app, (g = new GestureDetector(app.gestures)));
         // Timed by the phone's own clock: poses often arrive in bunches, and turning speeds worked out
@@ -466,6 +468,7 @@ export class Session {
   private calibrated(p: Player): void {
     p.calibratingScreen = false;
     for (const s of p.smoothers.values()) s.reset(); // jump straight to the new frame
+    p.detectors.clear(); // and start gestures afresh in it
     const kind = p.calibration.kind;
     this.options.log?.(`calib ${p.id} ${kind}`);
     p.link?.send({ type: "calibration", calibration: kind, step: "done", ok: true });

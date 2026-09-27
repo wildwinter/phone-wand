@@ -25,7 +25,7 @@ const GROUPS: [string, Record<string, number>][] = [
 
 interface Line { t: number; link: number; open?: "ws" | "http"; close?: boolean; msg?: any }
 
-function replay(threshold?: number): Record<string, number>[] {
+function replay(threshold?: number, calibrate = true): Record<string, number>[] {
   const lines: Line[] = gunzipSync(readFileSync(join(import.meta.dir, "fixtures/gestures-iphone.jsonl.gz")))
     .toString("utf8").trim().split("\n").map((l) => JSON.parse(l));
   let now = 0;
@@ -41,7 +41,7 @@ function replay(threshold?: number): Record<string, number>[] {
     now = l.t;
     if (l.open) phones.set(l.link, session.addPhone({ transport: l.open, send() {}, close() {} }));
     else if (l.close) { const p = phones.get(l.link); if (p) session.phoneClosed(p); }
-    else if (l.msg) {
+    else if (l.msg && (calibrate || (l.msg.type !== "calibrate-start" && l.msg.type !== "corner"))) {
       const p = phones.get(l.link);
       if (l.msg.type === "button" && l.msg.button === "secondary" && l.msg.down) markers.push(l.t);
       session.phoneMessage(p, l.msg);
@@ -62,3 +62,8 @@ for (const threshold of [undefined, 9, 11]) {
     for (let i = 0; i < GROUPS.length; i++) expect({ group: GROUPS[i][0], found: found[i] }).toEqual({ group: GROUPS[i][0], found: GROUPS[i][1] });
   });
 }
+
+test("no gestures before the player has calibrated", () => {
+  // The same session with the calibration left out: the player never aimed, so nothing counts.
+  expect(replay(undefined, false).every((g) => Object.keys(g).length === 0)).toBe(true);
+});

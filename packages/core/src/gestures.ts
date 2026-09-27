@@ -84,6 +84,8 @@ const LOBE_FLOOR = 90;
 const LOBE_GAP = 50;
 /** Smallest turn that counts, in degrees, and the average speed it must have (degrees per second). */
 const MIN_FLICK_ANGLE = 50;
+/** A wrist bends down less far than it turns other ways, so a flick down may be smaller. */
+const MIN_FLICK_DOWN_ANGLE = 40;
 const MIN_TWIST_ANGLE = 60;
 const MIN_MEAN_RATE = 240;
 /** How long (ms) to wait for a bigger turn about another axis, made at the same time. */
@@ -260,7 +262,9 @@ export class GestureDetector {
     const angle = Math.abs(l.angle);
     const mean = angle / Math.max(0.001, (l.last - l.start) / 1000);
     const twist = l.axis === 2;
-    if (angle < (twist ? MIN_TWIST_ANGLE : MIN_FLICK_ANGLE) || l.peak < (twist ? twistRate : flickRate) || mean < MIN_MEAN_RATE) return;
+    // Positive rotation about right tips the pointing direction down.
+    const least = twist ? MIN_TWIST_ANGLE : l.axis === 0 && l.sign > 0 ? MIN_FLICK_DOWN_ANGLE : MIN_FLICK_ANGLE;
+    if (angle < least || l.peak < (twist ? twistRate : flickRate) || mean < MIN_MEAN_RATE) return;
     if (!this.candidate || angle > Math.abs(this.candidate.angle)) this.candidate = l;
   }
 

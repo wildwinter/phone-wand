@@ -19,6 +19,10 @@ the protocol.
   - Movements with the wrist turning briefly fast along the way no longer come out as flicks, and
     moving between calibration corners no longer gives stray flicks: a flick or twist must now turn
     at least 50 degrees (60 for a twist), fast on average, not just in a brief spike.
+  - A flick down needs to turn only 40 degrees: a wrist bends down less far than it turns other
+    ways, and flicks down were read as plain `down` movements.
+  - No gestures until the player has aimed (Recentre or screen calibration): moving between the
+    calibration corners gave stray gestures.
   - Bringing the phone back after a flick or twist no longer counts as a flick or twist the other way.
   - Turning speeds are worked out from the phone's own timestamps, not from when poses reach the
     relay, which often arrive in bunches and made turning look far faster than it was.

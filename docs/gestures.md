@@ -18,7 +18,7 @@ And **fast rotations**, the way a flick of the wrist whips the cursor across:
 
 | Gesture | The rotation |
 |---|---|
-| `flick-up`, `flick-down`, `flick-left`, `flick-right` | The pointing direction turned quickly that way, at least 50 degrees |
+| `flick-up`, `flick-down`, `flick-left`, `flick-right` | The pointing direction turned quickly that way, at least 50 degrees (40 for down, since a wrist bends down less far) |
 | `twist-left`, `twist-right` | A quick roll of the wrist, at least 60 degrees (right is clockwise, seen from behind) |
 
 A fast rotation also swings the phone around your wrist, which its motion sensor reads as movement.
@@ -28,7 +28,8 @@ back is one `flick-left`. (That also means a flick straight back the other way w
 second is taken as the return, not a second flick.)
 
 Directions follow the player's calibration: "push" is always towards the screen, however they
-hold the phone.
+hold the phone. So there are no gestures until a player has aimed (with Recentre or screen
+calibration), nor while they calibrate.
 
 ## What each gesture tells you
 
