@@ -308,10 +308,18 @@ A layout is a template plus its controls, in order:
 | `pair` | 2 | Two equal controls side by side. |
 | `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
 | `grid` | 1 to 6 | Two columns. |
+| `rows` | 1 to 8 | `rows`: how many controls in each row, top (the pointing end) to bottom, 1 to 4 rows of 1 to 4, adding up to the number of controls. Optional `heights`: relative heights, one positive number per row. |
+| `columns` | 1 to 8 | The same with `columns` (left to right, mirrored for left hands) and `widths`. |
 
 In the `primary` templates the first control is the big one and must be a button, `dpad` or
-`crawl`. Placement mirrors
-for players who choose left-handed on their phone.
+`crawl`. Placement mirrors for players who choose left-handed on their phone. In `rows` and
+`columns`, a size under a tenth of the biggest is raised to a tenth, so nothing shrinks away.
+
+```json
+{ "type": "layout", "layout": { "template": "rows", "rows": [1, 3], "heights": [3, 2],
+  "controls": [ { "id": "walk", "type": "crawl" }, { "id": "attack", "type": "button" },
+    { "id": "use", "type": "button" }, { "id": "map", "type": "toggle" } ] } }
+```
 
 Every control has an `id` (1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout), a
 `type`, and optionally a `label` (up to 24 characters) and a `colour` (`#rrggbb`; the player's

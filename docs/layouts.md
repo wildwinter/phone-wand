@@ -19,8 +19,32 @@ the phone; Phone Wand takes care of where.
 | `pair` | 2 | Two equal controls side by side. |
 | `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
 | `grid` | 1 to 6 | Two columns. |
+| `rows` | 1 to 8 | Rows of your choosing: say how many controls go in each row. |
+| `columns` | 1 to 8 | The same, in columns. |
 
 In the `primary` templates, the first control is the big one: a button, a d-pad or a crawl pad.
+
+### Rows and columns
+
+When no template fits, `rows` lets you say how the phone is divided. `rows` lists how many controls
+go in each row, from the top of the phone (the end that points at the screen) to the bottom:
+1 to 4 rows of 1 to 4 controls, adding up to the number of controls. Controls fill the rows in
+order. `heights` optionally gives the rows' relative heights; they're equal when left out.
+
+| Layout | What it looks like |
+|---|---|
+| `rows: [1, 2]` | One wide control in the front half, two in the back half. |
+| `rows: [1, 3]` | One wide control in front, three behind. |
+| `rows: [2, 1]`, `rows: [3, 1]` | The same, the other way round. |
+| `rows: [1, 1, 3], heights: [1, 4, 2]` | A thin strip (a status label, say), a big middle control, and three below. |
+
+`columns` is the same, side by side: `columns` counts the controls in each column from left to
+right, and `widths` sizes them. `columns: [1, 3], widths: [1, 2]` puts a tall, narrow control (a
+vertical slider) beside three stacked ones.
+
+A crawl pad is wider than it is tall, so a half-height row suits it better than a square block. For
+left-handed players the controls in each row, and the columns, swap sides, as in the other
+templates.
 
 ## Controls
 
@@ -76,14 +100,17 @@ wand.on("control", (e, player) => {
 wand.set("ammo", "11", { id: player.id });
 ```
 
-A dungeon crawler: the crawl pad as the big control, and a Use button below.
+A dungeon crawler: the crawl pad across the front half, and three controls behind it.
 
 ```js
 wand.layout({
-  template: "primary-secondary",
+  template: "rows",
+  rows: [1, 3],
   controls: [
     { id: "walk", type: "crawl" },
+    { id: "attack", type: "button", label: "Attack" },
     { id: "use", type: "button", label: "Use" },
+    { id: "map", type: "toggle", label: "Map" },
   ],
 });
 

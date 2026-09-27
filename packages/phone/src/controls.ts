@@ -65,6 +65,7 @@ export function renderLayout(
 ): RenderedLayout {
   root.replaceChildren();
   root.className = `controls t-${layout.template}`;
+  root.style.gridTemplateRows = root.style.gridTemplateColumns = "";
   const setters = new Map<string, (v: ControlValue) => void>();
   const held = new Map<string, { el: HTMLElement; pointer: number }>();
   const resets: (() => void)[] = [];
@@ -94,6 +95,22 @@ export function renderLayout(
     const row = el("div", "row");
     for (const s of [...root.querySelectorAll(".cell:not(.cell-0)")]) row.append(s);
     root.append(row);
+  }
+  // Rows and columns: each line gets its own box, sized by the layout's heights or widths.
+  const counts = layout.template === "rows" ? layout.rows : layout.template === "columns" ? layout.columns : undefined;
+  if (counts) {
+    const cells = [...root.querySelectorAll<HTMLElement>(".cell")];
+    let next = 0;
+    for (const n of counts) {
+      const line = el("div", "line");
+      for (const cell of cells.slice(next, next + n)) line.append(cell);
+      next += n;
+      root.append(line);
+    }
+    const sizes = (layout.template === "rows" ? layout.heights : layout.widths) ?? counts.map(() => 1);
+    const tracks = sizes.map((x) => `minmax(0, ${x}fr)`).join(" ");
+    if (layout.template === "rows") root.style.gridTemplateRows = tracks;
+    else root.style.gridTemplateColumns = tracks;
   }
 
   function styleColour(e: HTMLElement, c: Control) {

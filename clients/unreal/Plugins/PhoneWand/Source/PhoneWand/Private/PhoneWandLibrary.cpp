@@ -158,6 +158,22 @@ FPhoneWandLayout UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate Template, cons
 	return Layout;
 }
 
+FPhoneWandLayout UPhoneWandLibrary::MakeRowsLayout(const TArray<int32>& Rows, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Heights)
+{
+	FPhoneWandLayout Layout = MakeLayout(EPhoneWandTemplate::Rows, Controls);
+	Layout.Counts = Rows;
+	Layout.Sizes = Heights;
+	return Layout;
+}
+
+FPhoneWandLayout UPhoneWandLibrary::MakeColumnsLayout(const TArray<int32>& Columns, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Widths)
+{
+	FPhoneWandLayout Layout = MakeLayout(EPhoneWandTemplate::Columns, Controls);
+	Layout.Counts = Columns;
+	Layout.Sizes = Widths;
+	return Layout;
+}
+
 FString UPhoneWandLibrary::LayoutToJson(const FPhoneWandLayout& Layout)
 {
 	FString Out;

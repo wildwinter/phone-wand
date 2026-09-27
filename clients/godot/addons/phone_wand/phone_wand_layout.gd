@@ -10,13 +10,14 @@ extends RefCounted
 ##   ]))
 ##
 ## Templates: "primary" (1 control), "primary-secondary" (2), "pair" (2), "primary-row" (1 to 4)
-## and "grid" (1 to 6). In the primary templates the first control must be a button, dpad or crawl.
+## and "grid" (1 to 6), and "rows" and "columns" (1 to 8, built with rows and columns). In the
+## primary templates the first control must be a button, dpad or crawl.
 ## colour is a Color or "#rrggbb", or null for the player's colour. See docs/layouts.md.
 ##
 ## A dpad or crawl control is a set of buttons named "<id>.<direction>", such as "move.up" or
 ## "walk.turn-left" (see button_for). Their presses arrive as PhoneWandClient.button like any other.
 
-const TEMPLATES := ["primary", "primary-secondary", "pair", "primary-row", "grid"]
+const TEMPLATES := ["primary", "primary-secondary", "pair", "primary-row", "grid", "rows", "columns"]
 
 const UP := "up"
 const DOWN := "down"
@@ -38,6 +39,20 @@ const CRAWL_DIRECTIONS := [FORWARD, BACK, STEP_LEFT, STEP_RIGHT, TURN_LEFT, TURN
 ## A layout: a template and its controls, in order.
 static func layout(template: String, controls: Array) -> Dictionary:
 	return {"template": template, "controls": controls.duplicate()}
+
+
+## A "rows" layout: counts is how many controls go in each row, top (the pointing end) to bottom,
+## such as [1, 3]. 1 to 4 rows of 1 to 4, adding up to the number of controls (at most 8). heights
+## gives each row's relative height (equal when empty); the relay raises any under a tenth of the
+## biggest to a tenth. Any control can go anywhere.
+static func rows(counts: Array, controls: Array, heights: Array = []) -> Dictionary:
+	return _lines("rows", counts, "heights", heights, controls)
+
+
+## A "columns" layout: counts is how many controls go in each column, left to right (mirrored for
+## left-handed players), such as [1, 2]. widths gives each column's relative width. Otherwise as rows.
+static func columns(counts: Array, controls: Array, widths: Array = []) -> Dictionary:
+	return _lines("columns", counts, "widths", widths, controls)
 
 
 ## What phones show until an app sends a layout: big Primary and smaller Secondary buttons.
@@ -99,6 +114,17 @@ static func label(id: String, label: String = "", text: String = "", colour: Var
 	var c := _control(id, "label", label, colour)
 	c["text"] = text
 	return c
+
+
+static func _lines(template: String, counts: Array, size_key: String, sizes: Array, controls: Array) -> Dictionary:
+	var l := layout(template, controls)
+	var list: Array = []
+	for n in counts:
+		list.append(int(n))
+	l[template] = list
+	if not sizes.is_empty():
+		l[size_key] = sizes.duplicate()
+	return l
 
 
 static func _control(id: String, type: String, label: String, colour: Variant) -> Dictionary:

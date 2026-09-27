@@ -636,6 +636,21 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	});
 	Wand->SetLayout(Crawler, TEXT("p1"));
 
+	// Rows and columns: counts always, sizes only when given.
+	const FPhoneWandLayout Rows = UPhoneWandLibrary::MakeRowsLayout({ 1, 3 }, {
+		UPhoneWandLibrary::MakeCrawl(TEXT("walk")),
+		UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+		UPhoneWandLibrary::MakeToggle(TEXT("torch"), TEXT("Torch")),
+		UPhoneWandLibrary::MakeLabel(TEXT("gold"), TEXT("Gold"), TEXT("0")),
+	}, { 3.0, 2.0 });
+	Wand->SetLayout(Rows);
+	const FPhoneWandLayout Columns = UPhoneWandLibrary::MakeColumnsLayout({ 1, 2 }, {
+		UPhoneWandLibrary::MakeSlider(TEXT("throttle"), FString(), 0.0, /*bVertical*/ true),
+		UPhoneWandLibrary::MakeButton(TEXT("fire")),
+		UPhoneWandLibrary::MakeDpad(TEXT("move")),
+	}, {});
+	Wand->SetLayout(Columns, TEXT("p1"));
+
 	Wand->ResetLayout(TEXT("p2"));
 	Wand->ResetLayout();
 	Wand->SetControlBool(TEXT("zoom"), false, TEXT("p1"));
@@ -660,6 +675,17 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 		TEXT("{\"type\":\"layout\",\"id\":\"p1\",\"layout\":{\"template\":\"primary-row\",\"controls\":[")
 			TEXT("{\"id\":\"walk\",\"type\":\"crawl\",\"label\":\"Walk\"},")
 			TEXT("{\"id\":\"move\",\"type\":\"dpad\",\"colour\":\"#3388ff\"}]}}"),
+		TEXT("{\"type\":\"layout\",\"layout\":{\"template\":\"rows\",\"controls\":[")
+			TEXT("{\"id\":\"walk\",\"type\":\"crawl\"},")
+			TEXT("{\"id\":\"use\",\"type\":\"button\",\"label\":\"Use\"},")
+			TEXT("{\"id\":\"torch\",\"type\":\"toggle\",\"label\":\"Torch\",\"value\":false},")
+			TEXT("{\"id\":\"gold\",\"type\":\"label\",\"label\":\"Gold\",\"text\":\"0\"}],")
+			TEXT("\"rows\":[1,3],\"heights\":[3,2]}}"),
+		TEXT("{\"type\":\"layout\",\"id\":\"p1\",\"layout\":{\"template\":\"columns\",\"controls\":[")
+			TEXT("{\"id\":\"throttle\",\"type\":\"slider\",\"value\":0,\"orientation\":\"vertical\",\"spring\":null},")
+			TEXT("{\"id\":\"fire\",\"type\":\"button\"},")
+			TEXT("{\"id\":\"move\",\"type\":\"dpad\"}],")
+			TEXT("\"columns\":[1,2]}}"),
 		TEXT("{\"type\":\"layout\",\"id\":\"p2\",\"layout\":null}"),
 		TEXT("{\"type\":\"layout\",\"layout\":null}"),
 		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"zoom\",\"value\":false}"),
@@ -676,14 +702,14 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 		}
 	}
 	// A choice's index is a whole number on the wire.
-	if (Sent.Num() > 7)
+	if (Sent.Num() > 9)
 	{
-		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[7]);
+		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[9]);
 		TestTrue(TEXT("choice index is an integer"), Set.IsValid() && FMath::IsNearlyEqual(Set->AsObject()->GetNumberField(TEXT("value")), 2.0));
 	}
 
 	// Reading a layout back gives the same layout, and the same JSON again.
-	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, PhoneWand::DefaultLayout() })
+	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, Rows, Columns, PhoneWand::DefaultLayout() })
 	{
 		const FString Json = UPhoneWandLibrary::LayoutToJson(Layout);
 		const TSharedPtr<FJsonValue> Parsed = PhoneWandTests::ParseValue(Json);
@@ -701,6 +727,8 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("primary constant"), UPhoneWandLibrary::PrimaryButton(), FString(TEXT("primary")));
 	TestEqual(TEXT("secondary constant"), UPhoneWandLibrary::SecondaryButton(), FString(TEXT("secondary")));
 	TestEqual(TEXT("template names"), UPhoneWandLibrary::TemplateToString(EPhoneWandTemplate::PrimaryRow), FString(TEXT("primary-row")));
+	TestEqual(TEXT("rows template name"), UPhoneWandLibrary::TemplateToString(EPhoneWandTemplate::Rows), FString(TEXT("rows")));
+	TestEqual(TEXT("columns template name"), UPhoneWandLibrary::TemplateToString(EPhoneWandTemplate::Columns), FString(TEXT("columns")));
 	TestEqual(TEXT("value to string"), UPhoneWandLibrary::ControlValueToString(UPhoneWandLibrary::MakeControlNumber(0.8)), FString(TEXT("0.8")));
 
 	// Each arrow or key of a dpad or crawl is a button named <id>.<direction>.
@@ -801,6 +829,22 @@ bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
 	Wand->GetPlayer(TEXT("p1"), P);
 	TestTrue(TEXT("dpad kept"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Type == EPhoneWandControlType::Dpad);
 	TestEqual(TEXT("dpad has no value"), P.Controls.Num(), 0);
+
+	// Rows and columns come back with their counts and sizes (sizes only when the relay sent them).
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"rows\",\"rows\":[1,2],\"heights\":[3,0.5],\"controls\":[")
+		TEXT("{\"id\":\"walk\",\"type\":\"crawl\"},{\"id\":\"use\",\"type\":\"button\"},{\"id\":\"map\",\"type\":\"toggle\",\"value\":true}]},\"controls\":{\"map\":true}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("rows template"), P.Layout.Template, EPhoneWandTemplate::Rows);
+	TestEqual(TEXT("rows counts"), P.Layout.Counts, TArray<int32>({ 1, 2 }));
+	TestTrue(TEXT("rows heights"), P.Layout.Sizes.Num() == 2 && FMath::IsNearlyEqual(P.Layout.Sizes[0], 3.0) && FMath::IsNearlyEqual(P.Layout.Sizes[1], 0.5));
+	TestTrue(TEXT("rows controls"), P.Layout.Controls.Num() == 3 && P.Layout.Controls[0].Type == EPhoneWandControlType::Crawl);
+	TestEqual(TEXT("rows values"), P.Controls.Num(), 1);
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"columns\",\"columns\":[2],\"controls\":[")
+		TEXT("{\"id\":\"a\",\"type\":\"button\"},{\"id\":\"b\",\"type\":\"button\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestEqual(TEXT("columns template"), P.Layout.Template, EPhoneWandTemplate::Columns);
+	TestEqual(TEXT("columns counts"), P.Layout.Counts, TArray<int32>({ 2 }));
+	TestEqual(TEXT("columns without widths"), P.Layout.Sizes.Num(), 0);
 
 	// error: a warning when nothing is bound, the delegate otherwise.
 	AddExpectedMessagePlain(TEXT("layout: template grid holds at most 6 controls"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);

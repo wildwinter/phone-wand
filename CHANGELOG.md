@@ -7,6 +7,17 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- Two layout templates for dividing the phone your own way:
+  - **rows**: say how many controls go in each row, such as `rows: [1, 3]` for one wide control in
+    the front half and three behind, with optional relative `heights`.
+  - **columns**: the same side by side, with optional `widths`.
+
+  Up to 4 rows or columns of up to 4 controls, 8 in all, and any control in any position. A crawl
+  pad fits a half-height row well. Every client library has builders for them, and the dashboard's
+  layout menu has samples.
+
 ## [0.7.0] - 2026-09-27
 
 ### Added

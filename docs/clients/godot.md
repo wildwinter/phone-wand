@@ -165,6 +165,31 @@ func _process(_delta: float) -> void:
 
 In the primary templates the first control must be a button, dpad or crawl.
 
+### Rows and columns
+
+The `rows` and `columns` templates let you arrange up to 8 controls yourself. `rows(counts,
+controls, heights)` says how many controls go in each row, from the top (the end the player points
+with) to the bottom: 1 to 4 rows of 1 to 4 controls, adding up to the number of controls.
+`columns(counts, controls, widths)` does the same for columns from left to right, mirrored for
+left-handed players. Any control can go in any position.
+
+`heights` and `widths` are optional relative sizes, one positive number per row or column; leave
+them out for equal sizes. The relay raises any size under a tenth of the biggest to a tenth.
+
+```gdscript
+func _ready() -> void:
+    # Crawl keys filling the top three fifths, with Use, Map and a score in a row below.
+    PhoneWand.set_layout(PhoneWandLayout.rows([1, 3], [
+        PhoneWandLayout.crawl("walk"),
+        PhoneWandLayout.button("use", "Use"),
+        PhoneWandLayout.toggle("map", "Map"),
+        PhoneWandLayout.label("score", "Score", "0"),
+    ], [3, 2]))
+```
+
+Layouts that come back from the relay keep these fields: `player.layout["rows"]` and
+`player.layout["heights"]` (or `"columns"` and `"widths"`).
+
 ## Gestures
 
 Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
@@ -327,7 +352,7 @@ not change them.
 | `pose: Dictionary` | The last pose message as received. |
 | `has_stats`, `rtt`, `rate`, `dropped` | Round trip in milliseconds, poses per second, and samples lost in the last second. `stats` holds the whole message. |
 | `layout: Dictionary` | The controls the phone shows, as the relay sent it (`template` and `controls`). The default layout until an app sends one. |
-| `template: String` | The layout's template, such as `"primary-secondary"` or `"grid"`. |
+| `template: String` | The layout's template, such as `"primary-secondary"`, `"grid"` or `"rows"`. |
 | `controls: Dictionary` | Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons have none. |
 
 Methods: `is_pressed(button := "primary") -> bool`, `is_on_screen() -> bool`,
@@ -343,6 +368,8 @@ Static helpers that return layout and control `Dictionary`s for `set_layout`. `c
 | Function | Result |
 |---|---|
 | `layout(template, controls: Array)` | A layout: `"primary"`, `"primary-secondary"`, `"pair"`, `"primary-row"` or `"grid"`, and its controls in order. |
+| `rows(counts: Array, controls: Array, heights: Array = [])` | A `"rows"` layout: `counts` controls in each row, top to bottom, with optional relative `heights`. See [Rows and columns](#rows-and-columns). |
+| `columns(counts: Array, controls: Array, widths: Array = [])` | A `"columns"` layout: `counts` controls in each column, left to right, with optional relative `widths`. |
 | `default_layout()` | Primary and Secondary, what phones show until an app sends a layout. |
 | `button(id, label := "", colour = null)` | A button. |
 | `toggle(id, label := "", value := false, colour = null)` | An on and off switch. |

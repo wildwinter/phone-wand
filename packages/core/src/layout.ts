@@ -1,7 +1,7 @@
 // Phone layouts: which controls a phone shows, and where. Apps choose a template and fill in its
 // controls; the phone page places them for the player's thumb. See docs/layouts.md.
 
-export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid";
+export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid" | "rows" | "columns";
 
 interface ControlBase {
   /** The app's name for this control. Button presses and value changes carry it. */
@@ -41,7 +41,19 @@ export type ControlValue = boolean | number | string;
 export interface Layout {
   template: Template;
   controls: Control[];
+  /** "rows" only: how many controls in each row, top (the pointing end) to bottom. */
+  rows?: number[];
+  /** "rows" only: relative heights of the rows. Equal when left out. */
+  heights?: number[];
+  /** "columns" only: how many controls in each column, left to right (mirrored for left hands). */
+  columns?: number[];
+  /** "columns" only: relative widths of the columns. Equal when left out. */
+  widths?: number[];
 }
+
+/** Limits for the "rows" and "columns" templates, so every control stays big enough for a thumb. */
+export const MAX_LINES = 4;
+export const MAX_PER_LINE = 4;
 
 /** The directions of a d-pad and a crawl pad. Each is pressed as the button "<control id>.<direction>". */
 export const DPAD_DIRECTIONS = ["up", "down", "left", "right"] as const;
@@ -60,13 +72,18 @@ export function layoutButtons(layout: Layout): string[] {
   return out;
 }
 
-/** How many controls each template holds. The first control of a primary template is the big one. */
+/**
+ * How many controls each template holds (at most). The first control of a primary template is the
+ * big one. "rows" and "columns" hold exactly as many as their counts add up to.
+ */
 export const TEMPLATE_SLOTS: Record<Template, number> = {
   primary: 1,
   "primary-secondary": 2,
   pair: 2,
   "primary-row": 4,
   grid: 6,
+  rows: 8,
+  columns: 8,
 };
 
 /** What a phone shows until an app sends a layout. */
@@ -145,6 +162,27 @@ export function validateLayout(raw: unknown): Layout | string {
     }
   }
   const first = controls[0].type;
+  const shaped: Layout = { template, controls };
+  if (template === "rows" || template === "columns") {
+    const counts = template === "rows" ? "rows" : "columns";
+    const sizes = template === "rows" ? "heights" : "widths";
+    const n = (r as Record<string, unknown>)[counts];
+    if (!Array.isArray(n) || n.length < 1 || n.length > MAX_LINES || !n.every((k) => Number.isInteger(k) && k >= 1 && k <= MAX_PER_LINE)) {
+      return `template ${template} needs ${counts}: 1 to ${MAX_LINES} counts, each 1 to ${MAX_PER_LINE}`;
+    }
+    const total = (n as number[]).reduce((a, b) => a + b, 0);
+    if (total !== controls.length) return `${counts} ${JSON.stringify(n)} holds ${total} controls, but the layout has ${controls.length}`;
+    shaped[counts] = n as number[];
+    const w = (r as Record<string, unknown>)[sizes];
+    if (w !== undefined && w !== null) {
+      if (!Array.isArray(w) || w.length !== n.length || !w.every((x) => typeof x === "number" && x > 0 && isFinite(x))) {
+        return `${sizes} must be ${n.length} positive numbers, one for each of the ${counts}`;
+      }
+      // Relative sizes, as given; none may be under a tenth of the biggest, or it shrinks to nothing.
+      const most = Math.max(...(w as number[]));
+      shaped[sizes] = (w as number[]).map((x) => Math.round(Math.max(x, most / 10) * 1000) / 1000);
+    }
+  }
   if (template.startsWith("primary") && first !== "button" && first !== "dpad" && first !== "crawl") {
     return `the first control of template ${template} is the big primary control, so it must be a button, dpad or crawl`;
   }
@@ -155,7 +193,7 @@ export function validateLayout(raw: unknown): Layout | string {
       if (seen.has(`${c.id}.${d}`)) return `control id ${c.id}.${d} clashes with a direction of ${c.type} ${c.id}`;
     }
   }
-  return { template, controls };
+  return shaped;
 }
 
 /** The current value of every control that has one. Buttons have none. */

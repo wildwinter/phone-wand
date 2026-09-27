@@ -15,7 +15,7 @@ export type Calibration = "none" | "ray" | "screen";
  */
 export type ButtonName = string;
 
-export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid";
+export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid" | "rows" | "columns";
 export type ControlValue = boolean | number | string;
 export type Control =
   | { id: string; type: "button"; label?: string; colour?: string }
@@ -34,6 +34,14 @@ export const CRAWL_DIRECTIONS = ["forward", "back", "step-left", "step-right", "
 export interface Layout {
   template: Template;
   controls: Control[];
+  /** "rows" only: how many controls in each row, top (the pointing end) to bottom. 1 to 4 rows of 1 to 4. */
+  rows?: number[];
+  /** "rows" only: relative heights of the rows, such as [2, 1]. Equal when left out. */
+  heights?: number[];
+  /** "columns" only: how many controls in each column, left to right (mirrored for left hands). */
+  columns?: number[];
+  /** "columns" only: relative widths of the columns. Equal when left out. */
+  widths?: number[];
 }
 
 export interface PlayerInfo {

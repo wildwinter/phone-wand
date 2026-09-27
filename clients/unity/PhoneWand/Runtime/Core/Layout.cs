@@ -7,6 +7,10 @@
 //       Control.Button("reload", "Reload"),
 //       Control.Toggle("zoom", "Zoom"),
 //       Control.TextLabel("ammo", "Ammo", "12")));
+//
+//   wand.SetLayout(Layout.InRows(new[] { 1, 3 },
+//       Control.Crawl("walk"), Control.Button("attack", "Attack"),
+//       Control.Button("use", "Use"), Control.Toggle("map", "Map")).WithHeights(3, 2));
 
 using System;
 using System.Collections.Generic;
@@ -26,6 +30,10 @@ namespace StoryTools.PhoneWand
         public const string PrimaryRow = "primary-row";
         /// <summary>Two columns. 1 to 6 controls.</summary>
         public const string Grid = "grid";
+        /// <summary>1 to 4 rows of 1 to 4 controls, top (the pointing end) to bottom, as Layout.Rows says. Up to 8 controls of any type.</summary>
+        public const string Rows = "rows";
+        /// <summary>1 to 4 columns of 1 to 4 controls, left to right (mirrored for left hands), as Layout.Columns says. Up to 8 controls of any type.</summary>
+        public const string Columns = "columns";
     }
 
     /// <summary>The control types, as the protocol names them.</summary>
@@ -223,14 +231,31 @@ namespace StoryTools.PhoneWand
 
     /// <summary>
     /// A template and its controls, in order. Build one with the constructor or with Layout.Primary,
-    /// PrimarySecondary, Pair, PrimaryRow or Grid.
+    /// PrimarySecondary, Pair, PrimaryRow, Grid, InRows or InColumns.
     /// </summary>
     public sealed class Layout
     {
-        /// <summary>A LayoutTemplate: "primary", "primary-secondary", "pair", "primary-row" or "grid".</summary>
+        /// <summary>A LayoutTemplate: "primary", "primary-secondary", "pair", "primary-row", "grid", "rows" or "columns".</summary>
         public string Template;
         /// <summary>The controls, in order. In the primary templates the first is the big one: a button, dpad or crawl.</summary>
         public List<Control> Controls = new List<Control>();
+        /// <summary>
+        /// "rows" only: how many controls in each row, top (the pointing end) to bottom. 1 to 4 rows
+        /// of 1 to 4, adding up to the number of controls. Null for other templates.
+        /// </summary>
+        public List<int> Rows;
+        /// <summary>
+        /// "rows" only: relative heights of the rows, one positive number each, such as [2, 1]. Null
+        /// for equal rows. The relay raises any under a tenth of the biggest to a tenth.
+        /// </summary>
+        public List<double> Heights;
+        /// <summary>
+        /// "columns" only: how many controls in each column, left to right (mirrored for left hands).
+        /// 1 to 4 columns of 1 to 4, adding up to the number of controls. Null for other templates.
+        /// </summary>
+        public List<int> Columns;
+        /// <summary>"columns" only: relative widths of the columns, as Heights. Null for equal columns.</summary>
+        public List<double> Widths;
 
         public Layout()
         {
@@ -267,6 +292,34 @@ namespace StoryTools.PhoneWand
         /// <summary>Up to six controls in two columns.</summary>
         public static Layout Grid(params Control[] controls) => new Layout(LayoutTemplate.Grid, controls);
 
+        /// <summary>
+        /// Controls of any type in rows, top (the pointing end) to bottom: rows says how many in each,
+        /// e.g. InRows(new[] { 1, 3 }, crawl, a, b, c). Set sizes with WithHeights.
+        /// </summary>
+        public static Layout InRows(int[] rows, params Control[] controls) =>
+            new Layout(LayoutTemplate.Rows, controls) { Rows = new List<int>(rows ?? new int[0]) };
+
+        /// <summary>
+        /// Controls of any type in columns, left to right (mirrored for left hands): columns says how
+        /// many in each. Set sizes with WithWidths.
+        /// </summary>
+        public static Layout InColumns(int[] columns, params Control[] controls) =>
+            new Layout(LayoutTemplate.Columns, controls) { Columns = new List<int>(columns ?? new int[0]) };
+
+        /// <summary>Set the rows' relative heights (null for equal) and return this layout, for chaining.</summary>
+        public Layout WithHeights(params double[] heights)
+        {
+            Heights = heights != null ? new List<double>(heights) : null;
+            return this;
+        }
+
+        /// <summary>Set the columns' relative widths (null for equal) and return this layout, for chaining.</summary>
+        public Layout WithWidths(params double[] widths)
+        {
+            Widths = widths != null ? new List<double>(widths) : null;
+            return this;
+        }
+
         /// <summary>The control with this id, or null.</summary>
         public Control Find(string id)
         {
@@ -281,7 +334,22 @@ namespace StoryTools.PhoneWand
             var controls = new List<object>();
             foreach (var c in Controls)
                 if (c != null) controls.Add(c.ToJsonValue());
-            return new Dictionary<string, object> { { "template", Template ?? "" }, { "controls", controls } };
+            var o = new Dictionary<string, object> { { "template", Template ?? "" }, { "controls", controls } };
+            if (Rows != null) o["rows"] = Rows.ConvertAll(n => (object)(double)n);
+            if (Heights != null) o["heights"] = Heights.ConvertAll(n => (object)n);
+            if (Columns != null) o["columns"] = Columns.ConvertAll(n => (object)(double)n);
+            if (Widths != null) o["widths"] = Widths.ConvertAll(n => (object)n);
+            return o;
+        }
+
+        static List<double> Numbers(Dictionary<string, object> o, string key)
+        {
+            object v;
+            if (!o.TryGetValue(key, out v) || !(v is List<object> list)) return null;
+            var numbers = new List<double>();
+            foreach (var item in list)
+                if (item is double d) numbers.Add(d);
+            return numbers;
         }
 
         /// <summary>The layout as JSON text, as the protocol expects it.</summary>
@@ -301,6 +369,12 @@ namespace StoryTools.PhoneWand
                     if (c != null) layout.Controls.Add(c);
                 }
             }
+            var rows = Numbers(o, "rows");
+            if (rows != null) layout.Rows = rows.ConvertAll(n => (int)n);
+            layout.Heights = Numbers(o, "heights");
+            var columns = Numbers(o, "columns");
+            if (columns != null) layout.Columns = columns.ConvertAll(n => (int)n);
+            layout.Widths = Numbers(o, "widths");
             return layout;
         }
 

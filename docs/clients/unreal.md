@@ -215,6 +215,32 @@ Wand->OnButtonNative.AddLambda([this](const FPhoneWandPlayer& Player, const FStr
 In Blueprint: **Make Crawl** and **Make Button** into **Make Layout**, then in **On Button** compare
 **Button** with **Crawl Button** (Control Id `walk`, Direction `Forward`) using **Equal (String)**.
 
+### Rows and columns
+
+For a shape the fixed templates don't cover, the `Rows` and `Columns` templates take the number of
+controls in each row (top, the pointing end, to bottom) or column (left to right, mirrored for left
+hands): 1 to 4 rows or columns of 1 to 4 controls each, adding up to exactly the number of
+controls, at most 8. Any control type may go in any position. Relative heights or widths are
+optional (equal when left empty); the relay raises any under a tenth of the biggest to a tenth.
+
+**Make Rows Layout** (`MakeRowsLayout(Rows, Controls, Heights)`) and **Make Columns Layout**
+(`MakeColumnsLayout(Columns, Controls, Widths)`) build them. They fill `FPhoneWandLayout::Counts`
+and `Sizes`, which the plugin sends as `rows` and `heights` or `columns` and `widths`.
+
+A crawl pad in front, taking three fifths of the phone, and three controls behind it:
+
+```cpp
+Wand->SetLayout(UPhoneWandLibrary::MakeRowsLayout({ 1, 3 }, {
+    UPhoneWandLibrary::MakeCrawl(TEXT("walk")),
+    UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+    UPhoneWandLibrary::MakeToggle(TEXT("torch"), TEXT("Torch")),
+    UPhoneWandLibrary::MakeLabel(TEXT("gold"), TEXT("Gold"), TEXT("0")),
+}, { 3.0, 2.0 }));
+```
+
+In Blueprint: the four controls into **Make Rows Layout**, with **Rows** an array of 1 and 3 and
+**Heights** an array of 3 and 2 (or left unconnected for equal rows), then **Set Layout**.
+
 A player that joins later gets the layout you sent to everyone only if you send it again: the
 relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if players come and
 go. Each player's current layout and values are in `FPhoneWandPlayer::Layout` and `Controls`, and
@@ -400,8 +426,12 @@ entirely.
 
 ### FPhoneWandLayout and FPhoneWandControl
 
-`FPhoneWandLayout` is a `Template` (`Primary`, `PrimarySecondary`, `Pair`, `PrimaryRow` or `Grid`)
-and `Controls`, an array of `FPhoneWandControl` in order. `FindControl(Id)` finds one in C++.
+`FPhoneWandLayout` is a `Template` (`Primary`, `PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`,
+`Rows` or `Columns`) and `Controls`, an array of `FPhoneWandControl` in order. `FindControl(Id)`
+finds one in C++. For `Rows` and `Columns` only, `Counts` (`TArray<int32>`) holds how many controls
+are in each row or column, and `Sizes` (`TArray<double>`) their relative heights or widths, empty
+for equal (see [Rows and columns](#rows-and-columns)); players' layouts from the relay carry them
+too.
 
 | `FPhoneWandControl` field | Meaning |
 |---|---|
@@ -459,6 +489,8 @@ Blueprint function library, also callable from C++.
 | `CrawlButton(ControlId, Direction)` | The button name of a crawl key (`EPhoneWandCrawlDirection`: `Forward`, `Back`, `StepLeft`, `StepRight`, `TurnLeft`, `TurnRight`), such as `walk.turn-left`. |
 | `WithColour(Control, Colour)` | The control with a colour of its own. |
 | `MakeLayout(Template, Controls)` | A layout. |
+| `MakeRowsLayout(Rows, Controls, Heights)` | A `Rows` layout: controls per row, top to bottom, and relative heights (empty for equal). |
+| `MakeColumnsLayout(Columns, Controls, Widths)` | A `Columns` layout: controls per column, left to right, and relative widths (empty for equal). |
 | `DefaultLayout()` | The default layout. |
 | `LayoutToJson(Layout)` | The layout as the JSON the relay receives, for logs. |
 | `MakeControlBool` / `MakeControlNumber` / `MakeControlText` | Values for `SetControl`. |

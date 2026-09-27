@@ -37,3 +37,9 @@ button p1 move.left down
 player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
 button p1 move.left up
 player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p1 walk.back down
+button p1 walk.back up
+control p1 map
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+control p1 throttle
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws

@@ -151,6 +151,22 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FPhoneWandLayout MakeLayout(EPhoneWandTemplate Template, const TArray<FPhoneWandControl>& Controls);
 
+	/**
+	 * A Rows layout: Rows gives how many controls in each row, top (the pointing end) to bottom, such
+	 * as 1, 3. 1 to 4 rows of 1 to 4, adding up to the number of controls. Heights are relative, one
+	 * per row, such as 3, 2; leave empty for equal rows. Any control type may go anywhere.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (AutoCreateRefTerm = "Heights"))
+	static FPhoneWandLayout MakeRowsLayout(const TArray<int32>& Rows, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Heights);
+
+	/**
+	 * A Columns layout: Columns gives how many controls in each column, left to right (mirrored for
+	 * left hands). 1 to 4 columns of 1 to 4, adding up to the number of controls. Widths are relative,
+	 * one per column; leave empty for equal columns. Any control type may go anywhere.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (AutoCreateRefTerm = "Widths"))
+	static FPhoneWandLayout MakeColumnsLayout(const TArray<int32>& Columns, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Widths);
+
 	/** The layout phones show until an app sends one: Primary Secondary with buttons "primary" and "secondary". */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FPhoneWandLayout DefaultLayout() { return PhoneWand::DefaultLayout(); }

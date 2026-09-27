@@ -185,6 +185,30 @@ wand.Button += (e, player) =>
 };
 ```
 
+### Rows and columns
+
+For anything the fixed templates don't cover, `Layout.InRows` stacks up to 8 controls in 1 to 4
+rows of 1 to 4, top (the pointing end) to bottom, and `Layout.InColumns` sets them side by side in
+1 to 4 columns, left to right (mirrored for left-handed players). The first argument says how many
+controls go in each row or column, and must add up to the number of controls; any control type can
+go anywhere. Rows and columns are equal unless you give relative sizes with `.WithHeights(...)` or
+`.WithWidths(...)`, one positive number each (the relay raises any size under a tenth of the biggest
+to a tenth). The counts and sizes are in `layout.Rows` and `layout.Heights`, or `layout.Columns`
+and `layout.Widths` (null when unused).
+
+```csharp
+// A crawl pad in front, taking three fifths of the phone, and three controls behind it.
+wand.SetLayout(Layout.InRows(new[] { 1, 3 },
+        Control.Crawl("walk"),
+        Control.Button("attack", "Attack"), Control.Button("use", "Use"), Control.Toggle("map", "Map"))
+    .WithHeights(3, 2));
+
+// A throttle on the left and two buttons stacked on the right, the buttons' column twice as wide.
+wand.SetLayout(Layout.InColumns(new[] { 1, 2 },
+        Control.Slider("throttle", vertical: true), Control.Button("fire", "Fire"), Control.Button("boost", "Boost"))
+    .WithWidths(1, 2));
+```
+
 ## Gestures
 
 Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
@@ -317,7 +341,7 @@ Static helpers:
 | `Device` | `Platform` (`iOS`, `Android`, `other`), `Sensor`, `Transport` (`ws` or `http`). |
 | `Pose` | The latest `PlayerPose`, or null before the first. |
 | `Buttons`, `IsHeld(string button)` | The ids of the buttons held down now, e.g. `IsHeld(PhoneButton.Primary)` or `IsHeld("shoot")`. Cleared when the player stops being active. |
-| `Layout` | The controls the phone shows: `Layout.Template` and `Layout.Controls`. The default layout until your game sends one. Replaced whole by each `PlayerChanged`. |
+| `Layout` | The controls the phone shows: `Layout.Template` and `Layout.Controls` (and `Rows`, `Heights`, `Columns`, `Widths` for the rows and columns templates). The default layout until your game sends one. Replaced whole by each `PlayerChanged`. |
 | `Controls` | `IReadOnlyDictionary<string, object>`: the current value of each toggle (`bool`), slider (`double`, 0 to 1), choice (`double`, the option index) and label (`string`), by control id. Buttons have no value. |
 | `GetToggle(id)`, `GetSlider(id)`, `GetChoice(id)`, `GetText(id)` | One control's value as a `bool`, `double`, `int` or `string`, or a fallback (the optional second argument) if there is no such value. |
 | `Stats` | The latest `PlayerStats`, or null. |
@@ -325,7 +349,8 @@ Static helpers:
 ### Layout and Control
 
 A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Primary`,
-`PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`) and a list of `Controls`, in order. Build one with
+`PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`, `Rows`, `Columns`) and a list of `Controls`, in
+order, plus `Rows` and `Heights` or `Columns` and `Widths` for the last two. Build one with
 `new Layout(template, controls...)` or a helper:
 
 | Helper | Template |
@@ -335,6 +360,8 @@ A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Pr
 | `Layout.Pair(left, right)` | Two equal controls side by side. |
 | `Layout.PrimaryRow(button, up to three controls)` | A big button with a row of smaller controls below. |
 | `Layout.Grid(up to six controls)` | Two columns. |
+| `Layout.InRows(counts, up to eight controls)` | Rows, top to bottom, `counts[i]` controls in row `i`. Add `.WithHeights(...)` for relative heights. |
+| `Layout.InColumns(counts, up to eight controls)` | Columns, left to right, `counts[i]` controls in column `i`. Add `.WithWidths(...)` for relative widths. |
 | `Layout.Default` | The default: `primary` and `secondary` buttons. |
 
 `layout.Find(id)` finds a control, and `layout.ToJson()` gives the JSON the protocol carries.

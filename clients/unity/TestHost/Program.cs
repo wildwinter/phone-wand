@@ -332,6 +332,25 @@ namespace StoryTools.PhoneWand.TestHost
                 "{\"id\":\"move\",\"type\":\"dpad\"},{\"id\":\"a\",\"type\":\"button\",\"label\":\"A\"}]}", dpad.ToJson());
             Expect("Dpad round trip", dpad.ToJson(),
                 Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(dpad.ToJson())).ToJson());
+            // Rows and columns: counts and optional sizes after the controls, and any control first.
+            var rows = Layout.InRows(new[] { 1, 3 }, Control.Crawl("walk"), Control.Button("attack", "Attack"),
+                Control.Button("use", "Use"), Control.Toggle("map", "Map")).WithHeights(3, 2);
+            Expect("InRows", "{\"template\":\"rows\",\"controls\":[" +
+                "{\"id\":\"walk\",\"type\":\"crawl\"},{\"id\":\"attack\",\"type\":\"button\",\"label\":\"Attack\"}," +
+                "{\"id\":\"use\",\"type\":\"button\",\"label\":\"Use\"},{\"id\":\"map\",\"type\":\"toggle\",\"label\":\"Map\",\"value\":false}]," +
+                "\"rows\":[1,3],\"heights\":[3,2]}", rows.ToJson());
+            var rowsBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(rows.ToJson()));
+            Expect("InRows round trip", rows.ToJson(), rowsBack.ToJson());
+            Expect("InRows Rows", "1,3", rowsBack.Rows != null ? string.Join(",", rowsBack.Rows) : null);
+            var columns = Layout.InColumns(new[] { 1, 2 }, Control.Slider("throttle", vertical: true),
+                Control.Button("fire", "Fire"), Control.Button("boost"));
+            Expect("InColumns", "{\"template\":\"columns\",\"controls\":[" +
+                "{\"id\":\"throttle\",\"type\":\"slider\",\"orientation\":\"vertical\"}," +
+                "{\"id\":\"fire\",\"type\":\"button\",\"label\":\"Fire\"},{\"id\":\"boost\",\"type\":\"button\"}]," +
+                "\"columns\":[1,2]}", columns.ToJson());
+            var columnsBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(columns.ToJson()));
+            Expect("InColumns round trip", columns.ToJson(), columnsBack.ToJson());
+            Expect("InColumns no widths", true, columnsBack.Widths == null && columnsBack.Rows == null);
             Expect("ButtonFor dpad", "move.up", Control.ButtonFor("move", DpadDirection.Up));
             Expect("ButtonFor crawl", "walk.turn-left", Control.ButtonFor("walk", CrawlDirection.TurnLeft));
             Expect("DpadDirection.All", "up,down,left,right", string.Join(",", DpadDirection.All));

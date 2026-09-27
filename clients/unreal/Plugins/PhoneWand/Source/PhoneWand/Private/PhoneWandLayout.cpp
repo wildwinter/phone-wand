@@ -44,6 +44,8 @@ namespace PhoneWand
 		case EPhoneWandTemplate::Pair: return TEXT("pair");
 		case EPhoneWandTemplate::PrimaryRow: return TEXT("primary-row");
 		case EPhoneWandTemplate::Grid: return TEXT("grid");
+		case EPhoneWandTemplate::Rows: return TEXT("rows");
+		case EPhoneWandTemplate::Columns: return TEXT("columns");
 		default: return TEXT("primary-secondary");
 		}
 	}
@@ -93,6 +95,8 @@ namespace PhoneWand
 		if (Name == TEXT("pair")) { Out = EPhoneWandTemplate::Pair; return true; }
 		if (Name == TEXT("primary-row")) { Out = EPhoneWandTemplate::PrimaryRow; return true; }
 		if (Name == TEXT("grid")) { Out = EPhoneWandTemplate::Grid; return true; }
+		if (Name == TEXT("rows")) { Out = EPhoneWandTemplate::Rows; return true; }
+		if (Name == TEXT("columns")) { Out = EPhoneWandTemplate::Columns; return true; }
 		return false;
 	}
 
@@ -170,6 +174,25 @@ namespace PhoneWand
 			Controls.Add(MakeShared<FJsonValueObject>(ControlToJson(C)));
 		}
 		O->SetArrayField(TEXT("controls"), Controls);
+		const bool bRows = Layout.Template == EPhoneWandTemplate::Rows;
+		if (bRows || Layout.Template == EPhoneWandTemplate::Columns)
+		{
+			TArray<TSharedPtr<FJsonValue>> Counts;
+			for (const int32 N : Layout.Counts)
+			{
+				Counts.Add(MakeShared<FJsonValueNumber>(N));
+			}
+			O->SetArrayField(bRows ? TEXT("rows") : TEXT("columns"), Counts);
+			if (Layout.Sizes.Num() > 0)
+			{
+				TArray<TSharedPtr<FJsonValue>> Sizes;
+				for (const double Size : Layout.Sizes)
+				{
+					Sizes.Add(MakeShared<FJsonValueNumber>(Size));
+				}
+				O->SetArrayField(bRows ? TEXT("heights") : TEXT("widths"), Sizes);
+			}
+		}
 		return O;
 	}
 
@@ -180,6 +203,34 @@ namespace PhoneWand
 		if (Json.TryGetStringField(TEXT("template"), Name))
 		{
 			ParseTemplate(Name, Layout.Template);
+		}
+		const bool bRows = Layout.Template == EPhoneWandTemplate::Rows;
+		if (bRows || Layout.Template == EPhoneWandTemplate::Columns)
+		{
+			const TArray<TSharedPtr<FJsonValue>>* Counts = nullptr;
+			if (Json.TryGetArrayField(bRows ? TEXT("rows") : TEXT("columns"), Counts) && Counts != nullptr)
+			{
+				for (const TSharedPtr<FJsonValue>& N : *Counts)
+				{
+					int32 Count = 0;
+					if (N.IsValid() && N->TryGetNumber(Count))
+					{
+						Layout.Counts.Add(Count);
+					}
+				}
+			}
+			const TArray<TSharedPtr<FJsonValue>>* Sizes = nullptr;
+			if (Json.TryGetArrayField(bRows ? TEXT("heights") : TEXT("widths"), Sizes) && Sizes != nullptr)
+			{
+				for (const TSharedPtr<FJsonValue>& N : *Sizes)
+				{
+					double Size = 0.0;
+					if (N.IsValid() && N->TryGetNumber(Size))
+					{
+						Layout.Sizes.Add(Size);
+					}
+				}
+			}
 		}
 		const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
 		if (!Json.TryGetArrayField(TEXT("controls"), List) || List == nullptr)

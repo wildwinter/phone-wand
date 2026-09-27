@@ -151,6 +151,51 @@ const LAYOUTS: Record<string, Layout | null> = {
       { id: "map", type: "toggle", label: "Map" },
     ],
   },
+  "rows-1-2": {
+    template: "rows", rows: [1, 2],
+    controls: [{ id: "walk", type: "crawl" }, { id: "attack", type: "button", label: "Attack" }, { id: "use", type: "button", label: "Use" }],
+  },
+  "rows-1-3": {
+    template: "rows", rows: [1, 3],
+    controls: [
+      { id: "walk", type: "crawl" },
+      { id: "attack", type: "button", label: "Attack" },
+      { id: "use", type: "button", label: "Use" },
+      { id: "map", type: "toggle", label: "Map" },
+    ],
+  },
+  "rows-2-1": {
+    template: "rows", rows: [2, 1],
+    controls: [{ id: "attack", type: "button", label: "Attack" }, { id: "use", type: "button", label: "Use" }, { id: "walk", type: "crawl" }],
+  },
+  "rows-3-1": {
+    template: "rows", rows: [3, 1],
+    controls: [
+      { id: "attack", type: "button", label: "Attack" },
+      { id: "use", type: "button", label: "Use" },
+      { id: "map", type: "toggle", label: "Map" },
+      { id: "walk", type: "crawl" },
+    ],
+  },
+  "rows-status": {
+    template: "rows", rows: [1, 1, 3], heights: [1, 4, 2],
+    controls: [
+      { id: "status", type: "label", label: "Health", text: "12 / 20" },
+      { id: "walk", type: "crawl" },
+      { id: "attack", type: "button", label: "Attack" },
+      { id: "use", type: "button", label: "Use" },
+      { id: "map", type: "toggle", label: "Map" },
+    ],
+  },
+  columns: {
+    template: "columns", columns: [1, 3], widths: [1, 2],
+    controls: [
+      { id: "throttle", type: "slider", label: "Throttle", orientation: "vertical", spring: 0 },
+      { id: "fire", type: "button", label: "Fire" },
+      { id: "boost", type: "button", label: "Boost" },
+      { id: "shield", type: "toggle", label: "Shield" },
+    ],
+  },
   retro: {
     template: "grid",
     controls: [

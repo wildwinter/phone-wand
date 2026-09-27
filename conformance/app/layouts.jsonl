@@ -40,4 +40,13 @@
 {"type":"error","message":"layout: control id move.up clashes with a direction of dpad move"}
 {"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"grid","controls":[{"id":"move","type":"dpad"}]},"controls":{}}}
 {"type":"button","id":"p1","button":"move.left","down":false}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"rows","controls":[{"id":"walk","type":"crawl"},{"id":"attack","type":"button"},{"id":"use","type":"button"},{"id":"map","type":"toggle","value":false}],"rows":[1,3],"heights":[3,2]},"controls":{"map":false}}}
+{"type":"button","id":"p1","button":"walk.back","down":true}
+{"type":"button","id":"p1","button":"walk.back","down":false}
+{"type":"control","id":"p1","control":"map","value":true}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"columns","controls":[{"id":"throttle","type":"slider","value":0,"orientation":"vertical","spring":null},{"id":"fire","type":"button"},{"id":"boost","type":"button"}],"columns":[1,2],"widths":[100,10]},"controls":{"throttle":0}}}
+{"type":"control","id":"p1","control":"throttle","value":0.4}
+{"type":"error","message":"layout: rows [1,2] holds 3 controls, but the layout has 1"}
+{"type":"error","message":"layout: template columns needs columns: 1 to 4 counts, each 1 to 4"}
+{"type":"error","message":"layout: heights must be 2 positive numbers, one for each of the rows"}
 {"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}

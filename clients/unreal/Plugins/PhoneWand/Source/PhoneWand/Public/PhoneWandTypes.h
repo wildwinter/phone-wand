@@ -90,6 +90,10 @@ enum class EPhoneWandTemplate : uint8
 	PrimaryRow,
 	/** Two columns (1 to 6 controls). */
 	Grid,
+	/** Rows of 1 to 4 controls, top (the pointing end) to bottom. Counts gives each row's size, Sizes their heights. */
+	Rows,
+	/** Columns of 1 to 4 controls, left to right (mirrored for left hands). Counts gives each column's size, Sizes their widths. */
+	Columns,
 };
 
 /** The kind of a control on the phone. */
@@ -266,6 +270,20 @@ struct PHONEWAND_API FPhoneWandLayout
 	/** In order. In the Primary templates the first is the big one and must be a button, dpad or crawl. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	TArray<FPhoneWandControl> Controls;
+
+	/**
+	 * Rows and Columns only: how many controls in each row (top to bottom) or column (left to right).
+	 * 1 to 4 of them, each 1 to 4, adding up to the number of controls. Sent as "rows" or "columns".
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	TArray<int32> Counts;
+
+	/**
+	 * Rows and Columns only: relative heights of the rows or widths of the columns, one positive number
+	 * each, such as 3, 2. Empty for equal sizes. Sent as "heights" or "widths".
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	TArray<double> Sizes;
 
 	/** The control with this id, or null. */
 	const FPhoneWandControl* FindControl(const FString& ControlId) const
@@ -586,7 +604,7 @@ namespace PhoneWand
 	/** The default layout's smaller button id. */
 	inline const TCHAR* const SecondaryButton = TEXT("secondary");
 
-	/** Protocol spelling of a template ("primary", "primary-secondary", "pair", "primary-row", "grid"). */
+	/** Protocol spelling of a template ("primary", "primary-secondary", "pair", "primary-row", "grid", "rows", "columns"). */
 	PHONEWAND_API FString ToString(EPhoneWandTemplate Template);
 	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label", "dpad", "crawl"). */
 	PHONEWAND_API FString ToString(EPhoneWandControlType Type);
@@ -599,7 +617,7 @@ namespace PhoneWand
 	/** The layout a phone shows until an app sends one: PrimarySecondary with buttons "primary" and "secondary". */
 	PHONEWAND_API FPhoneWandLayout DefaultLayout();
 
-	/** A layout as the protocol's JSON object: { "template": ..., "controls": [ ... ] }. */
+	/** A layout as the protocol's JSON object: { "template": ..., "controls": [ ... ] }, plus "rows"/"heights" or "columns"/"widths". */
 	PHONEWAND_API TSharedRef<FJsonObject> LayoutToJson(const FPhoneWandLayout& Layout);
 	/** One control as the protocol's JSON object. Only the fields for its type are written. */
 	PHONEWAND_API TSharedRef<FJsonObject> ControlToJson(const FPhoneWandControl& Control);

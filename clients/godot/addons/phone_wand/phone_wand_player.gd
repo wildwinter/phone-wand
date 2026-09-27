@@ -40,7 +40,7 @@ var buttons: Array[String] = []
 ## The controls the phone shows, as the relay sent it: {"template": ..., "controls": [...]}.
 ## The default (primary-secondary with buttons primary and secondary) until an app sends one.
 var layout: Dictionary = PhoneWandLayout.default_layout()
-## The layout's template, such as "primary-secondary" or "grid".
+## The layout's template, such as "primary-secondary", "grid" or "rows".
 var template: String = "primary-secondary"
 ## Current values of the layout's toggles (bool), sliders (float, 0 to 1), choices (int, the
 ## option index) and labels (String), by control id. Buttons have no value.

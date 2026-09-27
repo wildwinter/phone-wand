@@ -262,6 +262,34 @@ const SESSIONS: Record<string, () => Line[]> = {
     }); // the button clashes with a direction: error
     s.app({ type: "layout", id: "p1", layout: { template: "grid", controls: [{ id: "move", type: "dpad" }] } }); // move.left is still held
     s.send(1, { type: "button", button: "move.left", down: false });
+    // Rows and columns: counts per line, and optional relative sizes.
+    s.app({
+      type: "layout", id: "p1",
+      layout: {
+        template: "rows", rows: [1, 3], heights: [3, 2],
+        controls: [
+          { id: "walk", type: "crawl" }, { id: "attack", type: "button" },
+          { id: "use", type: "button" }, { id: "map", type: "toggle" },
+        ],
+      },
+    });
+    s.send(1, { type: "button", button: "walk.back", down: true });
+    s.send(1, { type: "button", button: "walk.back", down: false });
+    s.send(1, { type: "control", control: "map", value: true });
+    s.app({
+      type: "layout", id: "p1",
+      layout: {
+        template: "columns", columns: [1, 2], widths: [100, 1],
+        controls: [{ id: "throttle", type: "slider", orientation: "vertical" }, { id: "fire", type: "button" }, { id: "boost", type: "button" }],
+      },
+    }); // widths under a tenth of the biggest are raised to it
+    s.send(1, { type: "control", control: "throttle", value: 0.4 });
+    s.app({ type: "layout", id: "p1", layout: { template: "rows", rows: [1, 2], controls: [{ id: "x", type: "button" }] } }); // counts don't add up: error
+    s.app({ type: "layout", id: "p1", layout: { template: "columns", controls: [{ id: "x", type: "button" }] } }); // no counts: error
+    s.app({
+      type: "layout", id: "p1",
+      layout: { template: "rows", rows: [1, 1], heights: [1], controls: [{ id: "x", type: "button" }, { id: "y", type: "button" }] },
+    }); // one height for two rows: error
     s.app({ type: "layout", id: "p1", layout: null }); // back to the default
     return s.end();
   },

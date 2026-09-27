@@ -247,6 +247,14 @@ func _check_value_types() -> void:
 		[PhoneWandLayout.button_for("walk", PhoneWandLayout.TURN_RIGHT), "walk.turn-right"],
 		[",".join(PhoneWandLayout.DPAD_DIRECTIONS), "up,down,left,right"],
 		[",".join(PhoneWandLayout.CRAWL_DIRECTIONS), "forward,back,step-left,step-right,turn-left,turn-right"],
+		[JSON.stringify(PhoneWandLayout.rows([1, 2], [PhoneWandLayout.crawl("walk"), PhoneWandLayout.button("a"), PhoneWandLayout.label("b")], [3, 2])),
+			'{"controls":[{"id":"walk","type":"crawl"},{"id":"a","type":"button"},{"id":"b","text":"","type":"label"}],"heights":[3,2],"rows":[1,2],"template":"rows"}'],
+		[JSON.stringify(PhoneWandLayout.rows([2], [PhoneWandLayout.button("a"), PhoneWandLayout.button("b")])),
+			'{"controls":[{"id":"a","type":"button"},{"id":"b","type":"button"}],"rows":[2],"template":"rows"}'],
+		[JSON.stringify(PhoneWandLayout.columns([1, 2], [PhoneWandLayout.dpad("move"), PhoneWandLayout.button("a"), PhoneWandLayout.button("b")], [1, 2.5])),
+			'{"columns":[1,2],"controls":[{"id":"move","type":"dpad"},{"id":"a","type":"button"},{"id":"b","type":"button"}],"template":"columns","widths":[1,2.5]}'],
+		[JSON.stringify(PhoneWandLayout.columns([1], [PhoneWandLayout.button("a")])),
+			'{"columns":[1],"controls":[{"id":"a","type":"button"}],"template":"columns"}'],
 	]
 	for i in checks.size():
 		if checks[i][0] != checks[i][1]:
@@ -257,9 +265,15 @@ func _check_value_types() -> void:
 	client.handle_message(JSON.stringify({"type": "player", "player": player}))
 	if p.template != "primary-secondary" or not p.controls.is_empty():
 		_fail("value types: a player message did not replace the layout and controls")
+	# A rows layout comes back from the relay with its counts and heights.
+	player["layout"] = {"template": "rows", "rows": [1, 3], "heights": [3, 2], "controls": [
+		PhoneWandLayout.crawl("walk"), PhoneWandLayout.button("a"), PhoneWandLayout.button("b"), PhoneWandLayout.button("c")]}
+	client.handle_message(JSON.stringify({"type": "player", "player": player}))
+	if p.template != "rows" or str(p.layout.get("rows")) != str([1.0, 3.0]) or str(p.layout.get("heights")) != str([3.0, 2.0]):
+		_fail("value types: a player message lost a rows layout's rows or heights: %s" % str(p.layout))
 	client.free()
 	var verdict := "ok" if _failures == before else "FAILED"
-	print("  control value types: %d checks, %s" % [checks.size() + 1, verdict])
+	print("  control value types: %d checks, %s" % [checks.size() + 2, verdict])
 
 
 # ---------------------------------------------------------------- gestures
