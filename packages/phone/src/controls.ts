@@ -179,12 +179,12 @@ export function renderLayout(
         track.append(fill, knob);
         box.append(el("span", "lbl", c.label ?? c.id), track);
         let value = typeof values[c.id] === "number" ? (values[c.id] as number) : 0;
-        // The knob travels inside the track, INSET from each end. The fill is a bar as thick as the
-        // knob, from the start to the knob's far edge: hidden under the knob at 0, the whole track at 1.
+        // The knob travels inside the track, INSET from each end. The fill runs from the start to just
+        // past the knob, so the knob always sits in its rounded end: a pocket at 0, the whole track at 1.
         const show = () => {
           const travel = `${value.toFixed(4)} * (100% - ${KNOB + 2 * INSET}px)`;
           const at = `calc(${INSET}px + ${travel})`;
-          const reach = `calc(${KNOB}px + ${travel})`;
+          const reach = `calc(${KNOB + 2 * INSET}px + ${travel})`;
           if (vertical) {
             fill.style.height = reach;
             knob.style.bottom = at;
