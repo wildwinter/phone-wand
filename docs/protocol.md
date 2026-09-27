@@ -240,8 +240,8 @@ Sets this app connection's options. Every field is optional.
 
 `gestures` sets this app's gesture sensitivity, or `false` for no `gesture` messages: `threshold`
 is the acceleration in m/s² that starts a movement (lower is more sensitive), `minSpeed` the peak
-speed in m/s a movement must reach, `flickRate` the turning speed in degrees per second that makes
-a flick, and `twistRate` the rolling speed that makes a twist.
+speed in m/s a movement must reach, `flickRate` the turning speed in degrees per second a flick must
+reach, and `twistRate` the rolling speed a twist must reach.
 
 ### `style`
 

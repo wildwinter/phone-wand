@@ -9,9 +9,22 @@ the protocol.
 
 ### Fixed
 
-- 0.6.0 hardly ever reported push, pull, left, right, up or down: it threw away any movement made
-  while the wrist turned faster than 150 degrees per second, which most real movements do. Now a
-  movement is dropped only if a flick or twist actually happened at the same time.
+- Gestures rebuilt and tested against a real, labelled session recorded on an iPhone, now part of
+  the relay's tests: five each of every movement and flick, eleven twists and 30 seconds of aiming
+  all come out right, with nothing while aiming.
+  - 0.6.0 hardly ever reported push, pull, left, right, up or down: it threw away any movement made
+    while the wrist turned faster than 150 degrees per second, which most real movements do, and
+    ignored movements that took longer than 600 ms (real ones take up to about 1.2 s). Now a
+    movement is dropped only if a flick or twist actually happened at the same time.
+  - Movements with the wrist turning briefly fast along the way no longer come out as flicks, and
+    moving between calibration corners no longer gives stray flicks: a flick or twist must now turn
+    at least 50 degrees (60 for a twist), fast on average, not just in a brief spike.
+  - Bringing the phone back after a flick or twist no longer counts as a flick or twist the other way.
+  - Turning speeds are worked out from the phone's own timestamps, not from when poses reach the
+    relay, which often arrive in bunches and made turning look far faster than it was.
+- After the relay restarted, the phone kept its "ready" screen while the relay (and the game)
+  wanted the player to aim first. The phone now shows the aiming step whenever the relay says the
+  player hasn't aimed yet.
 
 ## [0.6.0] - 2026-09-26
 

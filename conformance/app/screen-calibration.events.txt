@@ -46,7 +46,6 @@ calibrating p1 cancelled
 pose p1 seq=33 screen=yes
 pose p1 seq=34 screen=yes
 pose p1 seq=35 screen=yes
-gesture p1 flick-left buttons=-
 pose p1 seq=36 screen=yes
 pose p1 seq=37 screen=yes
 pose p1 seq=38 screen=yes

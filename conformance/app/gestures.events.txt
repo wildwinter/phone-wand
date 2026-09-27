@@ -312,9 +312,9 @@ pose p1 seq=298 screen=yes
 pose p1 seq=299 screen=yes
 pose p1 seq=300 screen=yes
 pose p1 seq=301 screen=yes
-gesture p1 twist-right buttons=-
 pose p1 seq=302 screen=yes
 pose p1 seq=303 screen=yes
+gesture p1 twist-right buttons=-
 pose p1 seq=304 screen=yes
 pose p1 seq=305 screen=yes
 pose p1 seq=306 screen=yes
@@ -415,11 +415,11 @@ pose p1 seq=400 screen=yes
 pose p1 seq=401 screen=yes
 pose p1 seq=402 screen=yes
 pose p1 seq=403 screen=yes
-gesture p1 flick-up buttons=-
 pose p1 seq=404 screen=yes
 pose p1 seq=405 screen=yes
 pose p1 seq=406 screen=yes
 pose p1 seq=407 screen=yes
+gesture p1 flick-up buttons=-
 pose p1 seq=408 screen=yes
 pose p1 seq=409 screen=yes
 pose p1 seq=410 screen=yes
@@ -519,10 +519,10 @@ pose p1 seq=503 screen=yes
 pose p1 seq=504 screen=yes
 pose p1 seq=505 screen=yes
 pose p1 seq=506 screen=yes
-gesture p1 flick-right buttons=-
 pose p1 seq=507 screen=yes
 pose p1 seq=508 screen=yes
 pose p1 seq=509 screen=yes
+gesture p1 flick-right buttons=-
 pose p1 seq=510 screen=yes
 pose p1 seq=511 screen=yes
 pose p1 seq=512 screen=yes

@@ -219,6 +219,10 @@ function onMessage(msg: RelayToPhone): void {
     case "welcome":
       welcomed = true;
       myCalibration = msg.calibration;
+      // The relay decides whether this player has aimed yet. After a relay restart the phone is a new,
+      // uncalibrated player there, so it must say so too, not carry on as if nothing happened.
+      if (started && myCalibration === "none" && !calibStep) showSetup();
+      if (myCalibration !== "none") hideSetup();
       save({ token: msg.token });
       applyStyle(msg.colour, msg.label);
       $("slot").textContent = String(msg.slot + 1);

@@ -29,6 +29,12 @@ This is handy for reproducing a bug, testing an app against a real play session,
 smoothing settings on identical movement. Recordings are plain JSON lines: each has a time `t` in
 milliseconds and either a phone message (`msg`), a connection opening (`open`) or closing (`close`).
 
+Recordings are also how gestures are tuned. `packages/relay/test/fixtures/gestures-iphone.jsonl.gz`
+is a real iPhone session in which each group of gestures was marked by pressing Secondary first;
+`packages/relay/test/recorded-gestures.test.ts` replays it and checks every group gives exactly the
+gestures that were made. To report a gesture problem, record a session the same way (press
+Secondary, make one kind of gesture five times, repeat) and say what each group was.
+
 ## The conformance suite
 
 `conformance/` holds scripted sessions, the exact messages the relay must send for them, and the

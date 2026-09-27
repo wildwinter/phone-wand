@@ -446,8 +446,11 @@ export class Session {
       if (app.gestures && !p.paused) {
         let g = p.detectors.get(app);
         if (!g) p.detectors.set(app, (g = new GestureDetector(app.gestures)));
-        for (const found of g.update(accel, calibrated, t)) {
-          app.link.send({ type: "gesture", id: p.id, ...found, buttons: this.heldAt(p, found.t) });
+        // Timed by the phone's own clock: poses often arrive in bunches, and turning speeds worked out
+        // from arrival times would be wildly wrong. Gesture times go back to the relay's clock.
+        for (const found of g.update(accel, calibrated, stamp)) {
+          const at = round(found.t + (t - stamp), 1);
+          app.link.send({ type: "gesture", id: p.id, ...found, t: at, buttons: this.heldAt(p, at) });
         }
       }
     }

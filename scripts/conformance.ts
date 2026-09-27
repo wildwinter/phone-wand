@@ -274,16 +274,16 @@ const SESSIONS: Record<string, () => Line[]> = {
     s.motion(1, 1200, (t) => ({ angles: [0, 0, 80 * (1 - t / 1.2)], a: [0, 0, 0] })); // back, slowly
     // A wrist flick upward (beta is the top edge tipping up): a flick, not a twist or a movement.
     const ease = (u: number) => (1 - Math.cos(Math.PI * Math.min(1, Math.max(0, u)))) / 2;
-    s.motion(1, 500, (t) => ({ angles: [0, 45 * ease(t / 0.15), 0], a: [0, 0, 0] }));
-    s.motion(1, 1200, (t) => ({ angles: [0, 45 * (1 - t / 1.2), 0], a: [0, 0, 0] })); // back, slowly
+    s.motion(1, 500, (t) => ({ angles: [0, 70 * ease(t / 0.2), 0], a: [0, 0, 0] }));
+    s.motion(1, 1200, (t) => ({ angles: [0, 70 * (1 - t / 1.2), 0], a: [0, 0, 0] })); // back, slowly
     // A fast turn right (alpha turns left, so it goes negative), with the swing around the wrist
     // picked up as strong sideways motion: a flick-right and nothing else.
     s.motion(1, 500, (t) => {
-      const u = t / 0.18;
+      const u = t / 0.2;
       const swing = u <= 1 ? 30 * Math.sin(2 * Math.PI * u) : 0;
-      return { angles: [-60 * ease(u), 0, 0], a: [swing, 0, 0] };
+      return { angles: [-70 * ease(u), 0, 0], a: [swing, 0, 0] };
     });
-    s.motion(1, 1500, (t) => ({ angles: [-60 * (1 - t / 1.5), 0, 0], a: [0, 0, 0] })); // back, slowly
+    s.motion(1, 1500, (t) => ({ angles: [-70 * (1 - t / 1.5), 0, 0], a: [0, 0, 0] })); // back, slowly
     s.motion(1, 1200, (t) => ({ angles: [0, 0, 0], a: [0, 3 * Math.sin(Math.PI * t), 0] })); // slow: nothing
     return s.end();
   },

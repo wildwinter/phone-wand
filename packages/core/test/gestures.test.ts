@@ -103,21 +103,34 @@ describe("movements", () => {
 
 describe("flicks and twists", () => {
   test("a fast turn upward is flick-up, and only that", () => {
-    const g = run(1, rotate([0, 0, 0], [0, 45, 0], 150));
+    const g = run(1, rotate([0, 0, 0], [0, 70, 0], 200));
     expect(g.map((x) => x.gesture)).toEqual(["flick-up"]);
-    expect(g[0].angle).toBeGreaterThan(30);
+    expect(g[0].angle).toBeGreaterThan(60);
   });
 
   test("flicks each way", () => {
-    expect(run(1, rotate([0, 0, 0], [0, -45, 0], 150)).map((x) => x.gesture)).toEqual(["flick-down"]);
-    expect(run(1, rotate([0, 0, 0], [45, 0, 0], 150)).map((x) => x.gesture)).toEqual(["flick-right"]);
-    expect(run(1, rotate([0, 0, 0], [-45, 0, 0], 150)).map((x) => x.gesture)).toEqual(["flick-left"]);
+    expect(run(1, rotate([0, 0, 0], [0, -70, 0], 200)).map((x) => x.gesture)).toEqual(["flick-down"]);
+    expect(run(1, rotate([0, 0, 0], [70, 0, 0], 200)).map((x) => x.gesture)).toEqual(["flick-right"]);
+    expect(run(1, rotate([0, 0, 0], [-70, 0, 0], 200)).map((x) => x.gesture)).toEqual(["flick-left"]);
+  });
+
+  test("bringing the phone back after a flick is not a flick the other way", () => {
+    // A flick left, a short pause, then a slower turn back to where it started.
+    const out = rotate([0, 0, 0], [-100, 0, 0], 220);
+    const back = rotate([-100, 0, 0], [0, 0, 0], 500, 0.6);
+    expect(run(2, (t) => (t < 0.6 ? out(t) : back(t))).map((x) => x.gesture)).toEqual(["flick-left"]);
+  });
+
+  test("a movement's wrist wobble is not a flick", () => {
+    // Moving sideways, the wrist turned 45 degrees and back over most of a second: far enough, but
+    // not fast enough on average.
+    expect(run(2, (t) => ({ q: orient(45 * Math.sin(Math.PI * Math.min(1, Math.max(0, (t - 0.2) / 0.8))), 0) }))).toEqual([]);
   });
 
   test("a fast turn that also swings the phone gives the flick, not a movement", () => {
     // Turning right fast about the wrist: the phone, 15 cm out, is flung sideways and the motion
     // sensor reads that as a strong movement right, then left as it stops.
-    const turn = rotate([0, 0, 0], [60, 0, 0], 180);
+    const turn = rotate([0, 0, 0], [70, 0, 0], 200);
     const g = run(1, (t) => {
       const u = (t - 0.2) / 0.18;
       const swing = u >= 0 && u <= 1 ? 30 * Math.sin(2 * Math.PI * u) : 0;
@@ -127,7 +140,7 @@ describe("flicks and twists", () => {
   });
 
   test("a flick up with some roll in it is still a flick, not a twist", () => {
-    expect(run(1, rotate([0, 0, 0], [0, 45, 12], 150)).map((x) => x.gesture)).toEqual(["flick-up"]);
+    expect(run(1, rotate([0, 0, 0], [0, 70, 20], 200)).map((x) => x.gesture)).toEqual(["flick-up"]);
   });
 
   test("a quick wrist roll is a twist, each way", () => {

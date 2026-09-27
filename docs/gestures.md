@@ -18,12 +18,14 @@ And **fast rotations**, the way a flick of the wrist whips the cursor across:
 
 | Gesture | The rotation |
 |---|---|
-| `flick-up`, `flick-down`, `flick-left`, `flick-right` | The pointing direction turned quickly that way |
-| `twist-left`, `twist-right` | A quick roll of the wrist (right is clockwise, seen from behind) |
+| `flick-up`, `flick-down`, `flick-left`, `flick-right` | The pointing direction turned quickly that way, at least 50 degrees |
+| `twist-left`, `twist-right` | A quick roll of the wrist, at least 60 degrees (right is clockwise, seen from behind) |
 
 A fast rotation also swings the phone around your wrist, which its motion sensor reads as movement.
 Phone Wand knows that, so a flick gives a flick and not a push or a sideways movement as well: one
-action, one gesture.
+action, one gesture. Bringing the phone back afterwards doesn't count either, so a flick left and
+back is one `flick-left`. (That also means a flick straight back the other way within about half a
+second is taken as the return, not a second flick.)
 
 Directions follow the player's calibration: "push" is always towards the screen, however they
 hold the phone.
@@ -59,9 +61,13 @@ A phone measures how fast it's speeding up or slowing down, not where it is. So 
 **deliberate, quick movements**. It can't tell you how far the phone moved, and it ignores slow
 movements, so walking about or gently repositioning doesn't trigger anything.
 
-Turning the phone at an ordinary pace moves the cursor; it isn't a gesture. Turning it fast is a
-flick. If your players aim fast and you don't want flicks, raise `flickRate` (or ignore the flick
-events).
+Turning the phone at an ordinary pace moves the cursor; it isn't a gesture. Turning it fast and
+far is a flick. The wrist turns a little during a push or a sideways move too, sometimes in a quick
+spike, so a flick has to turn far enough and fast enough on average; a movement's wobble doesn't.
+If your players aim fast and you don't want flicks, raise `flickRate` (or ignore the flick events).
+
+Phone Wand's gesture recognition is tested against a real session recorded on an iPhone: five of
+each movement and flick, a run of twists, and half a minute of aiming, which must give nothing.
 
 ## Sensitivity
 
@@ -76,8 +82,8 @@ wand.configure({ gestures: false });            // no gesture events at all
 |---|---|---|
 | `threshold` | 7 | Acceleration in m/s² that starts a movement. Lower is more sensitive. |
 | `minSpeed` | 0.35 | Peak speed in m/s a movement must reach. |
-| `flickRate` | 250 | Turning speed in degrees per second that makes a flick. |
-| `twistRate` | 360 | Rolling speed in degrees per second that makes a twist. |
+| `flickRate` | 250 | Turning speed in degrees per second a flick must reach. |
+| `twistRate` | 360 | Rolling speed in degrees per second a twist must reach. |
 
 The dashboard's **Gestures** section has a sensitivity slider, and shows every gesture on the test
 screen as it happens: an arrow for movements, its name, and any held buttons. Try it with a phone
