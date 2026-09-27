@@ -151,13 +151,13 @@ const LAYOUTS: Record<string, Layout | null> = {
       { id: "map", type: "toggle", label: "Map" },
     ],
   },
-  navigation: {
+  retro: {
     template: "grid",
     controls: [
-      { id: "move", type: "dpad", label: "Move" },
-      { id: "walk", type: "crawl", label: "Walk" },
+      { id: "move", type: "dpad" },
       { id: "a", type: "button", label: "A" },
       { id: "b", type: "button", label: "B" },
+      { id: "start", type: "button", label: "Start" },
     ],
   },
 };

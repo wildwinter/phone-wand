@@ -29,11 +29,12 @@
 {"type":"player","player":{"id":"p2","slot":1,"name":"Jo","colour":"#2ec4ff","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"primary","type":"button","label":"Primary"},{"id":"secondary","type":"button","label":"Secondary"}]},"controls":{}}}
 {"type":"button","id":"p2","button":"secondary","down":true}
 {"type":"button","id":"p2","button":"secondary","down":false}
-{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-row","controls":[{"id":"walk","label":"Walk","type":"crawl"},{"id":"move","type":"dpad"},{"id":"use","type":"button"}]},"controls":{}}}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-row","controls":[{"id":"walk","label":"Walk","type":"crawl"},{"id":"use","type":"button"}]},"controls":{}}}
 {"type":"button","id":"p1","button":"walk.forward","down":true}
 {"type":"button","id":"p1","button":"walk.forward","down":false}
 {"type":"button","id":"p1","button":"walk.turn-left","down":true}
 {"type":"button","id":"p1","button":"walk.turn-left","down":false}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"primary-secondary","controls":[{"id":"move","type":"dpad"},{"id":"a","label":"A","type":"button"}]},"controls":{}}}
 {"type":"button","id":"p1","button":"move.left","down":true}
 {"type":"error","message":"set: p1 has no control move that takes true"}
 {"type":"error","message":"layout: control id move.up clashes with a direction of dpad move"}

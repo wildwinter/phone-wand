@@ -321,12 +321,17 @@ namespace StoryTools.PhoneWand.TestHost
             Expect("round trip", grid.ToJson(), back.ToJson());
             Expect("Find", "power", grid.Find("power") != null ? grid.Find("power").Id : null);
             // D-pad and crawl pad: no value, and their directions are buttons "<id>.<direction>".
-            var pads = Layout.PrimarySecondary(Control.Crawl("walk", "Walk").WithColour("#3366ff"), Control.Dpad("move"));
-            Expect("Dpad and Crawl", "{\"template\":\"primary-secondary\",\"controls\":[" +
+            var crawl = Layout.PrimarySecondary(Control.Crawl("walk", "Walk").WithColour("#3366ff"), Control.Button("use", "Use"));
+            Expect("Crawl", "{\"template\":\"primary-secondary\",\"controls\":[" +
                 "{\"id\":\"walk\",\"type\":\"crawl\",\"label\":\"Walk\",\"colour\":\"#3366ff\"}," +
-                "{\"id\":\"move\",\"type\":\"dpad\"}]}", pads.ToJson());
-            Expect("Dpad and Crawl round trip", pads.ToJson(),
-                Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(pads.ToJson())).ToJson());
+                "{\"id\":\"use\",\"type\":\"button\",\"label\":\"Use\"}]}", crawl.ToJson());
+            Expect("Crawl round trip", crawl.ToJson(),
+                Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(crawl.ToJson())).ToJson());
+            var dpad = Layout.Pair(Control.Dpad("move"), Control.Button("a", "A"));
+            Expect("Dpad", "{\"template\":\"pair\",\"controls\":[" +
+                "{\"id\":\"move\",\"type\":\"dpad\"},{\"id\":\"a\",\"type\":\"button\",\"label\":\"A\"}]}", dpad.ToJson());
+            Expect("Dpad round trip", dpad.ToJson(),
+                Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(dpad.ToJson())).ToJson());
             Expect("ButtonFor dpad", "move.up", Control.ButtonFor("move", DpadDirection.Up));
             Expect("ButtonFor crawl", "walk.turn-left", Control.ButtonFor("walk", CrawlDirection.TurnLeft));
             Expect("DpadDirection.All", "up,down,left,right", string.Join(",", DpadDirection.All));

@@ -787,15 +787,20 @@ bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
 
 	// Dpad and crawl controls are kept; their directions are ordinary buttons.
 	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"primary-row\",\"controls\":[")
-		TEXT("{\"id\":\"walk\",\"label\":\"Walk\",\"type\":\"crawl\"},{\"id\":\"move\",\"type\":\"dpad\"}]},\"controls\":{}}}"));
+		TEXT("{\"id\":\"walk\",\"label\":\"Walk\",\"type\":\"crawl\"},{\"id\":\"use\",\"type\":\"button\"}]},\"controls\":{}}}"));
 	Wand->GetPlayer(TEXT("p1"), P);
-	TestTrue(TEXT("crawl and dpad kept"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Type == EPhoneWandControlType::Crawl
-		&& P.Layout.Controls[0].Label == TEXT("Walk") && P.Layout.Controls[1].Type == EPhoneWandControlType::Dpad);
-	TestEqual(TEXT("direction controls have no values"), P.Controls.Num(), 0);
+	TestTrue(TEXT("crawl kept"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Type == EPhoneWandControlType::Crawl
+		&& P.Layout.Controls[0].Label == TEXT("Walk") && P.Layout.Controls[1].Type == EPhoneWandControlType::Button);
+	TestEqual(TEXT("crawl has no value"), P.Controls.Num(), 0);
 	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.turn-left\",\"down\":true}"));
 	TestTrue(TEXT("crawl key held"), Wand->IsButtonHeld(TEXT("p1"), UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::TurnLeft)));
 	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.turn-left\",\"down\":false}"));
 	TestFalse(TEXT("crawl key released"), Wand->IsButtonHeld(TEXT("p1"), TEXT("walk.turn-left")));
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"pair\",\"controls\":[")
+		TEXT("{\"id\":\"move\",\"type\":\"dpad\"},{\"id\":\"a\",\"type\":\"button\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestTrue(TEXT("dpad kept"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Type == EPhoneWandControlType::Dpad);
+	TestEqual(TEXT("dpad has no value"), P.Controls.Num(), 0);
 
 	// error: a warning when nothing is bound, the delegate otherwise.
 	AddExpectedMessagePlain(TEXT("layout: template grid holds at most 6 controls"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);
