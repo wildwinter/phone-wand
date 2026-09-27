@@ -20,7 +20,8 @@ the protocol.
 
 ### Fixed
 
-- A slider's knob hung half off the end of its track at 0 and 1; it now stays inside.
+- A slider's knob hung half off the end of its track at 0 and 1. Sliders are redrawn: the knob
+  stays inside a rounded track, and the fill is a bar as thick as the knob, so both ends look alike.
 
 ## [0.7.0] - 2026-09-27
 

@@ -21,8 +21,9 @@ export interface RenderedLayout {
 
 const vibrate = (ms: number) => navigator.vibrate?.(ms);
 
-/** A slider knob's size in px; matches .slider .knob in style.css. */
+/** A slider knob's size, and its gap from the track's edges, in px; match .slider in style.css. */
 const KNOB = 36;
+const INSET = 8;
 
 // Icons for the d-pad and crawl pad, drawn pointing up in a 24 by 24 box. Text arrows would do, but
 // some phones draw them as colour emoji.
@@ -178,10 +179,12 @@ export function renderLayout(
         track.append(fill, knob);
         box.append(el("span", "lbl", c.label ?? c.id), track);
         let value = typeof values[c.id] === "number" ? (values[c.id] as number) : 0;
-        // The knob travels between the track's ends, never past them; the fill reaches its middle.
+        // The knob travels inside the track, INSET from each end. The fill is a bar as thick as the
+        // knob, from the start to the knob's far edge: hidden under the knob at 0, the whole track at 1.
         const show = () => {
-          const at = `calc(${value.toFixed(4)} * (100% - ${KNOB}px))`;
-          const reach = `calc(${value.toFixed(4)} * (100% - ${KNOB}px) + ${KNOB / 2}px)`;
+          const travel = `${value.toFixed(4)} * (100% - ${KNOB + 2 * INSET}px)`;
+          const at = `calc(${INSET}px + ${travel})`;
+          const reach = `calc(${KNOB}px + ${travel})`;
           if (vertical) {
             fill.style.height = reach;
             knob.style.bottom = at;
@@ -203,9 +206,10 @@ export function renderLayout(
         };
         const fromPointer = (e: PointerEvent) => {
           const r = track.getBoundingClientRect();
+          const ends = INSET + KNOB / 2;
           const v = vertical
-            ? (r.bottom - KNOB / 2 - e.clientY) / (r.height - KNOB)
-            : (e.clientX - r.left - KNOB / 2) / (r.width - KNOB);
+            ? (r.bottom - ends - e.clientY) / (r.height - 2 * ends)
+            : (e.clientX - r.left - ends) / (r.width - 2 * ends);
           value = Math.min(1, Math.max(0, v));
           show();
           sendValue(false);
