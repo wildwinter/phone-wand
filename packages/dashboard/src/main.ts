@@ -97,8 +97,17 @@ function renderPlayers(): void {
       s ? `${s.rate} Hz` : "",
       s ? `${Math.round(s.rtt)} ms round trip` : "",
       s && s.dropped ? `${s.dropped} dropped` : "",
+      s?.compass ? compassText(s.compass) : "",
     ].filter(Boolean).join(" · ");
   });
+}
+
+/** What the phone's compass is doing about drift, in a few words. */
+function compassText(c: { state: string; correction: number }): string {
+  const turned = c.correction ? `, ${c.correction > 0 ? "+" : ""}${c.correction.toFixed(1)}°` : "";
+  if (c.state === "helping") return `compass correcting drift${turned}`;
+  if (c.state === "ignored") return `compass unreliable, not used${turned}`;
+  return "no compass";
 }
 
 $("stop").addEventListener("click", async () => {

@@ -118,7 +118,14 @@ export interface GestureSensitivity {
 
 export interface ButtonEvent { id: string; button: ButtonName; down: boolean }
 export interface ControlEvent { id: string; control: string; value: ControlValue }
-export interface Stats { id: string; rtt: number; rate: number; dropped: number }
+export interface Stats {
+  id: string; rtt: number; rate: number; dropped: number;
+  /**
+   * The phone's compass: "helping" (keeping the heading from drifting), "ignored" (present but not
+   * trustworthy just now) or "none"; and how many degrees it has turned the heading so far.
+   */
+  compass?: { state: "helping" | "ignored" | "none"; correction: number };
+}
 export interface Smoothing { minCutoff: number; beta: number; dCutoff: number }
 
 export interface Hello {

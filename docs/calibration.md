@@ -38,6 +38,29 @@ Use Recentre whenever the cursor has drifted: phone gyroscopes drift slowly side
 course of minutes. Apps can ask players to recentre with the `calibrate` message in `ray` mode,
 which shows a prompt on the phone.
 
+## Drift
+
+Phones point using their gyroscope, which is smooth and quick but slowly drifts sideways. Where a
+phone has a compass that seems trustworthy, Phone Wand uses it, silently, to keep the heading from
+drifting: the gyroscope still moves the cursor, and the compass is only a slow reference. When the
+gap between the two creeps, the heading is turned back a fraction of a degree at a time, too slowly
+to see.
+
+The compass is used only while it looks right, and otherwise ignored: nobody is ever asked to wave
+the phone in a figure of eight.
+
+- On iPhone, only while the phone reports its compass as calibrated and reasonably accurate.
+- Only while its readings are steady, so passing a speaker, a TV or a steel beam is ignored.
+- Not while the phone points steeply up or down.
+- Corrections follow the compass at no more than 0.3 degrees a second, so even a disturbance that
+  gets through only nudges the cursor.
+
+Without a usable compass, phones behave exactly as before, and Recentre is the cure for drift. It
+still works with the compass too. Up and down doesn't drift: gravity keeps it right.
+
+The dashboard shows each player's compass: correcting drift (and by how much), unreliable, or
+none.
+
 ## Screen calibration
 
 For a single monitor or projection, the two-corner calibration makes the cursor land where the

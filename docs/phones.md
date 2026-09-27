@@ -117,6 +117,6 @@ cursor; apps can read it separately.
 | "Scan the QR code again" | The join key changed, or the link was typed by hand. Scan the code on the screen. |
 | "The game is full" | All player slots are taken. Start the relay with `--max-players`. |
 | "No motion data" | Motion access was refused, or the browser doesn't support it. On iPhone, see above. Private or in-app browsers may block it; open the link in Safari or Chrome. |
-| The cursor drifts sideways over time | That's gyroscope drift. Point at the middle of the screen and press **Recentre** in the phone's top bar. |
+| The cursor drifts sideways over time | That's gyroscope drift. Point at the middle of the screen and press **Recentre** in the phone's top bar. Phones with a working compass correct most drift on their own; the dashboard shows whether a phone's compass is helping. |
 | The cursor is offset from where you point | Calibrate the screen from where you're standing. See [Calibration](calibration.md). |
 | The cursor stutters | Look at the dashboard's rate and round-trip time. Busy Wi-Fi causes lag spikes; a dedicated router fixes most of them. |

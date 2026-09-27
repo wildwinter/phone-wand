@@ -5,7 +5,7 @@
 import {
   type AppToRelay, type ButtonName, type CalibrationKind, type PhoneToRelay, type PlayerInfo,
   type PlayerState, type Quat, type RelayToApp, type RelayToPhone, type SensorKind,
-  type SmoothingOptions, type Transport, type Layout, type ControlValue,
+  type SmoothingOptions, type Transport, type Layout, type ControlValue, type CompassStatus, type StatsMessage,
   DEFAULT_LAYOUT, DEFAULT_SMOOTHING, PointerCalibration, PoseSmoother, PROTOCOL_VERSION, SLOT_COLOURS,
   controlValue, derivePose, layoutButtons, layoutValues, validateLayout,
   DEFAULT_GESTURES, GestureDetector, type GestureOptions, qrotate, round,
@@ -75,6 +75,8 @@ class Player {
   detectors = new Map<App, GestureDetector>();
   /** When each button last went down and up, to tell which were held when a gesture began. */
   buttonTimes = new Map<string, { down: number; up: number | null }>();
+  /** What the phone last said about its compass (see CompassHelper), for the stats. */
+  compass: CompassStatus | null = null;
   // stats, reset every second
   poses = 0;
   dropped = 0;
@@ -354,6 +356,11 @@ export class Session {
         }
         break;
       }
+      case "compass": {
+        if (!["helping", "ignored", "none"].includes(msg.state) || typeof msg.correction !== "number" || !isFinite(msg.correction)) return;
+        p.compass = { state: msg.state, correction: Math.round(msg.correction * 10) / 10 };
+        break;
+      }
     }
   }
 
@@ -523,7 +530,9 @@ export class Session {
       p.pingSent.set(n, t);
       for (const k of p.pingSent.keys()) if (k < n - 5) p.pingSent.delete(k);
       p.link.send({ type: "ping", n });
-      this.broadcast({ type: "stats", id: p.id, rtt: Math.round(p.rtt * 10) / 10, rate: p.poses, dropped: p.dropped });
+      const stats: StatsMessage = { type: "stats", id: p.id, rtt: Math.round(p.rtt * 10) / 10, rate: p.poses, dropped: p.dropped };
+      if (p.compass) stats.compass = p.compass;
+      this.broadcast(stats);
       p.poses = 0;
       p.dropped = 0;
     }

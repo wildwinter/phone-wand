@@ -5,3 +5,4 @@ export * from "./pointer.js";
 export * from "./protocol.js";
 export * from "./layout.js";
 export * from "./gestures.js";
+export * from "./compass.js";

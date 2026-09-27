@@ -16,6 +16,8 @@ found on phones matters more than any new feature. Suggestions and reports are w
   with Safari over WebSocket on home Wi-Fi sent 60 updates a second with a 9 to 17 ms round trip
   (so roughly 5 to 9 ms one way). Still to measure: Android, busy event Wi-Fi, and the HTTP
   fallback, which no tested browser has needed so far.
+- **Compass drift correction:** tune on real phones (iPhone and Android): how steady readings must
+  be, and how fast corrections may follow.
 - **Long sessions:** battery use and heat on phones.
 - **Engines:** Unity WebGL builds, and Unreal on Windows.
 
@@ -33,10 +35,8 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 - **Direction only.** Phones know which way they point, not where they are. Screen calibration
   assumes players stay roughly where they calibrated. See [Calibration](calibration.md).
-- **Drift.** Gyroscopes drift slowly sideways; Recentre fixes it. Using the phone's compass to
-  remove drift was considered and left out: screens, speakers, buildings and magnetic phone cases
-  throw compasses off in ways a web page can't detect, and a cursor that slides on its own is worse
-  than slow drift that Recentre fixes.
+- **Drift.** Gyroscopes drift slowly sideways. Where a phone has a trustworthy compass, it quietly
+  keeps the heading on track; otherwise Recentre fixes it. See [Calibration](calibration.md#drift).
 - **Precision.** Good for targets the size of a button or a character, not for fine selection.
 - **Certificate warning.** Phones see a warning once unless the relay's certificate is installed or
   a real certificate is used. See [Phones and certificates](phones.md).

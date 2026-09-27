@@ -3,7 +3,7 @@
 
 import {
   type PhoneToRelay, type Quat, type RelayToPhone, type SensorKind,
-  DEFAULT_LAYOUT, eulerToQuat, gravityAgreement, layoutValues,
+  CompassHelper, DEFAULT_LAYOUT, eulerToQuat, gravityAgreement, headingOf, layoutValues,
 } from "@phone-wand/core";
 import { type RenderedLayout, renderLayout } from "./controls.js";
 
@@ -326,7 +326,14 @@ let lastSample = 0;
 let lastAccel: [number, number, number] | null = null;
 let lastAccelAt = 0;
 
-function onQuat(q: Quat): void {
+// The compass, where the phone has one that seems trustworthy, silently keeps the gyroscope's
+// heading from drifting sideways (see CompassHelper). Nothing is asked of the player.
+const compass = new CompassHelper();
+let compassSent = "";
+let compassSentAt = 0;
+
+function onQuat(raw: Quat): void {
+  const q = compass.correct(raw, performance.now());
   lastQ = q;
   lastSample = performance.now();
   if (!welcomed || document.hidden) return;
@@ -359,6 +366,26 @@ function startMotion(): void {
     lastAccel = [r(a.x), r(a.y), r(a.z)];
     lastAccelAt = performance.now();
   });
+}
+
+/**
+ * Android: an orientation fused with the magnetometer gives a compass heading. If the phone has none,
+ * or refuses, carry on without; nothing is shown.
+ */
+function startAbsoluteSensor(): void {
+  const AOS = (window as any).AbsoluteOrientationSensor;
+  if (!AOS) return;
+  try {
+    const sensor = new AOS({ frequency: 30, referenceFrame: "device" });
+    sensor.onreading = () => {
+      const q = sensor.quaternion as number[] | null;
+      if (q) compass.reading(headingOf([q[0], q[1], q[2], q[3]]).heading, null, performance.now());
+    };
+    sensor.onerror = () => sensor.stop();
+    sensor.start();
+  } catch {
+    // no compass: fine
+  }
 }
 
 async function startSensor(): Promise<SensorKind> {
@@ -396,6 +423,7 @@ async function startSensor(): Promise<SensorKind> {
         if (q) onQuat([q[0], q[1], q[2], q[3]]);
       };
       sensor.onerror = () => showMessage("Motion stopped", "The phone stopped sending motion data. Reload to try again.", false);
+      startAbsoluteSensor();
       return "relative-orientation-sensor";
     } catch {
       // fall through to deviceorientation
@@ -414,7 +442,18 @@ async function startSensor(): Promise<SensorKind> {
   });
   window.addEventListener("deviceorientation", (e) => {
     if (e.alpha === null || e.beta === null || e.gamma === null) return;
+    // iPhones add a compass heading, with its accuracy (negative until the compass is calibrated).
+    const heading = (e as any).webkitCompassHeading;
+    if (typeof heading === "number" && isFinite(heading)) {
+      const accuracy = (e as any).webkitCompassAccuracy;
+      compass.reading(heading, typeof accuracy === "number" ? accuracy : null, performance.now());
+    }
     onQuat(eulerToQuat(e.alpha, e.beta, e.gamma));
+  });
+  // Other phones may give a compass-based orientation as a separate event.
+  window.addEventListener("deviceorientationabsolute" as any, (e: DeviceOrientationEvent) => {
+    if (e.alpha === null || e.beta === null || e.gamma === null) return;
+    compass.reading(headingOf(eulerToQuat(e.alpha, e.beta, e.gamma)).heading, null, performance.now());
   });
   return "deviceorientation";
 }
@@ -646,6 +685,18 @@ function onCalibration(msg: Extract<RelayToPhone, { type: "calibration" }>): voi
     $("calib-sub").textContent = "That didn't look like a screen. Start again: point the top of your phone at the top-left corner of the screen itself, and tap.";
   }
 }
+
+// Tell the relay what the compass is doing when that changes, and every few seconds anyway, so the
+// dashboard can show it.
+setInterval(() => {
+  if (!welcomed || !started) return;
+  const st = compass.status(performance.now());
+  const key = `${st.state} ${st.correction}`;
+  if (key === compassSent && performance.now() - compassSentAt < 5000) return;
+  compassSent = key;
+  compassSentAt = performance.now();
+  send({ type: "compass", state: st.state, correction: st.correction });
+}, 1000);
 
 // Stale-sensor watchdog: if the phone stops producing samples while visible, say so.
 setInterval(() => {

@@ -7,6 +7,15 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- Silent compass drift correction. Phone gyroscopes drift slowly sideways; where a phone has a
+  compass that seems trustworthy (calibrated, steady, and the phone not pointing steeply up or
+  down), the phone page uses it as a slow reference and turns the heading back, never faster than
+  0.3 degrees a second. Otherwise it's ignored: nobody is asked to wave their phone. Nothing changes
+  for apps; the dashboard shows each player's compass state and correction, and `stats` messages
+  carry it.
+
 ## [0.8.0] - 2026-09-27
 
 ### Added

@@ -223,6 +223,13 @@ Sent once a second for each connected player.
 `rtt` is the round trip from relay to phone and back, in milliseconds. `rate` is poses per second.
 `dropped` counts samples lost or arriving out of order in the last second.
 
+Once the phone has reported on its compass, stats also carry
+`"compass": { "state": "helping", "correction": 2.5 }`. `helping` means the compass is keeping the
+heading from drifting; `ignored`, that the phone has a compass but its readings aren't trustworthy
+just now; `none`, no compass. `correction` is how many degrees it has turned the heading so far,
+clockwise seen from above. See [Calibration](calibration.md#drift). For information only: poses
+already include the correction.
+
 ## App to relay
 
 All optional. Messages naming an `id` that does not exist are ignored.
@@ -363,6 +370,7 @@ Phone to relay:
 | `pause`, `resume` | The page was hidden or shown. |
 | `name` | `name` |
 | `pong` | `n`, `ts` |
+| `compass` | `state` (`helping`, `ignored` or `none`), `correction` (degrees). Sent when it changes, and every few seconds. |
 
 Relay to phone:
 

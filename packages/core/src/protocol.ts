@@ -1,6 +1,7 @@
 // Message types for the Phone Wand protocol, version 0. docs/protocol.md is the specification;
 // these types follow it.
 
+import type { CompassState, CompassStatus } from "./compass.js";
 import type { Quat, Vec3 } from "./math.js";
 import type { CalibrationKind } from "./pointer.js";
 import type { SmoothingOptions } from "./one-euro.js";
@@ -62,7 +63,11 @@ export interface ButtonMessage { type: "button"; id: string; button: ButtonName;
 export interface ControlMessage { type: "control"; id: string; control: string; value: ControlValue }
 export interface CalibratingMessage { type: "calibrating"; id: string; step: CornerStep | "cancelled" }
 export interface CalibratedMessage { type: "calibrated"; id: string; calibration: CalibrationKind }
-export interface StatsMessage { type: "stats"; id: string; rtt: number; rate: number; dropped: number }
+export interface StatsMessage {
+  type: "stats"; id: string; rtt: number; rate: number; dropped: number;
+  /** Whether the phone's compass is keeping its heading from drifting, once the phone has said. */
+  compass?: CompassStatus;
+}
 export interface GestureMessage {
   type: "gesture";
   id: string;
@@ -120,7 +125,8 @@ export type PhoneToRelay =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "name"; name: string }
-  | { type: "pong"; n: number; ts: number };
+  | { type: "pong"; n: number; ts: number }
+  | { type: "compass"; state: CompassState; correction: number };
 
 export type RelayToPhone =
   | { type: "welcome"; id: string; token: string; slot: number; name: string; colour: string; label: string; calibration: CalibrationKind }
