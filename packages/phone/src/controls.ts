@@ -21,7 +21,7 @@ export interface RenderedLayout {
 
 const vibrate = (ms: number) => navigator.vibrate?.(ms);
 
-/** A slider knob's size, and its gap from the track's edges, in px; match .slider in style.css. */
+/** A slider knob's length along the track, and its gap from the track's edges, in px; match .slider in style.css. */
 const KNOB = 36;
 const INSET = 8;
 

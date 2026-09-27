@@ -20,8 +20,9 @@ the protocol.
 
 ### Fixed
 
-- A slider's knob hung half off the end of its track at 0 and 1. Now the knob stays inside a
-  rounded track, always in the rounded end of the fill, so both ends look alike.
+- A slider's knob hung half off the end of its track at 0 and 1. Now the knob is a rounded bar
+  across the track, like a fader cap, and stays inside it, always in the rounded end of the fill,
+  so both ends look alike.
 
 ## [0.7.0] - 2026-09-27
 
