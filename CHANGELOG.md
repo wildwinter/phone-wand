@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-27
+
 ### Added
 
 - Two layout templates for dividing the phone your own way:
