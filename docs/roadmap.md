@@ -6,7 +6,8 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 ## Testing still to do
 
-- **Gesture tuning:** the sensitivity defaults are a first guess, to tune with phones in hand.
+- **Gesture tuning:** tuned on an iPhone from a recorded session, which is now part of the tests.
+  Still to check on Android phones and with other players' hands; flick-down needs a firm flick.
 - **Phones and browsers:** Android phones with Chrome. (Safari and Chrome on iPhone, and iPad,
   are tested.)
 - **Relay platforms:** the Windows relay and tray app, and the Linux relay, including starting the
@@ -19,7 +20,6 @@ found on phones matters more than any new feature. Suggestions and reports are w
 - **Engines:** Unity WebGL builds, and Unreal on Windows.
 
 ## Planned features
-
 
 - **OSC output.** The relay also sends pointers, buttons and players as
   [Open Sound Control](https://opensoundcontrol.stanford.edu/) messages, so tools such as
