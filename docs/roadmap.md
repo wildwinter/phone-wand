@@ -24,8 +24,6 @@ found on phones matters more than any new feature. Suggestions and reports are w
 - **OSC output.** The relay also sends pointers, buttons and players as
   [Open Sound Control](https://opensoundcontrol.stanford.edu/) messages, so tools such as
   TouchDesigner, Max, Pure Data and lighting desks can use phones with no code.
-- **Compass mode.** Optional headings from the phone's compass: no sideways drift, so no need to
-  recentre, at the cost of wobble near metal and electronics.
 - **Package registries.** The JavaScript client on npm, the Unity package on OpenUPM, and the Godot
   addon in the Asset Library. For now everything comes from GitHub Releases.
 - **A faster transport.** A compact binary format, or UDP, between the relay and apps, if lag
@@ -35,7 +33,10 @@ found on phones matters more than any new feature. Suggestions and reports are w
 
 - **Direction only.** Phones know which way they point, not where they are. Screen calibration
   assumes players stay roughly where they calibrated. See [Calibration](calibration.md).
-- **Drift.** Gyroscopes drift slowly sideways; Recentre fixes it.
+- **Drift.** Gyroscopes drift slowly sideways; Recentre fixes it. Using the phone's compass to
+  remove drift was considered and left out: screens, speakers, buildings and magnetic phone cases
+  throw compasses off in ways a web page can't detect, and a cursor that slides on its own is worse
+  than slow drift that Recentre fixes.
 - **Precision.** Good for targets the size of a button or a character, not for fine selection.
 - **Certificate warning.** Phones see a warning once unless the relay's certificate is installed or
   a real certificate is used. See [Phones and certificates](phones.md).
