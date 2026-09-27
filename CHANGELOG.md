@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-27
+
 ### Fixed
 
 - Gestures rebuilt and tested against a real, labelled session recorded on an iPhone, now part of
