@@ -1,7 +1,7 @@
 {
   "name": "phone-wand-monorepo",
   "private": true,
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Phones as shared pointing devices for a shared screen: relay, phone page, protocol and client libraries.",
   "license": "MIT",
   "author": "Ian Thomas (storytools.se)",

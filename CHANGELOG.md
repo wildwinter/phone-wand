@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-27
+
 ### Added
 
 - Two navigation controls for layouts, which fit in any block of any template:
