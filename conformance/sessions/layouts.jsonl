@@ -32,4 +32,16 @@
 {"t":199.8,"app":{"type":"layout","id":"p2","layout":null}}
 {"t":199.8,"link":2,"msg":{"type":"button","button":"secondary","down":true}}
 {"t":199.8,"link":2,"msg":{"type":"button","button":"secondary","down":false}}
+{"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"primary-row","controls":[{"id":"walk","type":"crawl","label":"Walk"},{"id":"move","type":"dpad"},{"id":"use","type":"button"}]}}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"walk.forward","down":true}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"walk.forward","down":false}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"walk.turn-left","down":true}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"walk.turn-left","down":false}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"walk.up","down":true}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"move.left","down":true}}
+{"t":199.8,"app":{"type":"set","id":"p1","control":"move","value":true}}
+{"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"pair","controls":[{"id":"move","type":"dpad"},{"id":"move.up","type":"button"}]}}}
+{"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"grid","controls":[{"id":"move","type":"dpad"}]}}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"move.left","down":false}}
+{"t":199.8,"app":{"type":"layout","id":"p1","layout":null}}
 {"t":199.8,"end":true}

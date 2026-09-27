@@ -320,6 +320,17 @@ namespace StoryTools.PhoneWand.TestHost
             var back = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(grid.ToJson()));
             Expect("round trip", grid.ToJson(), back.ToJson());
             Expect("Find", "power", grid.Find("power") != null ? grid.Find("power").Id : null);
+            // D-pad and crawl pad: no value, and their directions are buttons "<id>.<direction>".
+            var pads = Layout.PrimarySecondary(Control.Crawl("walk", "Walk").WithColour("#3366ff"), Control.Dpad("move"));
+            Expect("Dpad and Crawl", "{\"template\":\"primary-secondary\",\"controls\":[" +
+                "{\"id\":\"walk\",\"type\":\"crawl\",\"label\":\"Walk\",\"colour\":\"#3366ff\"}," +
+                "{\"id\":\"move\",\"type\":\"dpad\"}]}", pads.ToJson());
+            Expect("Dpad and Crawl round trip", pads.ToJson(),
+                Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(pads.ToJson())).ToJson());
+            Expect("ButtonFor dpad", "move.up", Control.ButtonFor("move", DpadDirection.Up));
+            Expect("ButtonFor crawl", "walk.turn-left", Control.ButtonFor("walk", CrawlDirection.TurnLeft));
+            Expect("DpadDirection.All", "up,down,left,right", string.Join(",", DpadDirection.All));
+            Expect("CrawlDirection.All", "forward,back,step-left,step-right,turn-left,turn-right", string.Join(",", CrawlDirection.All));
             Expect("Default", "{\"template\":\"primary-secondary\",\"controls\":[{\"id\":\"primary\",\"type\":\"button\",\"label\":\"Primary\"}," +
                 "{\"id\":\"secondary\",\"type\":\"button\",\"label\":\"Secondary\"}]}", Layout.Default.ToJson());
 
@@ -340,6 +351,8 @@ namespace StoryTools.PhoneWand.TestHost
             core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":true}");
             Expect("IsHeld custom", true, p.IsHeld("fire"));
             Expect("IsHeld primary", false, p.IsHeld(PhoneButton.Primary));
+            core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.step-right\",\"down\":true}");
+            Expect("IsHeld crawl direction", true, p.IsHeld(Control.ButtonFor("walk", CrawlDirection.StepRight)));
 
             // error: to UnhandledError with no listener, to the listener otherwise.
             var unhandled = new List<string>();

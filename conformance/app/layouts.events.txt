@@ -27,3 +27,12 @@ control p2 zoom
 player p2 state=active calibration=none name=Jo colour=#2ec4ff transport=ws
 button p2 secondary down
 button p2 secondary up
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p1 walk.forward down
+button p1 walk.forward up
+button p1 walk.turn-left down
+button p1 walk.turn-left up
+button p1 move.left down
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p1 move.left up
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws

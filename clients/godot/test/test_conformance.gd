@@ -240,6 +240,13 @@ func _check_value_types() -> void:
 		[PhoneWandClient._number_text(12.0), "12"],
 		[PhoneWandClient._number_text(2.5), "2.5"],
 		[JSON.stringify(PhoneWandLayout.default_layout()), '{"controls":[{"id":"primary","label":"Primary","type":"button"},{"id":"secondary","label":"Secondary","type":"button"}],"template":"primary-secondary"}'],
+		[JSON.stringify(PhoneWandLayout.dpad("move")), '{"id":"move","type":"dpad"}'],
+		[JSON.stringify(PhoneWandLayout.crawl("walk", "Walk", Color(1, 0, 0))), '{"colour":"#ff0000","id":"walk","label":"Walk","type":"crawl"}'],
+		[PhoneWandLayout.button_for("move", PhoneWandLayout.UP), "move.up"],
+		[PhoneWandLayout.button_for("walk", PhoneWandLayout.STEP_LEFT), "walk.step-left"],
+		[PhoneWandLayout.button_for("walk", PhoneWandLayout.TURN_RIGHT), "walk.turn-right"],
+		[",".join(PhoneWandLayout.DPAD_DIRECTIONS), "up,down,left,right"],
+		[",".join(PhoneWandLayout.CRAWL_DIRECTIONS), "forward,back,step-left,step-right,turn-left,turn-right"],
 	]
 	for i in checks.size():
 		if checks[i][0] != checks[i][1]:

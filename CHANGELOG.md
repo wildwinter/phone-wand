@@ -7,6 +7,17 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- Two navigation controls for layouts, which fit in any block of any template:
+  - **dpad**: four arrows. The thumb can slide from one to the next without lifting.
+  - **crawl**: dungeon-crawler keys: turn left, forward, turn right, step left, back, step right.
+
+  Each direction is an ordinary button named `<id>.<direction>` (`move.up`, `walk.turn-left`), so
+  button events, held buttons and gestures work with them unchanged. Either can be the big control
+  of a `primary` template. Every client library has builders for them and names for the
+  directions, and the dashboard's layout menu has samples to try on phones.
+
 ## [0.6.1] - 2026-09-27
 
 ### Fixed

@@ -181,3 +181,22 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 15px; font-weight: 700;
 }
 .recentre:active, .recentre.flash { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* d-pad and crawl pad: square or 3 by 2 keys, as big as their cell allows */
+.dpad, .crawl { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; touch-action: none; }
+.dpad .lbl, .crawl .lbl { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.dpad .area, .crawl .area { flex: 1; min-height: 0; width: 100%; container-type: size; display: grid; place-items: center; }
+.icon { width: 46%; height: 46%; max-width: 64px; max-height: 64px; }
+.cross {
+  width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); display: grid; gap: 4px;
+  grid-template: ". up ." 1fr "left . right" 1fr ". down ." 1fr / 1fr 1fr 1fr; touch-action: none;
+}
+.cross .arm { display: grid; place-items: center; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); color: var(--text); }
+.cross .a-up { grid-area: up; } .cross .a-down { grid-area: down; } .cross .a-left { grid-area: left; } .cross .a-right { grid-area: right; }
+.cross .arm.down, .crawl .key.down { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.keys {
+  width: min(100cqw, 150cqh); height: min(66.7cqw, 100cqh); display: grid; gap: 6px;
+  grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+}
+.crawl .key { display: grid; place-items: center; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 0; }
+.left-handed .t-grid .dpad, .left-handed .t-grid .crawl { direction: ltr; }

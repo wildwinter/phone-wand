@@ -17,6 +17,8 @@ namespace
 		if (Name == TEXT("slider")) { Out = EPhoneWandControlType::Slider; return true; }
 		if (Name == TEXT("choice")) { Out = EPhoneWandControlType::Choice; return true; }
 		if (Name == TEXT("label")) { Out = EPhoneWandControlType::Label; return true; }
+		if (Name == TEXT("dpad")) { Out = EPhoneWandControlType::Dpad; return true; }
+		if (Name == TEXT("crawl")) { Out = EPhoneWandControlType::Crawl; return true; }
 		return false;
 	}
 }
@@ -54,7 +56,33 @@ namespace PhoneWand
 		case EPhoneWandControlType::Slider: return TEXT("slider");
 		case EPhoneWandControlType::Choice: return TEXT("choice");
 		case EPhoneWandControlType::Label: return TEXT("label");
+		case EPhoneWandControlType::Dpad: return TEXT("dpad");
+		case EPhoneWandControlType::Crawl: return TEXT("crawl");
 		default: return TEXT("button");
+		}
+	}
+
+	FString ToString(EPhoneWandDpadDirection Direction)
+	{
+		switch (Direction)
+		{
+		case EPhoneWandDpadDirection::Down: return TEXT("down");
+		case EPhoneWandDpadDirection::Left: return TEXT("left");
+		case EPhoneWandDpadDirection::Right: return TEXT("right");
+		default: return TEXT("up");
+		}
+	}
+
+	FString ToString(EPhoneWandCrawlDirection Direction)
+	{
+		switch (Direction)
+		{
+		case EPhoneWandCrawlDirection::Back: return TEXT("back");
+		case EPhoneWandCrawlDirection::StepLeft: return TEXT("step-left");
+		case EPhoneWandCrawlDirection::StepRight: return TEXT("step-right");
+		case EPhoneWandCrawlDirection::TurnLeft: return TEXT("turn-left");
+		case EPhoneWandCrawlDirection::TurnRight: return TEXT("turn-right");
+		default: return TEXT("forward");
 		}
 	}
 

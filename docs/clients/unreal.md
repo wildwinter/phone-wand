@@ -116,22 +116,37 @@ Wand->OnPoseNative.AddLambda([this](const FPhoneWandPlayer& Player, const FPhone
 
 By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
 can choose other controls, for every phone or for each player: pick a template and list the
-controls. Buttons, toggles, sliders, choices and labels are available; the phone places them for
-the player's thumb. [Layouts](../layouts.md) explains the templates and controls.
+controls. Buttons, toggles, sliders, choices, labels, dpads and crawl keys are available; the phone
+places them for the player's thumb. [Layouts](../layouts.md) explains the templates and controls.
 
 Button ids are plain strings (`FString`) everywhere in the plugin: `primary` and `secondary` in the
 default layout, or the ids you give your buttons. `UPhoneWandLibrary::PrimaryButton()` and
 `SecondaryButton()` (Blueprint: **Primary Button**, **Secondary Button**), or
 `PhoneWand::PrimaryButton` and `PhoneWand::SecondaryButton` in C++, spell the default two.
 
+A **dpad** (four arrows) and a **crawl** control (dungeon-crawler keys: forward, back, step left
+and right, turn left and right) carry no value. Each arrow or key is an ordinary button named
+`<id>.<direction>`, so presses arrive through `OnButton` and `IsButtonHeld` like any other button:
+
+| Control | Buttons (for id `move` or `walk`) |
+|---|---|
+| Dpad | `move.up`, `move.down`, `move.left`, `move.right` |
+| Crawl | `walk.forward`, `walk.back`, `walk.step-left`, `walk.step-right`, `walk.turn-left`, `walk.turn-right` |
+
+**Dpad Button** (`UPhoneWandLibrary::DpadButton(ControlId, EPhoneWandDpadDirection)`) and **Crawl
+Button** (`CrawlButton(ControlId, EPhoneWandCrawlDirection)`) spell these names, so you need not
+type them. In the Primary templates the big first control may be a button, a dpad or a crawl.
+
 ### Blueprint
 
-1. Build the controls with **Make Button**, **Make Toggle**, **Make Slider**, **Make Choice** and
-   **Make Label** (in **Phone Wand > Layouts**), and give one its own colour with **With Colour**.
+1. Build the controls with **Make Button**, **Make Toggle**, **Make Slider**, **Make Choice**,
+   **Make Label**, **Make Dpad** and **Make Crawl** (in **Phone Wand > Layouts**), and give one its
+   own colour with **With Colour**.
 2. Put them in an array, in order, and pass it with a template to **Make Layout**.
 3. Call **Set Layout** on the subsystem. Leave **Id** empty for every phone, or give a player's id.
    **Reset Layout** goes back to the default.
-4. Bind **Assign On Button** for the buttons (the **Button** is your id) and **Assign On Control
+4. Bind **Assign On Button** for the buttons (the **Button** is your id, or a dpad or crawl
+   direction: compare it with **Dpad Button** or **Crawl Button**) and **Assign On Control
    Changed** for the rest: it gives the **Player**, the **Control Id** and the **Value**. Break the
    value: **Type** says which field holds it (**Value** for a toggle, **Number** for a slider,
    **Index** for a choice, **Text** for a label).
@@ -179,6 +194,26 @@ void AMyGame::BeginPlay()
 // Later, for one player:
 Wand->SetControlText(TEXT("ammo"), TEXT("11"), Player.Id);
 ```
+
+A dungeon crawler: crawl keys as the big control, with a Use button beside them.
+
+```cpp
+Wand->SetLayout(UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::PrimaryRow, {
+    UPhoneWandLibrary::MakeCrawl(TEXT("walk"), TEXT("Walk")),
+    UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+}));
+
+Wand->OnButtonNative.AddLambda([this](const FPhoneWandPlayer& Player, const FString& Button, bool bDown)
+{
+    if (!bDown) return;
+    if (Button == UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::Forward)) StepForward(Player);
+    if (Button == UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::TurnLeft)) TurnLeft(Player);
+    // ... and Back, StepLeft, StepRight, TurnRight.
+});
+```
+
+In Blueprint: **Make Crawl** and **Make Button** into **Make Layout**, then in **On Button** compare
+**Button** with **Crawl Button** (Control Id `walk`, Direction `Forward`) using **Equal (String)**.
 
 A player that joins later gets the layout you sent to everyone only if you send it again: the
 relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if players come and
@@ -346,7 +381,7 @@ entirely.
 | `bHasPose`, `Pose` | The latest pose, once one has arrived. |
 | `Buttons` | Ids of the buttons held now, sorted. |
 | `Layout` | The `FPhoneWandLayout` the phone shows. The default until an app sends one. |
-| `Controls` | Current values of the layout's toggles, sliders, choices and labels, by control id (`TMap<FString, FPhoneWandControlValue>`). Buttons have none. `GetControl(ControlId)` in C++. |
+| `Controls` | Current values of the layout's toggles, sliders, choices and labels, by control id (`TMap<FString, FPhoneWandControlValue>`). Buttons, dpads and crawls have none. `GetControl(ControlId)` in C++. |
 | `bHasStats`, `Stats` | The latest stats. |
 
 ### FPhoneWandPose
@@ -371,7 +406,7 @@ and `Controls`, an array of `FPhoneWandControl` in order. `FindControl(Id)` find
 | `FPhoneWandControl` field | Meaning |
 |---|---|
 | `Id` | Your name for it: 1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout. |
-| `Type` | `Button`, `Toggle`, `Slider`, `Choice` or `Label`. |
+| `Type` | `Button`, `Toggle`, `Slider`, `Choice`, `Label`, `Dpad` or `Crawl`. Dpad and crawl have no value; their directions are buttons named `<Id>.<direction>`. |
 | `Label` | Text on the control (up to 24 characters). Optional. |
 | `bHasColour`, `Colour` | The control's own colour (sent as `#rrggbb`); the player's colour when `bHasColour` is false. |
 | `bValue` | Toggle: its starting state. |
@@ -418,6 +453,10 @@ Blueprint function library, also callable from C++.
 | `MakeSlider(Id, Label, Value, bVertical, bSpring, Spring)` | A slider control. |
 | `MakeChoice(Id, Options, Label, Index)` | A choice control. |
 | `MakeLabel(Id, Label, Text)` | A label control. |
+| `MakeDpad(Id, Label)` | A dpad: four arrow buttons, `<Id>.up`, `.down`, `.left`, `.right`. |
+| `MakeCrawl(Id, Label)` | Crawl keys: six buttons, `<Id>.forward`, `.back`, `.step-left`, `.step-right`, `.turn-left`, `.turn-right`. |
+| `DpadButton(ControlId, Direction)` | The button name of a dpad arrow (`EPhoneWandDpadDirection`: `Up`, `Down`, `Left`, `Right`), such as `move.up`. |
+| `CrawlButton(ControlId, Direction)` | The button name of a crawl key (`EPhoneWandCrawlDirection`: `Forward`, `Back`, `StepLeft`, `StepRight`, `TurnLeft`, `TurnRight`), such as `walk.turn-left`. |
 | `WithColour(Control, Colour)` | The control with a colour of its own. |
 | `MakeLayout(Template, Controls)` | A layout. |
 | `DefaultLayout()` | The default layout. |
@@ -610,8 +649,8 @@ The plugin has automation tests, all named `PhoneWand.*`:
 | `PhoneWand.Conformance.Session.<name>` | Replays each recorded session in `conformance/app/` through `HandleMessage`, and compares the event log with `<name>.events.txt` line for line and the final players with `<name>.state.json`. |
 | `PhoneWand.Conformance.Conversions` | Every case in `conformance/conversions.json`: vector and quaternion conversion, and that rotating +X and +Z by the converted quaternion gives the expected direction and up. |
 | `PhoneWand.Library` | Colour, screen, direction and pose helpers. |
-| `PhoneWand.Layouts.Json` | The exact `layout` and `set` messages the plugin sends, compared field by field with the protocol's shape, and layouts read back from JSON. |
-| `PhoneWand.Layouts.Client` | Layouts and control values from `player` and `control` messages, the default layout, and `error` going to `OnRelayError` or a warning. |
+| `PhoneWand.Layouts.Json` | The exact `layout` and `set` messages the plugin sends (every control type, including dpad and crawl), compared field by field with the protocol's shape, layouts read back from JSON, and the dpad and crawl button names. |
+| `PhoneWand.Layouts.Client` | Layouts and control values from `player` and `control` messages (dpad and crawl controls kept, their direction buttons held and released), the default layout, and `error` going to `OnRelayError` or a warning. |
 | `PhoneWand.Gestures.Configure` | The `configure` message: gesture sensitivity and `gestures: false`, alone and with smoothing, and what a reconnect sends. |
 | `PhoneWand.Gestures.Client` | `gesture` messages to `OnGesture` (fields, frame conversion, sorted buttons, unknown gestures and players) and `accel` on poses. |
 | `PhoneWand.Client.ConnectionLost` | Leave and disconnect events, partial player updates, sorting, and ignoring unknown messages. |

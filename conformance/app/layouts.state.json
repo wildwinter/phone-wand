@@ -10,10 +10,8 @@
       "calibration": "none",
       "transport": "ws",
       "buttons": [],
-      "template": "primary-row",
-      "controls": {
-        "zoom": true
-      },
+      "template": "primary-secondary",
+      "controls": {},
       "pose": {
         "seq": 5,
         "yaw": 0,

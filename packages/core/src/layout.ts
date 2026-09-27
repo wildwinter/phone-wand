@@ -30,13 +30,34 @@ export interface ChoiceControl extends ControlBase {
   value?: number;
 }
 export interface LabelControl extends ControlBase { type: "label"; text?: string }
+/** Four arrows. Each direction is a button: a d-pad "move" presses "move.up", "move.left" and so on. */
+export interface DpadControl extends ControlBase { type: "dpad" }
+/** Dungeon-crawler movement: turn and step left and right, forward and back, each a button like the d-pad's. */
+export interface CrawlControl extends ControlBase { type: "crawl" }
 
-export type Control = ButtonControl | ToggleControl | SliderControl | ChoiceControl | LabelControl;
+export type Control = ButtonControl | ToggleControl | SliderControl | ChoiceControl | LabelControl | DpadControl | CrawlControl;
 export type ControlValue = boolean | number | string;
 
 export interface Layout {
   template: Template;
   controls: Control[];
+}
+
+/** The directions of a d-pad and a crawl pad. Each is pressed as the button "<control id>.<direction>". */
+export const DPAD_DIRECTIONS = ["up", "down", "left", "right"] as const;
+export const CRAWL_DIRECTIONS = ["forward", "back", "step-left", "step-right", "turn-left", "turn-right"] as const;
+export type DpadDirection = (typeof DPAD_DIRECTIONS)[number];
+export type CrawlDirection = (typeof CRAWL_DIRECTIONS)[number];
+
+/** Every button a layout has: its buttons, and each direction of its d-pads and crawl pads. */
+export function layoutButtons(layout: Layout): string[] {
+  const out: string[] = [];
+  for (const c of layout.controls) {
+    if (c.type === "button") out.push(c.id);
+    else if (c.type === "dpad") for (const d of DPAD_DIRECTIONS) out.push(`${c.id}.${d}`);
+    else if (c.type === "crawl") for (const d of CRAWL_DIRECTIONS) out.push(`${c.id}.${d}`);
+  }
+  return out;
 }
 
 /** How many controls each template holds. The first control of a primary template is the big one. */
@@ -115,12 +136,24 @@ export function validateLayout(raw: unknown): Layout | string {
       case "label":
         controls.push({ ...base, type: "label", text: text(c.text, 80) ?? "" });
         break;
+      case "dpad":
+      case "crawl":
+        controls.push({ ...base, type: c.type });
+        break;
       default:
-        return `control ${id} has unknown type ${String(c.type)}; expected button, toggle, slider, choice or label`;
+        return `control ${id} has unknown type ${String(c.type)}; expected button, toggle, slider, choice, label, dpad or crawl`;
     }
   }
-  if (template.startsWith("primary") && controls[0].type !== "button") {
-    return `the first control of template ${template} is the big primary button, so it must be a button`;
+  const first = controls[0].type;
+  if (template.startsWith("primary") && first !== "button" && first !== "dpad" && first !== "crawl") {
+    return `the first control of template ${template} is the big primary control, so it must be a button, dpad or crawl`;
+  }
+  // Direction buttons are "<id>.<direction>": they must not clash with another control's id.
+  for (const c of controls) {
+    const dirs = c.type === "dpad" ? DPAD_DIRECTIONS : c.type === "crawl" ? CRAWL_DIRECTIONS : [];
+    for (const d of dirs) {
+      if (seen.has(`${c.id}.${d}`)) return `control id ${c.id}.${d} clashes with a direction of ${c.type} ${c.id}`;
+    }
   }
   return { template, controls };
 }

@@ -240,6 +240,28 @@ const SESSIONS: Record<string, () => Line[]> = {
     s.app({ type: "layout", id: "p2", layout: null }); // back to the default
     s.send(2, { type: "button", button: "secondary", down: true });
     s.send(2, { type: "button", button: "secondary", down: false });
+    // Navigation: a crawl pad as the big control, and a d-pad. Each direction is its own button.
+    s.app({
+      type: "layout", id: "p1",
+      layout: {
+        template: "primary-row",
+        controls: [{ id: "walk", type: "crawl", label: "Walk" }, { id: "move", type: "dpad" }, { id: "use", type: "button" }],
+      },
+    });
+    s.send(1, { type: "button", button: "walk.forward", down: true });
+    s.send(1, { type: "button", button: "walk.forward", down: false });
+    s.send(1, { type: "button", button: "walk.turn-left", down: true });
+    s.send(1, { type: "button", button: "walk.turn-left", down: false });
+    s.send(1, { type: "button", button: "walk.up", down: true }); // not a crawl direction: ignored
+    s.send(1, { type: "button", button: "move.left", down: true }); // held while the layout changes
+    s.app({ type: "set", id: "p1", control: "move", value: true }); // d-pads have no value: error
+    s.app({
+      type: "layout", id: "p1",
+      layout: { template: "pair", controls: [{ id: "move", type: "dpad" }, { id: "move.up", type: "button" }] },
+    }); // the button clashes with a direction: error
+    s.app({ type: "layout", id: "p1", layout: { template: "grid", controls: [{ id: "move", type: "dpad" }] } }); // move.left is still held
+    s.send(1, { type: "button", button: "move.left", down: false });
+    s.app({ type: "layout", id: "p1", layout: null }); // back to the default
     return s.end();
   },
 

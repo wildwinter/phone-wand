@@ -7,7 +7,7 @@ import {
   type PlayerState, type Quat, type RelayToApp, type RelayToPhone, type SensorKind,
   type SmoothingOptions, type Transport, type Layout, type ControlValue,
   DEFAULT_LAYOUT, DEFAULT_SMOOTHING, PointerCalibration, PoseSmoother, PROTOCOL_VERSION, SLOT_COLOURS,
-  controlValue, derivePose, layoutValues, validateLayout,
+  controlValue, derivePose, layoutButtons, layoutValues, validateLayout,
   DEFAULT_GESTURES, GestureDetector, type GestureOptions, qrotate, round,
 } from "@phone-wand/core";
 
@@ -231,7 +231,7 @@ export class Session {
   private setLayout(p: Player, layout: Layout): void {
     // Buttons that no longer exist are released, so apps never see one stuck down.
     for (const b of [...p.buttons]) {
-      if (!layout.controls.some((c) => c.id === b && c.type === "button")) {
+      if (!layoutButtons(layout).includes(b)) {
         p.buttons.delete(b);
         this.broadcast({ type: "button", id: p.id, button: b, down: false });
       }
@@ -277,7 +277,7 @@ export class Session {
         this.pose(p, msg.seq, msg.q, msg.ts, t, msg.a);
         break;
       case "button": {
-        if (!p.layout.controls.some((c) => c.id === msg.button && c.type === "button")) return;
+        if (!layoutButtons(p.layout).includes(msg.button)) return;
         const down = !!msg.down;
         if (down === p.buttons.has(msg.button)) return; // ignore repeats
         if (down) p.buttons.add(msg.button);

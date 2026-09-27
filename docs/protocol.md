@@ -159,7 +159,8 @@ All values are smoothed with the app's filter settings (see `configure`).
 
 `{ "type": "button", "id": "p1", "button": "primary", "down": true }`
 
-`button` is the id of a button in the player's layout: `primary` and `secondary` by default. Every
+`button` is the id of a button in the player's layout: `primary` and `secondary` by default. A
+d-pad or crawl pad's directions are buttons too, named `<its id>.<direction>` (`move.up`). Every
 `down` is followed by an `up` (`"down": false`), including when a phone disconnects with a button
 held, or a new layout removes a held button.
 
@@ -308,7 +309,8 @@ A layout is a template plus its controls, in order:
 | `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
 | `grid` | 1 to 6 | Two columns. |
 
-In the `primary` templates the first control is the big one and must be a button. Placement mirrors
+In the `primary` templates the first control is the big one and must be a button, `dpad` or
+`crawl`. Placement mirrors
 for players who choose left-handed on their phone.
 
 Every control has an `id` (1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout), a
@@ -322,6 +324,11 @@ colour when omitted).
 | `slider` | `value`: starting position, `orientation`: `horizontal` (default) or `vertical`, `spring`: where it returns when let go (0 to 1), or `null` to stay put | 0 to 1 |
 | `choice` | `options`: 2 to 4 strings (up to 16 characters each), `value`: starting index | option index |
 | `label` | `text`: up to 80 characters | the text; only apps change it |
+| `dpad` | | none: each direction is a button, `<id>.up`, `<id>.down`, `<id>.left` and `<id>.right` |
+| `crawl` | | none: each direction is a button, `<id>.forward`, `<id>.back`, `<id>.step-left`, `<id>.step-right`, `<id>.turn-left` and `<id>.turn-right` |
+
+A control's id must not equal another control's direction button (a button `move.up` beside a d-pad
+`move`).
 
 ## Phone link
 

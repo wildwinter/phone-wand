@@ -157,6 +157,34 @@ Button ids are strings. `PhoneButton.Primary` and `PhoneButton.Secondary` are th
 `player.IsHeld(PhoneButton.Primary)` still compiles and works; code that declared a variable of
 type `PhoneButton`, or called `ProtocolNames.Of` on one, now uses `string`.)
 
+### D-pads and crawl pads
+
+`Control.Dpad(id, label)` shows four arrows, and `Control.Crawl(id, label)` shows dungeon-crawler
+keys: step forward, back, left and right, and turn left and right. Neither has a value: each
+direction is an ordinary button named `"<id>.<direction>"`, so presses arrive as `Button` events
+(and show in `player.IsHeld`) like any other button. A d-pad `move` presses `move.up`,
+`move.down`, `move.left` and `move.right`; a crawl pad `walk` presses `walk.forward`, `walk.back`,
+`walk.step-left`, `walk.step-right`, `walk.turn-left` and `walk.turn-right`. The directions are
+constants in `DpadDirection` (`Up`, `Down`, `Left`, `Right`) and `CrawlDirection` (`Forward`,
+`Back`, `StepLeft`, `StepRight`, `TurnLeft`, `TurnRight`), each with `All`, and
+`Control.ButtonFor(id, direction)` builds the button name. Either can be the big control of a
+primary template.
+
+```csharp
+// A dungeon crawler: a big crawl pad, and a Use button below it.
+wand.SetLayout(Layout.PrimarySecondary(Control.Crawl("walk"), Control.Button("use", "Use")));
+
+wand.Button += (e, player) =>
+{
+    if (!e.Down) return;
+    if (e.Button == Control.ButtonFor("walk", CrawlDirection.Forward)) Step(player, 1);
+    else if (e.Button == Control.ButtonFor("walk", CrawlDirection.Back)) Step(player, -1);
+    else if (e.Button == Control.ButtonFor("walk", CrawlDirection.TurnLeft)) Turn(player, -90);
+    else if (e.Button == Control.ButtonFor("walk", CrawlDirection.TurnRight)) Turn(player, 90);
+    else if (e.Button == "use") Use(player);
+};
+```
+
 ## Gestures
 
 Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
@@ -267,7 +295,7 @@ Static helpers:
 | `PlayerLeft` | `Player` | A player's slot is free again, or the connection closed. |
 | `PlayerChanged` | `Player` | State, name, colour, label, calibration, transport or layout changed. |
 | `Pose` | `PlayerPose, Player` | A new orientation sample, typically 60 a second per player. |
-| `Button` | `ButtonEvent, Player` | A button went down or up: `Id` (the player), `Button` (the button's id from the layout: `"primary"` and `"secondary"` by default), `Down`. Every down is followed by an up, even if the phone disconnects or a new layout removes the button. |
+| `Button` | `ButtonEvent, Player` | A button went down or up: `Id` (the player), `Button` (the button's id from the layout: `"primary"` and `"secondary"` by default, or a d-pad or crawl pad direction such as `"move.up"`), `Down`. Every down is followed by an up, even if the phone disconnects or a new layout removes the button. |
 | `ControlChanged` | `ControlEvent, Player` | A toggle, slider, choice or label changed, on the phone or because an app set it: `Id`, `Control` (its id), `Value` (`bool`, `double` or `string`), with `AsBool`, `AsNumber`, `AsIndex` and `AsString` to read it. The player's `Controls` already hold the new value. |
 | `Gesture` | `GestureEvent, Player` | The player moved the phone deliberately: a flick, shake or twist. See [Gestures](#gestures). |
 | `Error` | `string` | The relay could not use something this app sent (a bad layout or value); the message says why. With no handler, the client logs a warning instead. |
@@ -302,7 +330,7 @@ A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Pr
 
 | Helper | Template |
 |---|---|
-| `Layout.Primary(button)` | One big button. |
+| `Layout.Primary(button)` | One big button (or a d-pad or crawl pad, as in each primary template). |
 | `Layout.PrimarySecondary(button, control)` | A big button and a smaller control below it. |
 | `Layout.Pair(left, right)` | Two equal controls side by side. |
 | `Layout.PrimaryRow(button, up to three controls)` | A big button with a row of smaller controls below. |
@@ -314,7 +342,7 @@ A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Pr
 A `Control` has an `Id`, a `Type` (the constants are in `ControlType`), an optional `Label` and
 `Colour` (`"#rrggbb"`), and the fields of its type: `Value` (the starting value: a `bool` for a
 toggle, a `double` for a slider or a choice's index), `Orientation` and `Spring` for sliders,
-`Options` for choices, and `Text` for labels. Build one with:
+`Options` for choices, and `Text` for labels. D-pads and crawl pads have none. Build one with:
 
 | Builder | Control |
 |---|---|
@@ -323,6 +351,9 @@ toggle, a `double` for a slider or a choice's index), `Orientation` and `Spring`
 | `Control.Slider(id, label, value = null, vertical = false, spring = null)` | 0 to 1. `spring` is where it returns when let go (a throttle); null stays put. |
 | `Control.Choice(id, label, options, selected = 0)` | One of 2 to 4 options. |
 | `Control.TextLabel(id, label, text)` | Text that only your game changes, with `SetControl`. |
+| `Control.Dpad(id, label)` | Four arrows, each a button `"<id>.up"` and so on. See [D-pads and crawl pads](#d-pads-and-crawl-pads). |
+| `Control.Crawl(id, label)` | Dungeon-crawler keys, each a button `"<id>.forward"` and so on. |
+| `Control.ButtonFor(id, direction)` | The button a d-pad or crawl pad presses for a direction: `ButtonFor("walk", CrawlDirection.TurnLeft)` is `"walk.turn-left"`. |
 
 `.WithColour("#00ff88")` (or a Unity `Color`) sets a control's colour and returns it, for chaining.
 

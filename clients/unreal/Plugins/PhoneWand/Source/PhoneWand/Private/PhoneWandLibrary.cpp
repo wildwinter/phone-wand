@@ -128,6 +128,20 @@ FPhoneWandControl UPhoneWandLibrary::MakeLabel(const FString& Id, const FString&
 	return C;
 }
 
+FPhoneWandControl UPhoneWandLibrary::MakeDpad(const FString& Id, const FString& Label)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Dpad;
+	return C;
+}
+
+FPhoneWandControl UPhoneWandLibrary::MakeCrawl(const FString& Id, const FString& Label)
+{
+	FPhoneWandControl C = MakeButton(Id, Label);
+	C.Type = EPhoneWandControlType::Crawl;
+	return C;
+}
+
 FPhoneWandControl UPhoneWandLibrary::WithColour(const FPhoneWandControl& Control, FLinearColor Colour)
 {
 	FPhoneWandControl C = Control;

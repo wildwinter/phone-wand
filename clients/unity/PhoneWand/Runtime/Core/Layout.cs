@@ -16,13 +16,13 @@ namespace StoryTools.PhoneWand
     /// <summary>The layout templates, as the protocol names them.</summary>
     public static class LayoutTemplate
     {
-        /// <summary>One big button. 1 control, a button.</summary>
+        /// <summary>One big button. 1 control, a button, dpad or crawl.</summary>
         public const string Primary = "primary";
-        /// <summary>A big button and a smaller control below it. 2 controls, the first a button. The default.</summary>
+        /// <summary>A big button and a smaller control below it. 2 controls, the first a button, dpad or crawl. The default.</summary>
         public const string PrimarySecondary = "primary-secondary";
         /// <summary>Two equal controls side by side. 2 controls.</summary>
         public const string Pair = "pair";
-        /// <summary>A big button with up to three smaller controls in a row below. 1 to 4 controls, the first a button.</summary>
+        /// <summary>A big button with up to three smaller controls in a row below. 1 to 4 controls, the first a button, dpad or crawl.</summary>
         public const string PrimaryRow = "primary-row";
         /// <summary>Two columns. 1 to 6 controls.</summary>
         public const string Grid = "grid";
@@ -41,6 +41,36 @@ namespace StoryTools.PhoneWand
         public const string Choice = "choice";
         /// <summary>Text only the app changes: a string.</summary>
         public const string Label = "label";
+        /// <summary>Four arrows, each a button named Control.ButtonFor(id, DpadDirection.Up) and so on. No value.</summary>
+        public const string Dpad = "dpad";
+        /// <summary>Dungeon-crawler keys, each a button named Control.ButtonFor(id, CrawlDirection.Forward) and so on. No value.</summary>
+        public const string Crawl = "crawl";
+    }
+
+    /// <summary>A d-pad's directions. Each is pressed as the button "&lt;control id&gt;.&lt;direction&gt;".</summary>
+    public static class DpadDirection
+    {
+        public const string Up = "up";
+        public const string Down = "down";
+        public const string Left = "left";
+        public const string Right = "right";
+
+        /// <summary>All four, in the protocol's order.</summary>
+        public static readonly string[] All = { Up, Down, Left, Right };
+    }
+
+    /// <summary>A crawl pad's directions. Each is pressed as the button "&lt;control id&gt;.&lt;direction&gt;".</summary>
+    public static class CrawlDirection
+    {
+        public const string Forward = "forward";
+        public const string Back = "back";
+        public const string StepLeft = "step-left";
+        public const string StepRight = "step-right";
+        public const string TurnLeft = "turn-left";
+        public const string TurnRight = "turn-right";
+
+        /// <summary>All six, in the protocol's order.</summary>
+        public static readonly string[] All = { Forward, Back, StepLeft, StepRight, TurnLeft, TurnRight };
     }
 
     /// <summary>A slider's direction.</summary>
@@ -50,12 +80,12 @@ namespace StoryTools.PhoneWand
         public const string Vertical = "vertical";
     }
 
-    /// <summary>One control in a layout. Build one with Control.Button, Toggle, Slider, Choice or TextLabel.</summary>
+    /// <summary>One control in a layout. Build one with Control.Button, Toggle, Slider, Choice, TextLabel, Dpad or Crawl.</summary>
     public sealed class Control
     {
         /// <summary>1 to 32 letters, digits, _, . or -, unique in the layout.</summary>
         public string Id;
-        /// <summary>A ControlType: "button", "toggle", "slider", "choice" or "label".</summary>
+        /// <summary>A ControlType: "button", "toggle", "slider", "choice", "label", "dpad" or "crawl".</summary>
         public string Type;
         /// <summary>Text on the control (up to 24 characters), or null for none.</summary>
         public string Label;
@@ -112,6 +142,25 @@ namespace StoryTools.PhoneWand
         /// <summary>A label showing text, which only the app changes (with SetControl).</summary>
         public static Control TextLabel(string id, string label = null, string text = "") =>
             new Control(id, ControlType.Label, label) { Text = text ?? "" };
+
+        /// <summary>
+        /// A d-pad: four arrows. Each is a button, so presses arrive as Button events named
+        /// ButtonFor(id, DpadDirection.Up) ("move.up" for a d-pad "move") and so on.
+        /// </summary>
+        public static Control Dpad(string id, string label = null) => new Control(id, ControlType.Dpad, label);
+
+        /// <summary>
+        /// A crawl pad: dungeon-crawler keys to step forward, back, left and right and turn left and
+        /// right. Each is a button, so presses arrive as Button events named ButtonFor(id,
+        /// CrawlDirection.Forward) ("walk.forward" for a crawl pad "walk") and so on.
+        /// </summary>
+        public static Control Crawl(string id, string label = null) => new Control(id, ControlType.Crawl, label);
+
+        /// <summary>
+        /// The button a d-pad or crawl pad presses for a direction: "&lt;controlId&gt;.&lt;direction&gt;",
+        /// e.g. ButtonFor("walk", CrawlDirection.TurnLeft) is "walk.turn-left".
+        /// </summary>
+        public static string ButtonFor(string controlId, string direction) => controlId + "." + direction;
 
         /// <summary>Set the colour ("#rrggbb") and return this control, for chaining.</summary>
         public Control WithColour(string colour)
@@ -180,7 +229,7 @@ namespace StoryTools.PhoneWand
     {
         /// <summary>A LayoutTemplate: "primary", "primary-secondary", "pair", "primary-row" or "grid".</summary>
         public string Template;
-        /// <summary>The controls, in order. In the primary templates the first is the big button.</summary>
+        /// <summary>The controls, in order. In the primary templates the first is the big one: a button, dpad or crawl.</summary>
         public List<Control> Controls = new List<Control>();
 
         public Layout()
@@ -197,17 +246,17 @@ namespace StoryTools.PhoneWand
         public static Layout Default => new Layout(LayoutTemplate.PrimarySecondary,
             Control.Button(PhoneButton.Primary, "Primary"), Control.Button(PhoneButton.Secondary, "Secondary"));
 
-        /// <summary>One big button.</summary>
+        /// <summary>One big button (or a Control.Dpad or Crawl).</summary>
         public static Layout Primary(Control button) => new Layout(LayoutTemplate.Primary, button);
 
-        /// <summary>A big button, and a smaller control below it.</summary>
+        /// <summary>A big button (or a Control.Dpad or Crawl), and a smaller control below it.</summary>
         public static Layout PrimarySecondary(Control button, Control secondary) =>
             new Layout(LayoutTemplate.PrimarySecondary, button, secondary);
 
         /// <summary>Two equal controls side by side.</summary>
         public static Layout Pair(Control left, Control right) => new Layout(LayoutTemplate.Pair, left, right);
 
-        /// <summary>A big button, with up to three smaller controls in a row below.</summary>
+        /// <summary>A big button (or a Control.Dpad or Crawl), with up to three smaller controls in a row below.</summary>
         public static Layout PrimaryRow(Control button, params Control[] row)
         {
             var layout = new Layout(LayoutTemplate.PrimaryRow, button);

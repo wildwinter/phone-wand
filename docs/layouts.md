@@ -20,7 +20,7 @@ the phone; Phone Wand takes care of where.
 | `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
 | `grid` | 1 to 6 | Two columns. |
 
-In the `primary` templates, the first control is the big one, and it must be a button.
+In the `primary` templates, the first control is the big one: a button, a d-pad or a crawl pad.
 
 ## Controls
 
@@ -31,9 +31,18 @@ In the `primary` templates, the first control is the big one, and it must be a b
 | **slider** | Drags along a track, horizontal or vertical. Optionally springs back when let go (a throttle). | `control` events with 0 to 1, about 30 times a second while dragging |
 | **choice** | Taps one of 2 to 4 options | `control` events with the option's index |
 | **label** | Nothing: it shows text, such as a score or a role | Your app sets the text |
+| **dpad** | Four arrows. The thumb can slide from one to the next without lifting, like a real d-pad; one direction at a time. | `button` events for `<id>.up`, `<id>.down`, `<id>.left` and `<id>.right` |
+| **crawl** | Dungeon-crawler movement: turn left, forward and turn right on top, step left, back and step right below | `button` events for `<id>.forward`, `<id>.back`, `<id>.step-left`, `<id>.step-right`, `<id>.turn-left` and `<id>.turn-right` |
 
 Every control has an `id` (your name for it, 1 to 32 letters, digits, `_`, `.` or `-`), and
 optionally a `label` and a `colour` (`#rrggbb`; the player's own colour when left out).
+
+A d-pad or crawl pad is sized to fit whatever block it's in, so it works in any template. It's
+easiest to use as the big control of a `primary` template, or in `pair`; in the smaller blocks of
+`primary-row` and `grid` its keys get small. Their directions are ordinary buttons, so everything
+that works with buttons works with them: held buttons in gestures, and each client library's
+button events and "is it held" checks. Every client library has names for the directions, so you
+don't have to type them.
 
 Your app can set any value too: turn a toggle on, move a slider, pick an option, or change a
 label's text. The relay remembers each player's layout and values, so a phone that reconnects
@@ -67,6 +76,25 @@ wand.on("control", (e, player) => {
 wand.set("ammo", "11", { id: player.id });
 ```
 
+A dungeon crawler: the crawl pad as the big control, and a Use button below.
+
+```js
+wand.layout({
+  template: "primary-secondary",
+  controls: [
+    { id: "walk", type: "crawl" },
+    { id: "use", type: "button", label: "Use" },
+  ],
+});
+
+wand.on("button", (e, player) => {
+  if (!e.down) return;
+  if (e.button === "walk.forward") stepForward(player);
+  if (e.button === "walk.turn-left") turnLeft(player);
+  // ...and walk.back, walk.step-left, walk.step-right, walk.turn-right
+});
+```
+
 Send a layout to one player with `{ id }`, or to everyone without it. `wand.layout(null)` goes back
 to the default.
 
@@ -89,4 +117,4 @@ which hand the player holds the phone in (this mirrors the layout, and swaps the
 
 The dashboard's **Layout on every phone** menu sends sample layouts to every connected phone, so
 you can try the templates and controls on real phones before writing any code. Control changes
-show briefly at the top of the test screen.
+and button presses (such as `move.up`) show briefly at the top of the test screen.

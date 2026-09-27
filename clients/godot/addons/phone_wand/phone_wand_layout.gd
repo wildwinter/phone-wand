@@ -10,10 +10,29 @@ extends RefCounted
 ##   ]))
 ##
 ## Templates: "primary" (1 control), "primary-secondary" (2), "pair" (2), "primary-row" (1 to 4)
-## and "grid" (1 to 6). In the primary templates the first control must be a button. colour is a
-## Color or "#rrggbb", or null for the player's colour. See docs/layouts.md.
+## and "grid" (1 to 6). In the primary templates the first control must be a button, dpad or crawl.
+## colour is a Color or "#rrggbb", or null for the player's colour. See docs/layouts.md.
+##
+## A dpad or crawl control is a set of buttons named "<id>.<direction>", such as "move.up" or
+## "walk.turn-left" (see button_for). Their presses arrive as PhoneWandClient.button like any other.
 
 const TEMPLATES := ["primary", "primary-secondary", "pair", "primary-row", "grid"]
+
+const UP := "up"
+const DOWN := "down"
+const LEFT := "left"
+const RIGHT := "right"
+const FORWARD := "forward"
+const BACK := "back"
+const STEP_LEFT := "step-left"
+const STEP_RIGHT := "step-right"
+const TURN_LEFT := "turn-left"
+const TURN_RIGHT := "turn-right"
+
+## A dpad's directions.
+const DPAD_DIRECTIONS := [UP, DOWN, LEFT, RIGHT]
+## A crawl control's directions.
+const CRAWL_DIRECTIONS := [FORWARD, BACK, STEP_LEFT, STEP_RIGHT, TURN_LEFT, TURN_RIGHT]
 
 
 ## A layout: a template and its controls, in order.
@@ -29,6 +48,22 @@ static func default_layout() -> Dictionary:
 ## A button. Presses arrive as PhoneWandClient.button with this id.
 static func button(id: String, label: String = "", colour: Variant = null) -> Dictionary:
 	return _control(id, "button", label, colour)
+
+
+## Four arrows. Each is a button named "<id>.<direction>" (up, down, left, right): see button_for.
+static func dpad(id: String, label: String = "", colour: Variant = null) -> Dictionary:
+	return _control(id, "dpad", label, colour)
+
+
+## Dungeon-crawler keys: forward, back, step left and right, turn left and right. Each is a button
+## named "<id>.<direction>": see button_for.
+static func crawl(id: String, label: String = "", colour: Variant = null) -> Dictionary:
+	return _control(id, "crawl", label, colour)
+
+
+## The button name for one direction of a dpad or crawl control: button_for("move", UP) is "move.up".
+static func button_for(control_id: String, direction: String) -> String:
+	return control_id + "." + direction
 
 
 ## An on/off toggle. Its value is a bool.

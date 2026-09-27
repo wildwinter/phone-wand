@@ -629,6 +629,13 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	});
 	Wand->SetLayout(Grid);
 
+	// Direction controls: no value fields, a colour like any other control.
+	const FPhoneWandLayout Crawler = UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::PrimaryRow, {
+		UPhoneWandLibrary::MakeCrawl(TEXT("walk"), TEXT("Walk")),
+		UPhoneWandLibrary::WithColour(UPhoneWandLibrary::MakeDpad(TEXT("move")), UPhoneWandLibrary::ColourFromHex(TEXT("#3388ff"))),
+	});
+	Wand->SetLayout(Crawler, TEXT("p1"));
+
 	Wand->ResetLayout(TEXT("p2"));
 	Wand->ResetLayout();
 	Wand->SetControlBool(TEXT("zoom"), false, TEXT("p1"));
@@ -650,6 +657,9 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 			TEXT("{\"id\":\"throttle\",\"type\":\"slider\",\"value\":0.5,\"orientation\":\"vertical\",\"spring\":0.5},")
 			TEXT("{\"id\":\"weapon\",\"type\":\"choice\",\"options\":[\"Bow\",\"Sling\",\"Net\"],\"value\":1},")
 			TEXT("{\"id\":\"score\",\"type\":\"label\",\"label\":\"Score\",\"text\":\"0\"}]}}"),
+		TEXT("{\"type\":\"layout\",\"id\":\"p1\",\"layout\":{\"template\":\"primary-row\",\"controls\":[")
+			TEXT("{\"id\":\"walk\",\"type\":\"crawl\",\"label\":\"Walk\"},")
+			TEXT("{\"id\":\"move\",\"type\":\"dpad\",\"colour\":\"#3388ff\"}]}}"),
 		TEXT("{\"type\":\"layout\",\"id\":\"p2\",\"layout\":null}"),
 		TEXT("{\"type\":\"layout\",\"layout\":null}"),
 		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"zoom\",\"value\":false}"),
@@ -666,14 +676,14 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 		}
 	}
 	// A choice's index is a whole number on the wire.
-	if (Sent.Num() > 6)
+	if (Sent.Num() > 7)
 	{
-		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[6]);
+		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[7]);
 		TestTrue(TEXT("choice index is an integer"), Set.IsValid() && FMath::IsNearlyEqual(Set->AsObject()->GetNumberField(TEXT("value")), 2.0));
 	}
 
 	// Reading a layout back gives the same layout, and the same JSON again.
-	for (const FPhoneWandLayout& Layout : { Shooter, Grid, PhoneWand::DefaultLayout() })
+	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, PhoneWand::DefaultLayout() })
 	{
 		const FString Json = UPhoneWandLibrary::LayoutToJson(Layout);
 		const TSharedPtr<FJsonValue> Parsed = PhoneWandTests::ParseValue(Json);
@@ -692,6 +702,24 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("secondary constant"), UPhoneWandLibrary::SecondaryButton(), FString(TEXT("secondary")));
 	TestEqual(TEXT("template names"), UPhoneWandLibrary::TemplateToString(EPhoneWandTemplate::PrimaryRow), FString(TEXT("primary-row")));
 	TestEqual(TEXT("value to string"), UPhoneWandLibrary::ControlValueToString(UPhoneWandLibrary::MakeControlNumber(0.8)), FString(TEXT("0.8")));
+
+	// Each arrow or key of a dpad or crawl is a button named <id>.<direction>.
+	const TArray<FString> Dpad = {
+		UPhoneWandLibrary::DpadButton(TEXT("move"), EPhoneWandDpadDirection::Up),
+		UPhoneWandLibrary::DpadButton(TEXT("move"), EPhoneWandDpadDirection::Down),
+		UPhoneWandLibrary::DpadButton(TEXT("move"), EPhoneWandDpadDirection::Left),
+		UPhoneWandLibrary::DpadButton(TEXT("move"), EPhoneWandDpadDirection::Right),
+	};
+	TestEqual(TEXT("dpad buttons"), Dpad, TArray<FString>({ TEXT("move.up"), TEXT("move.down"), TEXT("move.left"), TEXT("move.right") }));
+	const TArray<FString> Crawl = {
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::Forward),
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::Back),
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::StepLeft),
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::StepRight),
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::TurnLeft),
+		UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::TurnRight),
+	};
+	TestEqual(TEXT("crawl buttons"), Crawl, TArray<FString>({ TEXT("walk.forward"), TEXT("walk.back"), TEXT("walk.step-left"), TEXT("walk.step-right"), TEXT("walk.turn-left"), TEXT("walk.turn-right") }));
 	return !HasAnyErrors();
 }
 
@@ -756,6 +784,18 @@ bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
 	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":null}}"));
 	Wand->GetPlayer(TEXT("p1"), P);
 	TestEqual(TEXT("null layout is the default"), P.Layout.Template, EPhoneWandTemplate::PrimarySecondary);
+
+	// Dpad and crawl controls are kept; their directions are ordinary buttons.
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"primary-row\",\"controls\":[")
+		TEXT("{\"id\":\"walk\",\"label\":\"Walk\",\"type\":\"crawl\"},{\"id\":\"move\",\"type\":\"dpad\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestTrue(TEXT("crawl and dpad kept"), P.Layout.Controls.Num() == 2 && P.Layout.Controls[0].Type == EPhoneWandControlType::Crawl
+		&& P.Layout.Controls[0].Label == TEXT("Walk") && P.Layout.Controls[1].Type == EPhoneWandControlType::Dpad);
+	TestEqual(TEXT("direction controls have no values"), P.Controls.Num(), 0);
+	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.turn-left\",\"down\":true}"));
+	TestTrue(TEXT("crawl key held"), Wand->IsButtonHeld(TEXT("p1"), UPhoneWandLibrary::CrawlButton(TEXT("walk"), EPhoneWandCrawlDirection::TurnLeft)));
+	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.turn-left\",\"down\":false}"));
+	TestFalse(TEXT("crawl key released"), Wand->IsButtonHeld(TEXT("p1"), TEXT("walk.turn-left")));
 
 	// error: a warning when nothing is bound, the delegate otherwise.
 	AddExpectedMessagePlain(TEXT("layout: template grid holds at most 6 controls"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);
@@ -1063,7 +1103,7 @@ bool FPhoneWandLayoutLiveSteps::Update()
 		}
 		FPhoneWandControlValue V;
 		Test->TestTrue(TEXT("score held"), Wand->GetControlValue(S.PlayerId, TEXT("score"), V) && V.Type == EPhoneWandValueType::Text && V.Text == TEXT("42"));
-		// Invalid: the first control of a primary template must be a button.
+		// Invalid: the first control of a primary template must be a button, dpad or crawl.
 		Wand->SetLayout(UPhoneWandLibrary::MakeLayout(EPhoneWandTemplate::Primary, { UPhoneWandLibrary::MakeToggle(TEXT("nope")) }), S.PlayerId);
 		S.NextPhase(3);
 		return false;

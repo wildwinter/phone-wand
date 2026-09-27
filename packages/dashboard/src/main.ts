@@ -138,6 +138,28 @@ const LAYOUTS: Record<string, Layout | null> = {
       { id: "score", type: "label", label: "Score", text: "0" },
     ],
   },
+  dpad: {
+    template: "primary-secondary",
+    controls: [{ id: "move", type: "dpad" }, { id: "select", type: "button", label: "Select" }],
+  },
+  crawl: {
+    template: "primary-row",
+    controls: [
+      { id: "walk", type: "crawl" },
+      { id: "attack", type: "button", label: "Attack" },
+      { id: "use", type: "button", label: "Use" },
+      { id: "map", type: "toggle", label: "Map" },
+    ],
+  },
+  navigation: {
+    template: "grid",
+    controls: [
+      { id: "move", type: "dpad", label: "Move" },
+      { id: "walk", type: "crawl", label: "Walk" },
+      { id: "a", type: "button", label: "A" },
+      { id: "b", type: "button", label: "B" },
+    ],
+  },
 };
 $<HTMLSelectElement>("layout-pick").addEventListener("change", (e) => {
   wand.layout(LAYOUTS[(e.target as HTMLSelectElement).value] ?? null);
@@ -253,6 +275,10 @@ const ripples: Ripple[] = [];
 const trails = new Map<string, [number, number][]>();
 
 wand.on("button", (e, p) => {
+  // Name every press but the default two, so d-pad and crawl directions are easy to check.
+  if (e.down && e.button !== "primary" && e.button !== "secondary") {
+    lastControl = { text: `${p.name}: ${e.button}`, colour: p.colour, at: performance.now() };
+  }
   if (!e.down || !p.pose?.screen) return;
   const [x, y] = p.pose.screen;
   ripples.push({ x, y, colour: p.colour, start: performance.now(), big: e.button === "primary" });

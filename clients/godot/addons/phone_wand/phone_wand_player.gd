@@ -177,7 +177,7 @@ func apply_control(control_id: String, value: Variant) -> Variant:
 
 
 ## A control value with the type its control takes: JSON numbers arrive as floats, so a choice's
-## index becomes an int and a slider's position a float.
+## index becomes an int and a slider's position a float. Buttons, dpads and crawls have no value.
 func normalise_value(control_id: String, value: Variant) -> Variant:
 	var number := typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
 	match str(find_control(control_id).get("type", "")):

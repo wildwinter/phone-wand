@@ -84,8 +84,8 @@ You do not have to use signals. Every player object is kept up to date, so you c
 ## Layouts
 
 By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
-can choose other controls, for every phone or for each player: buttons, toggles, sliders, choices
-and text labels, placed by a template. [Layouts](../layouts.md) explains the templates and
+can choose other controls, for every phone or for each player: buttons, toggles, sliders, choices,
+text labels, direction pads and dungeon-crawler keys, placed by a template. [Layouts](../layouts.md) explains the templates and
 controls. `PhoneWandLayout` builds them:
 
 ```gdscript
@@ -118,6 +118,11 @@ func _on_control(player: PhoneWandPlayer, control: String, value: Variant) -> vo
 - Presses of your buttons arrive through `button` with your ids. Toggles, sliders and choices
   arrive through `control_changed`, and are kept in `player.controls`: read one with
   `player.get_control("zoom", false)`.
+- A `dpad` (four arrows) or `crawl` (forward, back, step left and right, turn left and right) is
+  a set of buttons named `<id>.<direction>`, such as `move.up` or `walk.turn-left`. Their presses
+  arrive through `button` like any other, and `is_pressed` works with them. They have no value.
+  `PhoneWandLayout.button_for(id, direction)` builds the name from the direction constants (see
+  [below](#dpad-and-crawl)).
 - Values have the type their control takes: a toggle's `bool`, a slider's `float` from 0 to 1, a
   choice's option index as an `int` (although Godot's JSON parser reads every number as a
   float), and a label's `String`.
@@ -127,6 +132,38 @@ func _on_control(player: PhoneWandPlayer, control: String, value: Variant) -> vo
 
 The layout is a plain `Dictionary` in the [protocol's](../protocol.md#layouts) JSON shape, so you
 can also write it out by hand or load it from a JSON file.
+
+### Dpad and crawl
+
+```gdscript
+func _ready() -> void:
+    # Dungeon-crawler keys as the big control, with a Use button below.
+    PhoneWand.set_layout(PhoneWandLayout.layout("primary-secondary", [
+        PhoneWandLayout.crawl("walk"),
+        PhoneWandLayout.button("use", "Use"),
+    ]))
+    PhoneWand.button.connect(_on_button)
+
+
+func _on_button(player: PhoneWandPlayer, button: String, down: bool) -> void:
+    if not down:
+        return
+    match button:
+        "walk.forward": step(player, 1)
+        "walk.back": step(player, -1)
+        "walk.turn-left": turn(player, -90)
+        "walk.turn-right": turn(player, 90)
+        "use": use(player)
+
+
+func _process(_delta: float) -> void:
+    # Held directions work with is_pressed too.
+    for player in PhoneWand.players_by_slot():
+        if player.is_pressed(PhoneWandLayout.button_for("walk", PhoneWandLayout.STEP_LEFT)):
+            strafe(player, -1)
+```
+
+In the primary templates the first control must be a button, dpad or crawl.
 
 ## Gestures
 
@@ -312,6 +349,13 @@ Static helpers that return layout and control `Dictionary`s for `set_layout`. `c
 | `slider(id, label := "", value := 0.0, vertical := false, spring = null, colour = null)` | A slider from 0 to 1. `spring` is where it returns when let go, or `null` to stay put. |
 | `choice(id, options: Array, label := "", value := 0, colour = null)` | 2 to 4 options; the value is the chosen index. |
 | `label(id, label := "", text := "", colour = null)` | Text only your game changes, such as a score. |
+| `dpad(id, label := "", colour = null)` | Four arrows: buttons `<id>.up`, `<id>.down`, `<id>.left` and `<id>.right`. |
+| `crawl(id, label := "", colour = null)` | Dungeon-crawler keys: buttons `<id>.forward`, `<id>.back`, `<id>.step-left`, `<id>.step-right`, `<id>.turn-left` and `<id>.turn-right`. |
+| `button_for(control_id, direction) -> String` | The button name for one direction of a dpad or crawl: `button_for("move", PhoneWandLayout.UP)` is `"move.up"`. |
+
+Direction constants: `UP`, `DOWN`, `LEFT`, `RIGHT` (listed in `DPAD_DIRECTIONS`) and `FORWARD`,
+`BACK`, `STEP_LEFT`, `STEP_RIGHT`, `TURN_LEFT`, `TURN_RIGHT` (in `CRAWL_DIRECTIONS`), whose values
+are the direction names such as `"step-left"`.
 
 ### PhoneWandFrames
 

@@ -1,7 +1,10 @@
 // Draws a layout's controls on the phone and reports what the player does with them. Templates
 // place the controls for a thumb holding the phone like a torch; see docs/layouts.md.
 
-import type { Control, ControlValue, Layout, PhoneToRelay } from "@phone-wand/core";
+import {
+  type Control, type ControlValue, type CrawlDirection, type DpadDirection, type Layout, type PhoneToRelay,
+  DPAD_DIRECTIONS,
+} from "@phone-wand/core";
 
 export interface ControlsHost {
   send(msg: PhoneToRelay): void;
@@ -17,6 +20,26 @@ export interface RenderedLayout {
 }
 
 const vibrate = (ms: number) => navigator.vibrate?.(ms);
+
+// Icons for the d-pad and crawl pad, drawn pointing up in a 24 by 24 box. Text arrows would do, but
+// some phones draw them as colour emoji.
+const ARROW = "M12 3 21 13h-5.5v8h-7v-8H3z";
+const TURN = "M3 9.5 9.5 3v4H14a7 7 0 0 1 7 7v7h-5v-7a2 2 0 0 0-2-2H9.5v4z";
+
+function icon(path: string, turn = 0, flip = false): SVGSVGElement {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", path);
+  p.setAttribute("fill", "currentColor");
+  const t = [turn ? `rotate(${turn} 12 12)` : "", flip ? "translate(24 0) scale(-1 1)" : ""].filter(Boolean).join(" ");
+  if (t) p.setAttribute("transform", t);
+  svg.append(p);
+  return svg;
+}
 
 /** Keep receiving a pointer's moves and release. Some browsers throw here; a press must still count. */
 function capture(e: HTMLElement, pointer: number): void {
@@ -44,6 +67,7 @@ export function renderLayout(
   root.className = `controls t-${layout.template}`;
   const setters = new Map<string, (v: ControlValue) => void>();
   const held = new Map<string, { el: HTMLElement; pointer: number }>();
+  const resets: (() => void)[] = [];
 
   const release = (id: string) => {
     const h = held.get(id);
@@ -51,6 +75,12 @@ export function renderLayout(
     held.delete(id);
     h.el.classList.remove("down");
     host.send({ type: "button", button: id, down: false });
+  };
+  const press = (id: string, e: HTMLElement, pointer: number) => {
+    held.set(id, { el: e, pointer });
+    e.classList.add("down");
+    vibrate(10);
+    host.send({ type: "button", button: id, down: true });
   };
 
   layout.controls.forEach((c, i) => {
@@ -81,10 +111,7 @@ export function renderLayout(
           e.preventDefault();
           if (held.has(c.id) || !host.tapAllowed()) return;
           capture(b, e.pointerId);
-          held.set(c.id, { el: b, pointer: e.pointerId });
-          b.classList.add("down");
-          vibrate(10);
-          host.send({ type: "button", button: c.id, down: true });
+          press(c.id, b, e.pointerId);
         });
         const up = (e: PointerEvent) => {
           if (held.get(c.id)?.pointer === e.pointerId) release(c.id);
@@ -220,6 +247,98 @@ export function renderLayout(
         return box;
       }
 
+      case "dpad": {
+        // One thumb at a time, like a real d-pad: the direction follows the thumb as it slides.
+        const box = el("div", "ctl dpad");
+        styleColour(box, c);
+        if (c.label) box.append(el("span", "lbl", c.label));
+        const area = el("div", "area");
+        const cross = el("div", "cross");
+        const arms = new Map<DpadDirection, HTMLElement>();
+        for (const d of DPAD_DIRECTIONS) {
+          const arm = el("div", `arm a-${d}`);
+          arm.append(icon(ARROW, { up: 0, right: 90, down: 180, left: 270 }[d]));
+          cross.append(arm);
+          arms.set(d, arm);
+        }
+        area.append(cross);
+        box.append(area);
+        let pointer: number | null = null;
+        let current: DpadDirection | null = null;
+        const aim = (e: PointerEvent): DpadDirection | null => {
+          const r = cross.getBoundingClientRect();
+          const x = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+          const y = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+          if (Math.hypot(x, y) < 0.22) return null; // the middle is neutral
+          return Math.abs(x) > Math.abs(y) ? (x > 0 ? "right" : "left") : y > 0 ? "down" : "up";
+        };
+        const go = (d: DpadDirection | null) => {
+          if (d === current) return;
+          if (current) release(`${c.id}.${current}`);
+          current = d;
+          if (d && pointer !== null) press(`${c.id}.${d}`, arms.get(d)!, pointer);
+        };
+        cross.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          if (pointer !== null || !host.tapAllowed()) return;
+          pointer = e.pointerId;
+          capture(cross, e.pointerId);
+          go(aim(e));
+        });
+        cross.addEventListener("pointermove", (e) => {
+          if (e.pointerId === pointer) go(aim(e));
+        });
+        const up = (e: PointerEvent) => {
+          if (e.pointerId !== pointer) return;
+          go(null);
+          pointer = null;
+        };
+        cross.addEventListener("pointerup", up);
+        cross.addEventListener("pointercancel", up);
+        cross.addEventListener("contextmenu", (e) => e.preventDefault());
+        // releaseAll (the page hiding, say) lets go through release(); forget the thumb too.
+        resets.push(() => {
+          current = null;
+          pointer = null;
+        });
+        return box;
+      }
+
+      case "crawl": {
+        // The classic dungeon-crawler keys: turn left, forward, turn right over step left, back, step right.
+        const box = el("div", "ctl crawl");
+        styleColour(box, c);
+        if (c.label) box.append(el("span", "lbl", c.label));
+        const area = el("div", "area");
+        const keys = el("div", "keys");
+        const order: [CrawlDirection, string, number, boolean][] = [
+          ["turn-left", TURN, 0, false], ["forward", ARROW, 0, false], ["turn-right", TURN, 0, true],
+          ["step-left", ARROW, 270, false], ["back", ARROW, 180, false], ["step-right", ARROW, 90, false],
+        ];
+        for (const [d, path, turn, flip] of order) {
+          const k = el("button", `key k-${d}`);
+          k.setAttribute("aria-label", d.replace("-", " "));
+          k.append(icon(path, turn, flip));
+          const id = `${c.id}.${d}`;
+          k.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            if (held.has(id) || !host.tapAllowed()) return;
+            capture(k, e.pointerId);
+            press(id, k, e.pointerId);
+          });
+          const up = (e: PointerEvent) => {
+            if (held.get(id)?.pointer === e.pointerId) release(id);
+          };
+          k.addEventListener("pointerup", up);
+          k.addEventListener("pointercancel", up);
+          k.addEventListener("contextmenu", (e) => e.preventDefault());
+          keys.append(k);
+        }
+        area.append(keys);
+        box.append(area);
+        return box;
+      }
+
       case "label": {
         const box = el("div", "ctl info");
         styleColour(box, c);
@@ -240,6 +359,7 @@ export function renderLayout(
     },
     releaseAll() {
       for (const id of [...held.keys()]) release(id);
+      for (const reset of resets) reset();
     },
   };
 }

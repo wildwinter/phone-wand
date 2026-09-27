@@ -121,6 +121,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FPhoneWandControl MakeLabel(const FString& Id, const FString& Label = TEXT(""), const FString& Text = TEXT(""));
 
+	/**
+	 * A dpad: four arrows. Each arrow is a button: presses arrive as On Button named Id.up, Id.down,
+	 * Id.left or Id.right (Dpad Button gives the name).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeDpad(const FString& Id, const FString& Label = TEXT(""));
+
+	/**
+	 * Dungeon-crawler keys: forward, back, step and turn left and right. Each key is a button:
+	 * presses arrive as On Button named Id.forward, Id.turn-left and so on (Crawl Button gives the name).
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeCrawl(const FString& Id, const FString& Label = TEXT(""));
+
+	/** The button name of a dpad arrow, such as "move.up", to compare with On Button's Button or pass to Is Button Held. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FString DpadButton(const FString& ControlId, EPhoneWandDpadDirection Direction) { return ControlId + TEXT(".") + PhoneWand::ToString(Direction); }
+
+	/** The button name of a crawl key, such as "walk.turn-left", to compare with On Button's Button or pass to Is Button Held. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FString CrawlButton(const FString& ControlId, EPhoneWandCrawlDirection Direction) { return ControlId + TEXT(".") + PhoneWand::ToString(Direction); }
+
 	/** The same control drawn in a colour of its own instead of the player's. */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FPhoneWandControl WithColour(const FPhoneWandControl& Control, FLinearColor Colour);

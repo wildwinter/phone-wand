@@ -106,6 +106,42 @@ enum class EPhoneWandControlType : uint8
 	Choice,
 	/** Text only apps change: a Text value. */
 	Label,
+	/** Four arrows. Each is a button named <id>.up, <id>.down, <id>.left or <id>.right (see EPhoneWandDpadDirection). */
+	Dpad,
+	/** Dungeon-crawler keys. Each is a button named <id>.forward, <id>.back, <id>.step-left and so on (see EPhoneWandCrawlDirection). */
+	Crawl,
+};
+
+/** An arrow of a dpad control. Its button is named <control id>.<direction>, such as move.up. */
+UENUM(BlueprintType)
+enum class EPhoneWandDpadDirection : uint8
+{
+	/** "up" */
+	Up,
+	/** "down" */
+	Down,
+	/** "left" */
+	Left,
+	/** "right" */
+	Right,
+};
+
+/** A key of a crawl control. Its button is named <control id>.<direction>, such as walk.turn-left. */
+UENUM(BlueprintType)
+enum class EPhoneWandCrawlDirection : uint8
+{
+	/** "forward" */
+	Forward,
+	/** "back" */
+	Back,
+	/** "step-left" */
+	StepLeft,
+	/** "step-right" */
+	StepRight,
+	/** "turn-left" */
+	TurnLeft,
+	/** "turn-right" */
+	TurnRight,
 };
 
 /** What a control value holds. */
@@ -158,8 +194,8 @@ enum class EPhoneWandGesture : uint8
 
 /**
  * One control in a layout. Build them with the Make Button / Make Toggle / Make Slider / Make Choice
- * / Make Label nodes (UPhoneWandLibrary), or fill the fields yourself. Only the fields for the
- * control's Type are sent.
+ * / Make Label / Make Dpad / Make Crawl nodes (UPhoneWandLibrary), or fill the fields yourself. Only
+ * the fields for the control's Type are sent.
  */
 USTRUCT(BlueprintType)
 struct PHONEWAND_API FPhoneWandControl
@@ -227,7 +263,7 @@ struct PHONEWAND_API FPhoneWandLayout
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	EPhoneWandTemplate Template = EPhoneWandTemplate::PrimarySecondary;
 
-	/** In order. In the Primary templates the first is the big one and must be a button. */
+	/** In order. In the Primary templates the first is the big one and must be a button, dpad or crawl. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	TArray<FPhoneWandControl> Controls;
 
@@ -529,7 +565,7 @@ struct PHONEWAND_API FPhoneWandPlayer
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	FPhoneWandLayout Layout;
 
-	/** Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons have no value. */
+	/** Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons, dpads and crawls have no value. */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	TMap<FString, FPhoneWandControlValue> Controls;
 
@@ -552,8 +588,12 @@ namespace PhoneWand
 
 	/** Protocol spelling of a template ("primary", "primary-secondary", "pair", "primary-row", "grid"). */
 	PHONEWAND_API FString ToString(EPhoneWandTemplate Template);
-	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label"). */
+	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label", "dpad", "crawl"). */
 	PHONEWAND_API FString ToString(EPhoneWandControlType Type);
+	/** Protocol spelling of a dpad direction ("up", "down", "left", "right"). */
+	PHONEWAND_API FString ToString(EPhoneWandDpadDirection Direction);
+	/** Protocol spelling of a crawl direction ("forward", "back", "step-left", "step-right", "turn-left", "turn-right"). */
+	PHONEWAND_API FString ToString(EPhoneWandCrawlDirection Direction);
 	/** Template from its protocol spelling. Returns false for an unknown one. */
 	PHONEWAND_API bool ParseTemplate(const FString& Name, EPhoneWandTemplate& Out);
 	/** The layout a phone shows until an app sends one: PrimarySecondary with buttons "primary" and "secondary". */

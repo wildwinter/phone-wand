@@ -70,7 +70,7 @@ A **player** has `id`, `slot`, `name`, `colour` (`#rrggbb`), `label`, `state` (`
 or `paused`), `calibration` (`none`, `ray` or `screen`), `device`, and:
 
 - `pose`: the latest pose, or `null`,
-- `buttons`: a `Set` of held buttons (`"primary"`, `"secondary"`, or your layout's button ids),
+- `buttons`: a `Set` of held buttons (`"primary"`, `"secondary"`, or your layout's button ids, including d-pad and crawl pad directions such as `"move.up"`),
 - `layout`: the controls the phone shows, and `controls`: their current values by id,
 - `stats`: the latest `{ rtt, rate, dropped }`, or `null`,
 - `calibrating`: `"top-left"` or `"bottom-right"` while the player is calibrating, else `null`.
@@ -113,6 +113,7 @@ When the relay goes away, every player gets a `leave`, then `disconnected` fires
 | `haptic(pattern, { id })` | Vibrate (Android only). A number or an on/off pattern in ms. |
 | `calibrate(mode, { id })` | Ask players to calibrate: `"screen"` or `"ray"`. |
 | `layout(layout, { id })` | Choose the controls a phone shows, or every phone's; `null` for the default. See [Layouts](../layouts.md). |
+| `DPAD_DIRECTIONS`, `CRAWL_DIRECTIONS` | The direction names of a `dpad` and a `crawl` control. Each direction's button is `<control id>.<direction>`. |
 | `set(control, value, { id })` | Change a toggle, slider or choice's value, or a label's text. |
 | `handle(message)` | Feed a decoded relay message in directly, for tests and replays. |
 

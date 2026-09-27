@@ -9,7 +9,10 @@
 export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 export type Calibration = "none" | "ray" | "screen";
-/** A button's id: "primary" and "secondary" by default, or the ids in your layout. */
+/**
+ * A button's id: "primary" and "secondary" by default, or the ids in your layout. A d-pad or crawl
+ * pad's directions are buttons too, named "<its id>.<direction>", such as "move.up".
+ */
 export type ButtonName = string;
 
 export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" | "grid";
@@ -19,7 +22,15 @@ export type Control =
   | { id: string; type: "toggle"; label?: string; colour?: string; value?: boolean }
   | { id: string; type: "slider"; label?: string; colour?: string; value?: number; orientation?: "horizontal" | "vertical"; spring?: number | null }
   | { id: string; type: "choice"; label?: string; colour?: string; options: string[]; value?: number }
-  | { id: string; type: "label"; label?: string; colour?: string; text?: string };
+  | { id: string; type: "label"; label?: string; colour?: string; text?: string }
+  /** Four arrows: presses arrive as the buttons "<id>.up", "<id>.down", "<id>.left" and "<id>.right". */
+  | { id: string; type: "dpad"; label?: string; colour?: string }
+  /** Dungeon-crawler keys: the buttons "<id>.forward", "<id>.back", "<id>.step-left", "<id>.step-right", "<id>.turn-left" and "<id>.turn-right". */
+  | { id: string; type: "crawl"; label?: string; colour?: string };
+
+/** The directions of a d-pad and a crawl pad, as they end each direction's button name. */
+export const DPAD_DIRECTIONS = ["up", "down", "left", "right"] as const;
+export const CRAWL_DIRECTIONS = ["forward", "back", "step-left", "step-right", "turn-left", "turn-right"] as const;
 export interface Layout {
   template: Template;
   controls: Control[];
