@@ -651,6 +651,17 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	}, {});
 	Wand->SetLayout(Columns, TEXT("p1"));
 
+	// A pad is written like a button; a space is just its type unless it was given an id.
+	FPhoneWandControl NamedSpace = UPhoneWandLibrary::MakeSpace();
+	NamedSpace.Id = TEXT("gap");
+	const FPhoneWandLayout Padded = UPhoneWandLibrary::MakeRowsLayout({ 1, 2, 1 }, {
+		UPhoneWandLibrary::WithColour(UPhoneWandLibrary::MakePad(TEXT("fire"), TEXT("Fire")), UPhoneWandLibrary::ColourFromHex(TEXT("#ff8800"))),
+		UPhoneWandLibrary::MakeSpace(),
+		UPhoneWandLibrary::MakeButton(TEXT("use")),
+		NamedSpace,
+	}, {});
+	Wand->SetLayout(Padded, TEXT("p1"));
+
 	Wand->ResetLayout(TEXT("p2"));
 	Wand->ResetLayout();
 	Wand->SetControlBool(TEXT("zoom"), false, TEXT("p1"));
@@ -686,6 +697,12 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 			TEXT("{\"id\":\"fire\",\"type\":\"button\"},")
 			TEXT("{\"id\":\"move\",\"type\":\"dpad\"}],")
 			TEXT("\"columns\":[1,2]}}"),
+		TEXT("{\"type\":\"layout\",\"id\":\"p1\",\"layout\":{\"template\":\"rows\",\"controls\":[")
+			TEXT("{\"id\":\"fire\",\"type\":\"pad\",\"label\":\"Fire\",\"colour\":\"#ff8800\"},")
+			TEXT("{\"type\":\"space\"},")
+			TEXT("{\"id\":\"use\",\"type\":\"button\"},")
+			TEXT("{\"id\":\"gap\",\"type\":\"space\"}],")
+			TEXT("\"rows\":[1,2,1]}}"),
 		TEXT("{\"type\":\"layout\",\"id\":\"p2\",\"layout\":null}"),
 		TEXT("{\"type\":\"layout\",\"layout\":null}"),
 		TEXT("{\"type\":\"set\",\"id\":\"p1\",\"control\":\"zoom\",\"value\":false}"),
@@ -702,14 +719,14 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 		}
 	}
 	// A choice's index is a whole number on the wire.
-	if (Sent.Num() > 9)
+	if (Sent.Num() > 10)
 	{
-		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[9]);
+		const TSharedPtr<FJsonValue> Set = PhoneWandTests::ParseValue(Sent[10]);
 		TestTrue(TEXT("choice index is an integer"), Set.IsValid() && FMath::IsNearlyEqual(Set->AsObject()->GetNumberField(TEXT("value")), 2.0));
 	}
 
 	// Reading a layout back gives the same layout, and the same JSON again.
-	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, Rows, Columns, PhoneWand::DefaultLayout() })
+	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, Rows, Columns, Padded, PhoneWand::DefaultLayout() })
 	{
 		const FString Json = UPhoneWandLibrary::LayoutToJson(Layout);
 		const TSharedPtr<FJsonValue> Parsed = PhoneWandTests::ParseValue(Json);
@@ -845,6 +862,33 @@ bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("columns template"), P.Layout.Template, EPhoneWandTemplate::Columns);
 	TestEqual(TEXT("columns counts"), P.Layout.Counts, TArray<int32>({ 2 }));
 	TestEqual(TEXT("columns without widths"), P.Layout.Sizes.Num(), 0);
+
+	// A pad is kept and presses like a button; a space comes back without an id and is not dropped.
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"rows\",\"rows\":[1,2],\"controls\":[")
+		TEXT("{\"id\":\"fire\",\"label\":\"Fire\",\"type\":\"pad\"},{\"type\":\"space\"},{\"id\":\"use\",\"type\":\"button\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	if (TestEqual(TEXT("pad layout controls"), P.Layout.Controls.Num(), 3))
+	{
+		TestTrue(TEXT("pad kept"), P.Layout.Controls[0].Type == EPhoneWandControlType::Pad && P.Layout.Controls[0].Id == TEXT("fire")
+			&& P.Layout.Controls[0].Label == TEXT("Fire"));
+		TestTrue(TEXT("space kept without an id"), P.Layout.Controls[1].Type == EPhoneWandControlType::Space && P.Layout.Controls[1].Id.IsEmpty());
+		TestTrue(TEXT("button after the space"), P.Layout.Controls[2].Type == EPhoneWandControlType::Button && P.Layout.Controls[2].Id == TEXT("use"));
+	}
+	TestNull(TEXT("no control has an empty id"), P.Layout.FindControl(FString()));
+	TestEqual(TEXT("pad and space have no value"), P.Controls.Num(), 0);
+	PhoneWandTests::ExpectJson(*this, TEXT("pad layout JSON"), UPhoneWandLibrary::LayoutToJson(P.Layout),
+		TEXT("{\"template\":\"rows\",\"controls\":[{\"id\":\"fire\",\"type\":\"pad\",\"label\":\"Fire\"},{\"type\":\"space\"},{\"id\":\"use\",\"type\":\"button\"}],\"rows\":[1,2]}"));
+	TArray<FString> Presses;
+	const FDelegateHandle PressHandle = Wand->OnButtonNative.AddLambda([&Presses](const FPhoneWandPlayer& Player, const FString& Button, bool bDown)
+	{
+		Presses.Add(FString::Printf(TEXT("%s %s %s"), *Player.Id, *Button, bDown ? TEXT("down") : TEXT("up")));
+	});
+	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":true}"));
+	TestTrue(TEXT("pad held"), Wand->IsButtonHeld(TEXT("p1"), TEXT("fire")));
+	Wand->HandleMessage(TEXT("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":false}"));
+	TestFalse(TEXT("pad released"), Wand->IsButtonHeld(TEXT("p1"), TEXT("fire")));
+	TestEqual(TEXT("pad presses"), Presses, TArray<FString>({ TEXT("p1 fire down"), TEXT("p1 fire up") }));
+	Wand->OnButtonNative.Remove(PressHandle);
 
 	// error: a warning when nothing is bound, the delegate otherwise.
 	AddExpectedMessagePlain(TEXT("layout: template grid holds at most 6 controls"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);

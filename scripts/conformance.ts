@@ -284,6 +284,13 @@ const SESSIONS: Record<string, () => Line[]> = {
       },
     }); // widths under a tenth of the biggest are raised to it
     s.send(1, { type: "control", control: "throttle", value: 0.4 });
+    // A pad (a big button) over a space and a button: the pad presses like a button; spaces need no id.
+    s.app({
+      type: "layout", id: "p1",
+      layout: { template: "rows", rows: [1, 2], controls: [{ id: "fire", type: "pad", label: "Fire" }, { type: "space" }, { id: "use", type: "button" }] },
+    });
+    s.send(1, { type: "button", button: "fire", down: true });
+    s.send(1, { type: "button", button: "fire", down: false });
     s.app({ type: "layout", id: "p1", layout: { template: "rows", rows: [1, 2], controls: [{ id: "x", type: "button" }] } }); // counts don't add up: error
     s.app({ type: "layout", id: "p1", layout: { template: "columns", controls: [{ id: "x", type: "button" }] } }); // no counts: error
     s.app({

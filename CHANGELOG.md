@@ -17,6 +17,15 @@ the protocol.
   Up to 4 rows or columns of up to 4 controls, 8 in all, and any control in any position. A crawl
   pad fits a half-height row well. Every client library has builders for them, and the dashboard's
   layout menu has samples.
+- Two controls: **pad**, a big round button like the default Primary, whose presses arrive as
+  button events; and **space**, an empty cell (it needs no id) to leave a gap.
+
+### Changed
+
+- The phone draws every layout as rows or columns. The fixed templates (`primary`,
+  `primary-secondary`, `pair`, `primary-row`, `grid`) are now presets: shortcuts for particular
+  rows, documented as such, and they work as before. The one visible change: in
+  `primary-secondary` (the default) the smaller control is half the width instead of 62%.
 
 ### Fixed
 

@@ -114,6 +114,10 @@ enum class EPhoneWandControlType : uint8
 	Dpad,
 	/** Dungeon-crawler keys. Each is a button named <id>.forward, <id>.back, <id>.step-left and so on (see EPhoneWandCrawlDirection). */
 	Crawl,
+	/** A big round button, like the default Primary: presses arrive as OnButton with the control's id. */
+	Pad,
+	/** An empty cell that takes up room. Needs no id; has no label, colour or value. */
+	Space,
 };
 
 /** An arrow of a dpad control. Its button is named <control id>.<direction>, such as move.up. */
@@ -152,7 +156,7 @@ enum class EPhoneWandCrawlDirection : uint8
 UENUM(BlueprintType)
 enum class EPhoneWandValueType : uint8
 {
-	/** No value (a button, or a control that does not exist). */
+	/** No value (a button, pad, dpad, crawl or space, or a control that does not exist). */
 	None,
 	/** A toggle: bValue. */
 	Bool,
@@ -198,15 +202,15 @@ enum class EPhoneWandGesture : uint8
 
 /**
  * One control in a layout. Build them with the Make Button / Make Toggle / Make Slider / Make Choice
- * / Make Label / Make Dpad / Make Crawl nodes (UPhoneWandLibrary), or fill the fields yourself. Only
- * the fields for the control's Type are sent.
+ * / Make Label / Make Dpad / Make Crawl / Make Pad / Make Space nodes (UPhoneWandLibrary), or fill the
+ * fields yourself. Only the fields for the control's Type are sent.
  */
 USTRUCT(BlueprintType)
 struct PHONEWAND_API FPhoneWandControl
 {
 	GENERATED_BODY()
 
-	/** Your name for the control: 1 to 32 letters, digits, _ . or -, unique in the layout. Button presses and value changes carry it. */
+	/** Your name for the control: 1 to 32 letters, digits, _ . or -, unique in the layout. Button presses and value changes carry it. Optional (and usually empty) for a space. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	FString Id;
 
@@ -267,7 +271,7 @@ struct PHONEWAND_API FPhoneWandLayout
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	EPhoneWandTemplate Template = EPhoneWandTemplate::PrimarySecondary;
 
-	/** In order. In the Primary templates the first is the big one and must be a button, dpad or crawl. */
+	/** In order. In the Primary templates the first is the big one and must be a button, pad, dpad or crawl. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	TArray<FPhoneWandControl> Controls;
 
@@ -285,9 +289,13 @@ struct PHONEWAND_API FPhoneWandLayout
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	TArray<double> Sizes;
 
-	/** The control with this id, or null. */
+	/** The control with this id, or null. Never matches an empty id (spaces usually have none). */
 	const FPhoneWandControl* FindControl(const FString& ControlId) const
 	{
+		if (ControlId.IsEmpty())
+		{
+			return nullptr;
+		}
 		return Controls.FindByPredicate([&ControlId](const FPhoneWandControl& C) { return C.Id == ControlId; });
 	}
 };
@@ -583,7 +591,7 @@ struct PHONEWAND_API FPhoneWandPlayer
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	FPhoneWandLayout Layout;
 
-	/** Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons, dpads and crawls have no value. */
+	/** Current values of the layout's toggles, sliders, choices and labels, by control id. Buttons, pads, dpads, crawls and spaces have no value. */
 	UPROPERTY(BlueprintReadOnly, Category = "Phone Wand")
 	TMap<FString, FPhoneWandControlValue> Controls;
 
@@ -606,7 +614,7 @@ namespace PhoneWand
 
 	/** Protocol spelling of a template ("primary", "primary-secondary", "pair", "primary-row", "grid", "rows", "columns"). */
 	PHONEWAND_API FString ToString(EPhoneWandTemplate Template);
-	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label", "dpad", "crawl"). */
+	/** Protocol spelling of a control type ("button", "toggle", "slider", "choice", "label", "dpad", "crawl", "pad", "space"). */
 	PHONEWAND_API FString ToString(EPhoneWandControlType Type);
 	/** Protocol spelling of a dpad direction ("up", "down", "left", "right"). */
 	PHONEWAND_API FString ToString(EPhoneWandDpadDirection Direction);
@@ -619,7 +627,7 @@ namespace PhoneWand
 
 	/** A layout as the protocol's JSON object: { "template": ..., "controls": [ ... ] }, plus "rows"/"heights" or "columns"/"widths". */
 	PHONEWAND_API TSharedRef<FJsonObject> LayoutToJson(const FPhoneWandLayout& Layout);
-	/** One control as the protocol's JSON object. Only the fields for its type are written. */
+	/** One control as the protocol's JSON object. Only the fields for its type are written; a space without an id is just {"type":"space"}. */
 	PHONEWAND_API TSharedRef<FJsonObject> ControlToJson(const FPhoneWandControl& Control);
 	/** A layout from the protocol's JSON. Controls of unknown types are skipped. */
 	PHONEWAND_API FPhoneWandLayout LayoutFromJson(const FJsonObject& Json);

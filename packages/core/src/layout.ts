@@ -13,6 +13,8 @@ interface ControlBase {
 }
 
 export interface ButtonControl extends ControlBase { type: "button" }
+/** A big round button, like the default Primary. Presses arrive as button events, as for a button. */
+export interface PadControl extends ControlBase { type: "pad" }
 export interface ToggleControl extends ControlBase { type: "toggle"; value?: boolean }
 export interface SliderControl extends ControlBase {
   type: "slider";
@@ -35,7 +37,12 @@ export interface DpadControl extends ControlBase { type: "dpad" }
 /** Dungeon-crawler movement: turn and step left and right, forward and back, each a button like the d-pad's. */
 export interface CrawlControl extends ControlBase { type: "crawl" }
 
-export type Control = ButtonControl | ToggleControl | SliderControl | ChoiceControl | LabelControl | DpadControl | CrawlControl;
+/** An empty cell: it takes up room and shows nothing. It needs no id. */
+export interface SpaceControl { type: "space"; id?: string }
+
+export type Control =
+  | ButtonControl | PadControl | ToggleControl | SliderControl | ChoiceControl | LabelControl | DpadControl | CrawlControl
+  | SpaceControl;
 export type ControlValue = boolean | number | string;
 
 export interface Layout {
@@ -65,7 +72,7 @@ export type CrawlDirection = (typeof CRAWL_DIRECTIONS)[number];
 export function layoutButtons(layout: Layout): string[] {
   const out: string[] = [];
   for (const c of layout.controls) {
-    if (c.type === "button") out.push(c.id);
+    if (c.type === "button" || c.type === "pad") out.push(c.id);
     else if (c.type === "dpad") for (const d of DPAD_DIRECTIONS) out.push(`${c.id}.${d}`);
     else if (c.type === "crawl") for (const d of CRAWL_DIRECTIONS) out.push(`${c.id}.${d}`);
   }
@@ -118,6 +125,17 @@ export function validateLayout(raw: unknown): Layout | string {
   const controls: Control[] = [];
   for (const c of r.controls as Record<string, unknown>[]) {
     if (!c || typeof c !== "object") return "each control must be an object";
+    if (c.type === "space") {
+      // Space needs no id; one it has must still be a proper, unique id.
+      if (c.id === undefined) {
+        controls.push({ type: "space" });
+        continue;
+      }
+      if (typeof c.id !== "string" || !ID.test(c.id) || seen.has(c.id)) return `space id ${String(c.id)} must be a unique id, or left out`;
+      seen.add(c.id);
+      controls.push({ type: "space", id: c.id });
+      continue;
+    }
     const id = c.id;
     if (typeof id !== "string" || !ID.test(id)) return `control id ${String(id)} must be 1 to 32 letters, digits, _ . or -`;
     if (seen.has(id)) return `control id ${id} is used twice`;
@@ -128,7 +146,8 @@ export function validateLayout(raw: unknown): Layout | string {
     if (typeof c.colour === "string" && HEX.test(c.colour)) base.colour = c.colour.toLowerCase();
     switch (c.type) {
       case "button":
-        controls.push({ ...base, type: "button" });
+      case "pad":
+        controls.push({ ...base, type: c.type });
         break;
       case "toggle":
         controls.push({ ...base, type: "toggle", value: c.value === true });
@@ -158,7 +177,7 @@ export function validateLayout(raw: unknown): Layout | string {
         controls.push({ ...base, type: c.type });
         break;
       default:
-        return `control ${id} has unknown type ${String(c.type)}; expected button, toggle, slider, choice, label, dpad or crawl`;
+        return `control ${id} has unknown type ${String(c.type)}; expected button, pad, toggle, slider, choice, label, dpad, crawl or space`;
     }
   }
   const first = controls[0].type;
@@ -183,8 +202,8 @@ export function validateLayout(raw: unknown): Layout | string {
       shaped[sizes] = (w as number[]).map((x) => Math.round(Math.max(x, most / 10) * 1000) / 1000);
     }
   }
-  if (template.startsWith("primary") && first !== "button" && first !== "dpad" && first !== "crawl") {
-    return `the first control of template ${template} is the big primary control, so it must be a button, dpad or crawl`;
+  if (template.startsWith("primary") && !["button", "pad", "dpad", "crawl"].includes(first)) {
+    return `the first control of template ${template} is the big primary control, so it must be a button, pad, dpad or crawl`;
   }
   // Direction buttons are "<id>.<direction>": they must not clash with another control's id.
   for (const c of controls) {
@@ -224,5 +243,49 @@ export function controlValue(control: Control, value: unknown): ControlValue | u
       return text(value, 80);
     default:
       return undefined;
+  }
+}
+
+/** How a layout is drawn: rows (or columns) of controls, with their relative sizes. */
+export interface Arrangement {
+  columns: boolean;
+  /** Controls in each row (or column), in order. */
+  lines: Control[][];
+  /** Relative size of each line. */
+  sizes: number[];
+}
+
+/**
+ * Every template is drawn as rows or columns. The fixed templates are presets: in the primary
+ * templates the first button is drawn as a pad, and primary-secondary keeps a space on the thumb's
+ * side of the smaller control, so it sits towards the palm.
+ */
+export function arrange(layout: Layout): Arrangement {
+  const controls = [...layout.controls];
+  const lines = (counts: number[]): Control[][] => {
+    let next = 0;
+    return counts.map((n) => controls.slice(next, (next += n)));
+  };
+  const sized = (counts: number[], sizes?: number[]) => ({ lines: lines(counts), sizes: sizes ?? counts.map(() => 1) });
+  const n = controls.length;
+  if (layout.template.startsWith("primary") && controls[0]?.type === "button") controls[0] = { ...controls[0], type: "pad" };
+  switch (layout.template) {
+    case "rows":
+      return { columns: false, ...sized(layout.rows ?? [n], layout.heights) };
+    case "columns":
+      return { columns: true, ...sized(layout.columns ?? [n], layout.widths) };
+    case "pair":
+      return { columns: false, ...sized([n]) };
+    case "grid": {
+      if (n % 2) controls.push({ type: "space" });
+      return { columns: false, ...sized(Array(Math.ceil(n / 2)).fill(2)) };
+    }
+    case "primary-secondary":
+      if (n > 1) controls.splice(1, 0, { type: "space" });
+      return { columns: false, ...sized(n > 1 ? [1, 2] : [1], n > 1 ? [3, 1] : undefined) };
+    case "primary-row":
+      return { columns: false, ...sized(n > 1 ? [1, n - 1] : [1], n > 1 ? [3, 1] : undefined) };
+    default:
+      return { columns: false, ...sized([n]) };
   }
 }

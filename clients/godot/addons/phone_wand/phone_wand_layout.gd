@@ -11,7 +11,8 @@ extends RefCounted
 ##
 ## Templates: "primary" (1 control), "primary-secondary" (2), "pair" (2), "primary-row" (1 to 4)
 ## and "grid" (1 to 6), and "rows" and "columns" (1 to 8, built with rows and columns). In the
-## primary templates the first control must be a button, dpad or crawl.
+## primary templates the first control must be a button, pad, dpad or crawl.
+## Controls: button, pad, dpad, crawl, toggle, slider, choice, label and space.
 ## colour is a Color or "#rrggbb", or null for the player's colour. See docs/layouts.md.
 ##
 ## A dpad or crawl control is a set of buttons named "<id>.<direction>", such as "move.up" or
@@ -65,6 +66,11 @@ static func button(id: String, label: String = "", colour: Variant = null) -> Di
 	return _control(id, "button", label, colour)
 
 
+## A big round button, like the default Primary. Presses arrive as PhoneWandClient.button with this id.
+static func pad(id: String, label: String = "", colour: Variant = null) -> Dictionary:
+	return _control(id, "pad", label, colour)
+
+
 ## Four arrows. Each is a button named "<id>.<direction>" (up, down, left, right): see button_for.
 static func dpad(id: String, label: String = "", colour: Variant = null) -> Dictionary:
 	return _control(id, "dpad", label, colour)
@@ -114,6 +120,11 @@ static func label(id: String, label: String = "", text: String = "", colour: Var
 	var c := _control(id, "label", label, colour)
 	c["text"] = text
 	return c
+
+
+## An empty cell that takes up room, such as to leave a gap in a row. It has no id and no value.
+static func space() -> Dictionary:
+	return {"type": "space"}
 
 
 static func _lines(template: String, counts: Array, size_key: String, sizes: Array, controls: Array) -> Dictionary:

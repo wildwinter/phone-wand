@@ -135,6 +135,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FPhoneWandControl MakeCrawl(const FString& Id, const FString& Label = TEXT(""));
 
+	/** A pad: a big round button, like the default Primary. Presses arrive as On Button with its Id. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakePad(const FString& Id, const FString& Label = TEXT(""));
+
+	/** A space: an empty cell that takes up room in a row or column. It needs no id and has no value. */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandControl MakeSpace();
+
 	/** The button name of a dpad arrow, such as "move.up", to compare with On Button's Button or pass to Is Button Held. */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
 	static FString DpadButton(const FString& ControlId, EPhoneWandDpadDirection Direction) { return ControlId + TEXT(".") + PhoneWand::ToString(Direction); }

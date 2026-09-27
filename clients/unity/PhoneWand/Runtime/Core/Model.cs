@@ -46,7 +46,7 @@ namespace StoryTools.PhoneWand
 
     /// <summary>
     /// The ids of the default layout's two buttons. Buttons are identified by string ids: these
-    /// two by default, or the ids of the buttons in a layout you send with SetLayout. A d-pad or
+    /// two by default, or the ids of the buttons and pads in a layout you send with SetLayout. A d-pad or
     /// crawl pad's directions are buttons too, named Control.ButtonFor(its id, direction).
     /// </summary>
     public static class PhoneButton

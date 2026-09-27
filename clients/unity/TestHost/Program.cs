@@ -351,6 +351,18 @@ namespace StoryTools.PhoneWand.TestHost
             var columnsBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(columns.ToJson()));
             Expect("InColumns round trip", columns.ToJson(), columnsBack.ToJson());
             Expect("InColumns no widths", true, columnsBack.Widths == null && columnsBack.Rows == null);
+            // Pad and space: a pad is a big button; a space has no id and writes as just its type.
+            var padRows = Layout.InRows(new[] { 1, 2 }, Control.Pad("fire", "Fire").WithColour("#ff3300"), Control.Space(),
+                Control.Button("reload", "Reload"));
+            Expect("Pad and Space", "{\"template\":\"rows\",\"controls\":[" +
+                "{\"id\":\"fire\",\"type\":\"pad\",\"label\":\"Fire\",\"colour\":\"#ff3300\"},{\"type\":\"space\"}," +
+                "{\"id\":\"reload\",\"type\":\"button\",\"label\":\"Reload\"}],\"rows\":[1,2]}", padRows.ToJson());
+            var padRowsBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(padRows.ToJson()));
+            Expect("Pad and Space round trip", padRows.ToJson(), padRowsBack.ToJson());
+            Expect("Space no id", null, padRowsBack.Controls.Count == 3 ? padRowsBack.Controls[1].Id : "missing");
+            Expect("Find skips space", null, padRowsBack.Find(null));
+            Expect("Find pad", ControlType.Pad, padRowsBack.Find("fire") != null ? padRowsBack.Find("fire").Type : null);
+            Expect("Space with id", "{\"id\":\"gap\",\"type\":\"space\"}", new Control { Id = "gap", Type = ControlType.Space }.ToString());
             Expect("ButtonFor dpad", "move.up", Control.ButtonFor("move", DpadDirection.Up));
             Expect("ButtonFor crawl", "walk.turn-left", Control.ButtonFor("walk", CrawlDirection.TurnLeft));
             Expect("DpadDirection.All", "up,down,left,right", string.Join(",", DpadDirection.All));
@@ -377,6 +389,13 @@ namespace StoryTools.PhoneWand.TestHost
             Expect("IsHeld primary", false, p.IsHeld(PhoneButton.Primary));
             core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"walk.step-right\",\"down\":true}");
             Expect("IsHeld crawl direction", true, p.IsHeld(Control.ButtonFor("walk", CrawlDirection.StepRight)));
+            // A player whose layout has a pad and an id-less space: the pad presses as a button.
+            core.Handle("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"slot\":0,\"name\":\"A\",\"state\":\"active\"," +
+                "\"layout\":" + padRows.ToJson() + ",\"controls\":{}}}");
+            Expect("player layout with space", padRows.ToJson(), p.Layout.ToJson());
+            core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":false}");
+            core.Handle("{\"type\":\"button\",\"id\":\"p1\",\"button\":\"fire\",\"down\":true}");
+            Expect("IsHeld pad", true, p.IsHeld("fire"));
 
             // error: to UnhandledError with no listener, to the listener otherwise.
             var unhandled = new List<string>();

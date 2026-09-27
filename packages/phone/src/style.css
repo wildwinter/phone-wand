@@ -123,18 +123,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 .controls .cell { min-height: 0; display: flex; }
 .controls .cell > .ctl { flex: 1; }
 
-.t-primary { grid-template-rows: 1fr; }
-.t-primary-secondary { grid-template-rows: 1fr minmax(96px, 24%); }
-.t-primary-secondary .cell-1 { width: 62%; justify-self: end; }
-.left-handed .t-primary-secondary .cell-1 { justify-self: start; }
-.t-pair { grid-template-columns: 1fr 1fr; }
-.t-primary-row { grid-template-rows: 1fr minmax(96px, 24%); }
-.t-primary-row .row { display: flex; gap: 10px; min-height: 0; }
-.t-primary-row .row .cell { flex: 1; }
-.left-handed .t-primary-row .row { flex-direction: row-reverse; }
-.t-grid { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
-.left-handed .t-grid { direction: rtl; }
-.left-handed .t-grid .ctl { direction: ltr; }
+/* Every template is drawn as rows (or columns) of lines; each line shares its space evenly. */
 .t-rows .line, .t-columns .line { display: flex; gap: 10px; min-height: 0; min-width: 0; }
 .t-columns .line { flex-direction: column; }
 .t-rows .line .cell, .t-columns .line .cell { flex: 1; min-width: 0; min-height: 0; }
@@ -206,4 +195,3 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
   grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
 }
 .crawl .key { display: grid; place-items: center; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); color: var(--text); padding: 0; }
-.left-handed .t-grid .dpad, .left-handed .t-grid .crawl { direction: ltr; }

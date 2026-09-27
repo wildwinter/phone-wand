@@ -116,8 +116,8 @@ Wand->OnPoseNative.AddLambda([this](const FPhoneWandPlayer& Player, const FPhone
 
 By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
 can choose other controls, for every phone or for each player: pick a template and list the
-controls. Buttons, toggles, sliders, choices, labels, dpads and crawl keys are available; the phone
-places them for the player's thumb. [Layouts](../layouts.md) explains the templates and controls.
+controls. Buttons, pads, toggles, sliders, choices, labels, dpads, crawl keys and spaces are
+available; the phone places them for the player's thumb. [Layouts](../layouts.md) explains the templates and controls.
 
 Button ids are plain strings (`FString`) everywhere in the plugin: `primary` and `secondary` in the
 default layout, or the ids you give your buttons. `UPhoneWandLibrary::PrimaryButton()` and
@@ -135,12 +135,18 @@ and right, turn left and right) carry no value. Each arrow or key is an ordinary
 
 **Dpad Button** (`UPhoneWandLibrary::DpadButton(ControlId, EPhoneWandDpadDirection)`) and **Crawl
 Button** (`CrawlButton(ControlId, EPhoneWandCrawlDirection)`) spell these names, so you need not
-type them. In the Primary templates the big first control may be a button, a dpad or a crawl.
+type them. In the Primary templates the big first control may be a button, a pad, a dpad or a crawl.
+
+A **pad** is a big round button, like the default Primary. Its presses arrive through `OnButton`
+with its id, just like a button's, and it has no value. A **space** is an empty cell that takes up
+room in a row or column: it needs no id (it may have one, unique like any other), has no label,
+colour or value, and is sent as just `{"type":"space"}`. Players' layouts from the relay can hold
+spaces without an id, so don't assume every control in `FPhoneWandPlayer::Layout` has one.
 
 ### Blueprint
 
 1. Build the controls with **Make Button**, **Make Toggle**, **Make Slider**, **Make Choice**,
-   **Make Label**, **Make Dpad** and **Make Crawl** (in **Phone Wand > Layouts**), and give one its
+   **Make Label**, **Make Dpad**, **Make Crawl**, **Make Pad** and **Make Space** (in **Phone Wand > Layouts**), and give one its
    own colour with **With Colour**.
 2. Put them in an array, in order, and pass it with a template to **Make Layout**.
 3. Call **Set Layout** on the subsystem. Leave **Id** empty for every phone, or give a player's id.
@@ -240,6 +246,18 @@ Wand->SetLayout(UPhoneWandLibrary::MakeRowsLayout({ 1, 3 }, {
 
 In Blueprint: the four controls into **Make Rows Layout**, with **Rows** an array of 1 and 3 and
 **Heights** an array of 3 and 2 (or left unconnected for equal rows), then **Set Layout**.
+
+A big Fire pad on top, and a Use button on the right of the row below, with a space holding the
+left of that row open:
+
+```cpp
+Wand->SetLayout(UPhoneWandLibrary::MakeRowsLayout({ 1, 2 }, {
+    UPhoneWandLibrary::MakePad(TEXT("fire"), TEXT("Fire")),
+    UPhoneWandLibrary::MakeSpace(),
+    UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+}, {}));
+// Presses of the pad arrive in OnButtonNative with Button == "fire".
+```
 
 A player that joins later gets the layout you sent to everyone only if you send it again: the
 relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if players come and
@@ -407,7 +425,7 @@ entirely.
 | `bHasPose`, `Pose` | The latest pose, once one has arrived. |
 | `Buttons` | Ids of the buttons held now, sorted. |
 | `Layout` | The `FPhoneWandLayout` the phone shows. The default until an app sends one. |
-| `Controls` | Current values of the layout's toggles, sliders, choices and labels, by control id (`TMap<FString, FPhoneWandControlValue>`). Buttons, dpads and crawls have none. `GetControl(ControlId)` in C++. |
+| `Controls` | Current values of the layout's toggles, sliders, choices and labels, by control id (`TMap<FString, FPhoneWandControlValue>`). Buttons, pads, dpads, crawls and spaces have none. `GetControl(ControlId)` in C++. |
 | `bHasStats`, `Stats` | The latest stats. |
 
 ### FPhoneWandPose
@@ -435,8 +453,8 @@ too.
 
 | `FPhoneWandControl` field | Meaning |
 |---|---|
-| `Id` | Your name for it: 1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout. |
-| `Type` | `Button`, `Toggle`, `Slider`, `Choice`, `Label`, `Dpad` or `Crawl`. Dpad and crawl have no value; their directions are buttons named `<Id>.<direction>`. |
+| `Id` | Your name for it: 1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout. Optional for a space (usually empty). |
+| `Type` | `Button`, `Toggle`, `Slider`, `Choice`, `Label`, `Dpad`, `Crawl`, `Pad` or `Space`. Pad, dpad, crawl and space have no value; a pad's presses are buttons named `<Id>`, and dpad and crawl directions are buttons named `<Id>.<direction>`. A space sends only its type (and `Id` if set). |
 | `Label` | Text on the control (up to 24 characters). Optional. |
 | `bHasColour`, `Colour` | The control's own colour (sent as `#rrggbb`); the player's colour when `bHasColour` is false. |
 | `bValue` | Toggle: its starting state. |
@@ -485,6 +503,8 @@ Blueprint function library, also callable from C++.
 | `MakeLabel(Id, Label, Text)` | A label control. |
 | `MakeDpad(Id, Label)` | A dpad: four arrow buttons, `<Id>.up`, `.down`, `.left`, `.right`. |
 | `MakeCrawl(Id, Label)` | Crawl keys: six buttons, `<Id>.forward`, `.back`, `.step-left`, `.step-right`, `.turn-left`, `.turn-right`. |
+| `MakePad(Id, Label)` | A pad: a big round button. Presses arrive as button `<Id>`. |
+| `MakeSpace()` | A space: an empty cell with no id, label, colour or value. |
 | `DpadButton(ControlId, Direction)` | The button name of a dpad arrow (`EPhoneWandDpadDirection`: `Up`, `Down`, `Left`, `Right`), such as `move.up`. |
 | `CrawlButton(ControlId, Direction)` | The button name of a crawl key (`EPhoneWandCrawlDirection`: `Forward`, `Back`, `StepLeft`, `StepRight`, `TurnLeft`, `TurnRight`), such as `walk.turn-left`. |
 | `WithColour(Control, Colour)` | The control with a colour of its own. |

@@ -19,6 +19,8 @@ namespace
 		if (Name == TEXT("label")) { Out = EPhoneWandControlType::Label; return true; }
 		if (Name == TEXT("dpad")) { Out = EPhoneWandControlType::Dpad; return true; }
 		if (Name == TEXT("crawl")) { Out = EPhoneWandControlType::Crawl; return true; }
+		if (Name == TEXT("pad")) { Out = EPhoneWandControlType::Pad; return true; }
+		if (Name == TEXT("space")) { Out = EPhoneWandControlType::Space; return true; }
 		return false;
 	}
 }
@@ -60,6 +62,8 @@ namespace PhoneWand
 		case EPhoneWandControlType::Label: return TEXT("label");
 		case EPhoneWandControlType::Dpad: return TEXT("dpad");
 		case EPhoneWandControlType::Crawl: return TEXT("crawl");
+		case EPhoneWandControlType::Pad: return TEXT("pad");
+		case EPhoneWandControlType::Space: return TEXT("space");
 		default: return TEXT("button");
 		}
 	}
@@ -117,6 +121,16 @@ namespace PhoneWand
 	TSharedRef<FJsonObject> ControlToJson(const FPhoneWandControl& C)
 	{
 		TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
+		if (C.Type == EPhoneWandControlType::Space)
+		{
+			// Just room: an id only when one was given, and nothing else.
+			if (!C.Id.IsEmpty())
+			{
+				O->SetStringField(TEXT("id"), C.Id);
+			}
+			O->SetStringField(TEXT("type"), ToString(C.Type));
+			return O;
+		}
 		O->SetStringField(TEXT("id"), C.Id);
 		O->SetStringField(TEXT("type"), ToString(C.Type));
 		if (!C.Label.IsEmpty())
@@ -251,7 +265,7 @@ namespace PhoneWand
 			{
 				continue; // a control type from a newer relay
 			}
-			J.TryGetStringField(TEXT("id"), C.Id);
+			J.TryGetStringField(TEXT("id"), C.Id); // spaces may have none
 			J.TryGetStringField(TEXT("label"), C.Label);
 			FString Colour;
 			if (J.TryGetStringField(TEXT("colour"), Colour) && !Colour.IsEmpty())

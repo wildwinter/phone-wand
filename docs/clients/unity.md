@@ -157,6 +157,28 @@ Button ids are strings. `PhoneButton.Primary` and `PhoneButton.Secondary` are th
 `player.IsHeld(PhoneButton.Primary)` still compiles and works; code that declared a variable of
 type `PhoneButton`, or called `ProtocolNames.Of` on one, now uses `string`.)
 
+### Pads and spaces
+
+`Control.Pad(id, label)` is a big round button, like the default Primary. It has no value: presses
+arrive as `Button` events with its id (and show in `player.IsHeld`), exactly as for
+`Control.Button`, and it can be the big control of a primary template. `Control.Space()` is an
+empty cell that takes up room, to leave a gap in rows or columns. It has no id, value, label or
+colour, and writes as just `{"type":"space"}`. A player's `Layout` can hold spaces with a null
+`Id`; `layout.Find` never returns one.
+
+```csharp
+// A big Fire pad on top, and a gap beside a Reload button below it.
+wand.SetLayout(Layout.InRows(new[] { 1, 2 },
+    Control.Pad("fire", "Fire"),
+    Control.Space(), Control.Button("reload", "Reload")));
+
+wand.Button += (e, player) =>
+{
+    if (e.Button == "fire" && e.Down) Shoot(player);
+    if (e.Button == "reload" && e.Down) Reload(player);
+};
+```
+
 ### D-pads and crawl pads
 
 `Control.Dpad(id, label)` shows four arrows, and `Control.Crawl(id, label)` shows dungeon-crawler
@@ -168,7 +190,7 @@ direction is an ordinary button named `"<id>.<direction>"`, so presses arrive as
 constants in `DpadDirection` (`Up`, `Down`, `Left`, `Right`) and `CrawlDirection` (`Forward`,
 `Back`, `StepLeft`, `StepRight`, `TurnLeft`, `TurnRight`), each with `All`, and
 `Control.ButtonFor(id, direction)` builds the button name. Either can be the big control of a
-primary template.
+primary template, as can a button or a pad.
 
 ```csharp
 // A dungeon crawler: a big crawl pad, and a Use button below it.
@@ -355,7 +377,7 @@ order, plus `Rows` and `Heights` or `Columns` and `Widths` for the last two. Bui
 
 | Helper | Template |
 |---|---|
-| `Layout.Primary(button)` | One big button (or a d-pad or crawl pad, as in each primary template). |
+| `Layout.Primary(button)` | One big button (or a pad, d-pad or crawl pad, as in each primary template). |
 | `Layout.PrimarySecondary(button, control)` | A big button and a smaller control below it. |
 | `Layout.Pair(left, right)` | Two equal controls side by side. |
 | `Layout.PrimaryRow(button, up to three controls)` | A big button with a row of smaller controls below. |
@@ -369,11 +391,14 @@ order, plus `Rows` and `Heights` or `Columns` and `Widths` for the last two. Bui
 A `Control` has an `Id`, a `Type` (the constants are in `ControlType`), an optional `Label` and
 `Colour` (`"#rrggbb"`), and the fields of its type: `Value` (the starting value: a `bool` for a
 toggle, a `double` for a slider or a choice's index), `Orientation` and `Spring` for sliders,
-`Options` for choices, and `Text` for labels. D-pads and crawl pads have none. Build one with:
+`Options` for choices, and `Text` for labels. Buttons, pads, d-pads and crawl pads have none, and a
+space has no `Id` either. Build one with:
 
 | Builder | Control |
 |---|---|
 | `Control.Button(id, label)` | A button. Presses arrive as `Button` events with this id. |
+| `Control.Pad(id, label)` | A big round button. Presses arrive as `Button` events with this id. See [Pads and spaces](#pads-and-spaces). |
+| `Control.Space()` | An empty cell that takes up room. No id. |
 | `Control.Toggle(id, label, on = false)` | On or off. |
 | `Control.Slider(id, label, value = null, vertical = false, spring = null)` | 0 to 1. `spring` is where it returns when let go (a throttle); null stays put. |
 | `Control.Choice(id, label, options, selected = 0)` | One of 2 to 4 options. |

@@ -50,6 +50,9 @@
 {"t":199.8,"link":1,"msg":{"type":"control","control":"map","value":true}}
 {"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"columns","columns":[1,2],"widths":[100,1],"controls":[{"id":"throttle","type":"slider","orientation":"vertical"},{"id":"fire","type":"button"},{"id":"boost","type":"button"}]}}}
 {"t":199.8,"link":1,"msg":{"type":"control","control":"throttle","value":0.4}}
+{"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"rows","rows":[1,2],"controls":[{"id":"fire","type":"pad","label":"Fire"},{"type":"space"},{"id":"use","type":"button"}]}}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"fire","down":true}}
+{"t":199.8,"link":1,"msg":{"type":"button","button":"fire","down":false}}
 {"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"rows","rows":[1,2],"controls":[{"id":"x","type":"button"}]}}}
 {"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"columns","controls":[{"id":"x","type":"button"}]}}}
 {"t":199.8,"app":{"type":"layout","id":"p1","layout":{"template":"rows","rows":[1,1],"heights":[1],"controls":[{"id":"x","type":"button"},{"id":"y","type":"button"}]}}}

@@ -43,7 +43,7 @@ var layout: Dictionary = PhoneWandLayout.default_layout()
 ## The layout's template, such as "primary-secondary", "grid" or "rows".
 var template: String = "primary-secondary"
 ## Current values of the layout's toggles (bool), sliders (float, 0 to 1), choices (int, the
-## option index) and labels (String), by control id. Buttons have no value.
+## option index) and labels (String), by control id. Buttons, pads and spaces have no value.
 var controls: Dictionary = {}
 
 # ---------------------------------------------------------------- stats
@@ -112,7 +112,8 @@ func find_control(control_id: String) -> Dictionary:
 	var list: Variant = layout.get("controls")
 	if list is Array:
 		for c in list:
-			if c is Dictionary and str(c.get("id", "")) == control_id:
+			# Spaces may have no id: never match those.
+			if c is Dictionary and c.has("id") and str(c["id"]) == control_id:
 				return c
 	return {}
 
@@ -177,7 +178,8 @@ func apply_control(control_id: String, value: Variant) -> Variant:
 
 
 ## A control value with the type its control takes: JSON numbers arrive as floats, so a choice's
-## index becomes an int and a slider's position a float. Buttons, dpads and crawls have no value.
+## index becomes an int and a slider's position a float. Buttons, pads, dpads, crawls and spaces
+## have no value.
 func normalise_value(control_id: String, value: Variant) -> Variant:
 	var number := typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT
 	match str(find_control(control_id).get("type", "")):

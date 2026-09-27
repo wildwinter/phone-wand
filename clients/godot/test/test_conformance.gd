@@ -255,6 +255,12 @@ func _check_value_types() -> void:
 			'{"columns":[1,2],"controls":[{"id":"move","type":"dpad"},{"id":"a","type":"button"},{"id":"b","type":"button"}],"template":"columns","widths":[1,2.5]}'],
 		[JSON.stringify(PhoneWandLayout.columns([1], [PhoneWandLayout.button("a")])),
 			'{"columns":[1],"controls":[{"id":"a","type":"button"}],"template":"columns"}'],
+		[JSON.stringify(PhoneWandLayout.pad("fire")), '{"id":"fire","type":"pad"}'],
+		[JSON.stringify(PhoneWandLayout.pad("fire", "Fire", "#FF8800")), '{"colour":"#FF8800","id":"fire","label":"Fire","type":"pad"}'],
+		[JSON.stringify(PhoneWandLayout.space()), '{"type":"space"}'],
+		[JSON.stringify(PhoneWandLayout.layout("primary", [PhoneWandLayout.pad("fire")])), '{"controls":[{"id":"fire","type":"pad"}],"template":"primary"}'],
+		[JSON.stringify(PhoneWandLayout.rows([3], [PhoneWandLayout.space(), PhoneWandLayout.pad("fire"), PhoneWandLayout.space()])),
+			'{"controls":[{"type":"space"},{"id":"fire","type":"pad"},{"type":"space"}],"rows":[3],"template":"rows"}'],
 	]
 	for i in checks.size():
 		if checks[i][0] != checks[i][1]:
@@ -271,9 +277,21 @@ func _check_value_types() -> void:
 	client.handle_message(JSON.stringify({"type": "player", "player": player}))
 	if p.template != "rows" or str(p.layout.get("rows")) != str([1.0, 3.0]) or str(p.layout.get("heights")) != str([3.0, 2.0]):
 		_fail("value types: a player message lost a rows layout's rows or heights: %s" % str(p.layout))
+	# A layout with id-less spaces and a pad: values still apply and spaces match no id.
+	player["layout"] = {"template": "rows", "rows": [2, 2], "controls": [
+		PhoneWandLayout.space(), PhoneWandLayout.pad("fire"), PhoneWandLayout.choice("weapon", ["Bow", "Sling"]), PhoneWandLayout.space()]}
+	player["controls"] = {"weapon": 1}
+	client.handle_message(JSON.stringify({"type": "player", "player": player}))
+	client.handle_message('{"type":"control","id":"p1","control":"weapon","value":0}')
+	if p.template != "rows" or typeof(p.get_control("weapon")) != TYPE_INT or p.get_control("weapon") != 0 \
+			or str(p.find_control("fire").get("type")) != "pad" or not p.find_control("").is_empty() or p.controls.size() != 1:
+		_fail("value types: a layout with spaces and a pad went wrong: %s %s" % [str(p.layout), str(p.controls)])
+	client.handle_message('{"type":"button","id":"p1","button":"fire","down":true}')
+	if not p.is_pressed("fire"):
+		_fail("value types: a pad press did not arrive as a button")
 	client.free()
 	var verdict := "ok" if _failures == before else "FAILED"
-	print("  control value types: %d checks, %s" % [checks.size() + 2, verdict])
+	print("  control value types: %d checks, %s" % [checks.size() + 4, verdict])
 
 
 # ---------------------------------------------------------------- gestures

@@ -11,6 +11,9 @@
 //   wand.SetLayout(Layout.InRows(new[] { 1, 3 },
 //       Control.Crawl("walk"), Control.Button("attack", "Attack"),
 //       Control.Button("use", "Use"), Control.Toggle("map", "Map")).WithHeights(3, 2));
+//
+//   wand.SetLayout(Layout.InRows(new[] { 1, 2 },
+//       Control.Pad("fire", "Fire"), Control.Space(), Control.Button("reload", "Reload")));
 
 using System;
 using System.Collections.Generic;
@@ -20,13 +23,13 @@ namespace StoryTools.PhoneWand
     /// <summary>The layout templates, as the protocol names them.</summary>
     public static class LayoutTemplate
     {
-        /// <summary>One big button. 1 control, a button, dpad or crawl.</summary>
+        /// <summary>One big button. 1 control, a button, pad, dpad or crawl.</summary>
         public const string Primary = "primary";
-        /// <summary>A big button and a smaller control below it. 2 controls, the first a button, dpad or crawl. The default.</summary>
+        /// <summary>A big button and a smaller control below it. 2 controls, the first a button, pad, dpad or crawl. The default.</summary>
         public const string PrimarySecondary = "primary-secondary";
         /// <summary>Two equal controls side by side. 2 controls.</summary>
         public const string Pair = "pair";
-        /// <summary>A big button with up to three smaller controls in a row below. 1 to 4 controls, the first a button, dpad or crawl.</summary>
+        /// <summary>A big button with up to three smaller controls in a row below. 1 to 4 controls, the first a button, pad, dpad or crawl.</summary>
         public const string PrimaryRow = "primary-row";
         /// <summary>Two columns. 1 to 6 controls.</summary>
         public const string Grid = "grid";
@@ -41,6 +44,10 @@ namespace StoryTools.PhoneWand
     {
         /// <summary>Presses arrive as Button events with the control's id.</summary>
         public const string Button = "button";
+        /// <summary>A big round button, like the default Primary. Presses arrive as Button events with the control's id.</summary>
+        public const string Pad = "pad";
+        /// <summary>An empty cell that takes up room. It needs no id, and has no value, label or colour.</summary>
+        public const string Space = "space";
         /// <summary>On or off: a bool.</summary>
         public const string Toggle = "toggle";
         /// <summary>A position from 0 to 1: a double.</summary>
@@ -88,12 +95,12 @@ namespace StoryTools.PhoneWand
         public const string Vertical = "vertical";
     }
 
-    /// <summary>One control in a layout. Build one with Control.Button, Toggle, Slider, Choice, TextLabel, Dpad or Crawl.</summary>
+    /// <summary>One control in a layout. Build one with Control.Button, Pad, Toggle, Slider, Choice, TextLabel, Dpad, Crawl or Space.</summary>
     public sealed class Control
     {
-        /// <summary>1 to 32 letters, digits, _, . or -, unique in the layout.</summary>
+        /// <summary>1 to 32 letters, digits, _, . or -, unique in the layout. A space may have none (null).</summary>
         public string Id;
-        /// <summary>A ControlType: "button", "toggle", "slider", "choice", "label", "dpad" or "crawl".</summary>
+        /// <summary>A ControlType: "button", "pad", "toggle", "slider", "choice", "label", "dpad", "crawl" or "space".</summary>
         public string Type;
         /// <summary>Text on the control (up to 24 characters), or null for none.</summary>
         public string Label;
@@ -126,6 +133,12 @@ namespace StoryTools.PhoneWand
 
         /// <summary>A button. Presses arrive as Button events with this id.</summary>
         public static Control Button(string id, string label = null) => new Control(id, ControlType.Button, label);
+
+        /// <summary>A big round button, like the default Primary. Presses arrive as Button events with this id.</summary>
+        public static Control Pad(string id, string label = null) => new Control(id, ControlType.Pad, label);
+
+        /// <summary>An empty cell that takes up room, e.g. to leave a gap in a row. It has no id.</summary>
+        public static Control Space() => new Control { Type = ControlType.Space };
 
         /// <summary>A toggle, on or off.</summary>
         public static Control Toggle(string id, string label = null, bool on = false) =>
@@ -180,7 +193,10 @@ namespace StoryTools.PhoneWand
         /// <summary>The control as the protocol's JSON object (dictionaries and lists, for Json.Write).</summary>
         public Dictionary<string, object> ToJsonValue()
         {
-            var o = new Dictionary<string, object> { { "id", Id ?? "" }, { "type", Type ?? "" } };
+            // A space needs no id, so it is left out when there is none.
+            var o = new Dictionary<string, object>();
+            if (Type != ControlType.Space || !string.IsNullOrEmpty(Id)) o["id"] = Id ?? "";
+            o["type"] = Type ?? "";
             if (Label != null) o["label"] = Label;
             if (Colour != null) o["colour"] = Colour;
             switch (Type)
@@ -237,7 +253,7 @@ namespace StoryTools.PhoneWand
     {
         /// <summary>A LayoutTemplate: "primary", "primary-secondary", "pair", "primary-row", "grid", "rows" or "columns".</summary>
         public string Template;
-        /// <summary>The controls, in order. In the primary templates the first is the big one: a button, dpad or crawl.</summary>
+        /// <summary>The controls, in order. In the primary templates the first is the big one: a button, pad, dpad or crawl.</summary>
         public List<Control> Controls = new List<Control>();
         /// <summary>
         /// "rows" only: how many controls in each row, top (the pointing end) to bottom. 1 to 4 rows
@@ -271,17 +287,17 @@ namespace StoryTools.PhoneWand
         public static Layout Default => new Layout(LayoutTemplate.PrimarySecondary,
             Control.Button(PhoneButton.Primary, "Primary"), Control.Button(PhoneButton.Secondary, "Secondary"));
 
-        /// <summary>One big button (or a Control.Dpad or Crawl).</summary>
+        /// <summary>One big button (or a Control.Pad, Dpad or Crawl).</summary>
         public static Layout Primary(Control button) => new Layout(LayoutTemplate.Primary, button);
 
-        /// <summary>A big button (or a Control.Dpad or Crawl), and a smaller control below it.</summary>
+        /// <summary>A big button (or a Control.Pad, Dpad or Crawl), and a smaller control below it.</summary>
         public static Layout PrimarySecondary(Control button, Control secondary) =>
             new Layout(LayoutTemplate.PrimarySecondary, button, secondary);
 
         /// <summary>Two equal controls side by side.</summary>
         public static Layout Pair(Control left, Control right) => new Layout(LayoutTemplate.Pair, left, right);
 
-        /// <summary>A big button (or a Control.Dpad or Crawl), with up to three smaller controls in a row below.</summary>
+        /// <summary>A big button (or a Control.Pad, Dpad or Crawl), with up to three smaller controls in a row below.</summary>
         public static Layout PrimaryRow(Control button, params Control[] row)
         {
             var layout = new Layout(LayoutTemplate.PrimaryRow, button);
@@ -320,9 +336,10 @@ namespace StoryTools.PhoneWand
             return this;
         }
 
-        /// <summary>The control with this id, or null.</summary>
+        /// <summary>The control with this id, or null. Spaces without an id are never found.</summary>
         public Control Find(string id)
         {
+            if (string.IsNullOrEmpty(id)) return null;
             foreach (var c in Controls)
                 if (c != null && c.Id == id) return c;
             return null;

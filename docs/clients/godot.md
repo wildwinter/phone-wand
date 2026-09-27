@@ -84,8 +84,8 @@ You do not have to use signals. Every player object is kept up to date, so you c
 ## Layouts
 
 By default every phone shows a big **Primary** button and a smaller **Secondary** one. Your game
-can choose other controls, for every phone or for each player: buttons, toggles, sliders, choices,
-text labels, direction pads and dungeon-crawler keys, placed by a template. [Layouts](../layouts.md) explains the templates and
+can choose other controls, for every phone or for each player: buttons, big round pads, toggles,
+sliders, choices, text labels, direction pads, dungeon-crawler keys and empty spaces, placed by a template. [Layouts](../layouts.md) explains the templates and
 controls. `PhoneWandLayout` builds them:
 
 ```gdscript
@@ -118,6 +118,9 @@ func _on_control(player: PhoneWandPlayer, control: String, value: Variant) -> vo
 - Presses of your buttons arrive through `button` with your ids. Toggles, sliders and choices
   arrive through `control_changed`, and are kept in `player.controls`: read one with
   `player.get_control("zoom", false)`.
+- A `pad` is a big round button, like the default Primary. Its presses arrive through `button`
+  with its id, just like a button's. A `space` is an empty cell that takes up room; it has no id,
+  so leave it out when you look up controls (see [below](#pad-and-space)).
 - A `dpad` (four arrows) or `crawl` (forward, back, step left and right, turn left and right) is
   a set of buttons named `<id>.<direction>`, such as `move.up` or `walk.turn-left`. Their presses
   arrive through `button` like any other, and `is_pressed` works with them. They have no value.
@@ -163,7 +166,26 @@ func _process(_delta: float) -> void:
             strafe(player, -1)
 ```
 
-In the primary templates the first control must be a button, dpad or crawl.
+In the primary templates the first control must be a button, pad, dpad or crawl.
+
+### Pad and space
+
+```gdscript
+func _ready() -> void:
+    # A big round Fire pad in the middle of the top row, with Jump and Duck below.
+    PhoneWand.set_layout(PhoneWandLayout.rows([3, 2], [
+        PhoneWandLayout.space(),
+        PhoneWandLayout.pad("fire", "Fire"),
+        PhoneWandLayout.space(),
+        PhoneWandLayout.button("jump", "Jump"),
+        PhoneWandLayout.button("duck", "Duck"),
+    ], [2, 1]))
+```
+
+A pad's presses arrive through `button` as `"fire"`, and `player.is_pressed("fire")` works. Neither
+a pad nor a space has a value. Layouts that come back from the relay in `player.layout` can hold
+spaces without an `"id"`, so read a control's id with `c.get("id", "")`; `find_control` never
+matches a space.
 
 ### Rows and columns
 
@@ -372,6 +394,8 @@ Static helpers that return layout and control `Dictionary`s for `set_layout`. `c
 | `columns(counts: Array, controls: Array, widths: Array = [])` | A `"columns"` layout: `counts` controls in each column, left to right, with optional relative `widths`. |
 | `default_layout()` | Primary and Secondary, what phones show until an app sends a layout. |
 | `button(id, label := "", colour = null)` | A button. |
+| `pad(id, label := "", colour = null)` | A big round button, like the default Primary. Presses arrive as a button with this id. |
+| `space()` | An empty cell that takes up room: `{"type": "space"}`, with no id or value. |
 | `toggle(id, label := "", value := false, colour = null)` | An on and off switch. |
 | `slider(id, label := "", value := 0.0, vertical := false, spring = null, colour = null)` | A slider from 0 to 1. `spring` is where it returns when let go, or `null` to stay put. |
 | `choice(id, options: Array, label := "", value := 0, colour = null)` | 2 to 4 options; the value is the chosen index. |

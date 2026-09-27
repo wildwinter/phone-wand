@@ -19,6 +19,10 @@ export type Template = "primary" | "primary-secondary" | "pair" | "primary-row" 
 export type ControlValue = boolean | number | string;
 export type Control =
   | { id: string; type: "button"; label?: string; colour?: string }
+  /** A big round button, like the default Primary. Presses arrive as button events, as for a button. */
+  | { id: string; type: "pad"; label?: string; colour?: string }
+  /** An empty cell, to leave a gap. It needs no id. */
+  | { type: "space"; id?: string }
   | { id: string; type: "toggle"; label?: string; colour?: string; value?: boolean }
   | { id: string; type: "slider"; label?: string; colour?: string; value?: number; orientation?: "horizontal" | "vertical"; spring?: number | null }
   | { id: string; type: "choice"; label?: string; colour?: string; options: string[]; value?: number }

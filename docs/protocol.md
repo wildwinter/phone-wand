@@ -303,16 +303,16 @@ A layout is a template plus its controls, in order:
 
 | Template | Controls | Placement |
 |---|---|---|
-| `primary` | 1 | One big button. |
-| `primary-secondary` | 2 | A big button where the thumb rests, a smaller control below it towards the palm. |
-| `pair` | 2 | Two equal controls side by side. |
-| `primary-row` | 1 to 4 | A big button, with up to three smaller controls in a row below. |
-| `grid` | 1 to 6 | Two columns. |
+| `primary` | 1 | Preset: `rows: [1]`, a first button drawn as a pad. |
+| `primary-secondary` | 1 or 2 | Preset: `rows: [1, 2]`, `heights: [3, 1]`, a first button drawn as a pad, then a space and the second control. The default. |
+| `pair` | 1 or 2 | Preset: `rows: [2]`. |
+| `primary-row` | 1 to 4 | Preset: `rows: [1, n - 1]`, `heights: [3, 1]`, a first button drawn as a pad. |
+| `grid` | 1 to 6 | Preset: rows of two, with a space to even out the last. |
 | `rows` | 1 to 8 | `rows`: how many controls in each row, top (the pointing end) to bottom, 1 to 4 rows of 1 to 4, adding up to the number of controls. Optional `heights`: relative heights, one positive number per row. |
 | `columns` | 1 to 8 | The same with `columns` (left to right, mirrored for left hands) and `widths`. |
 
-In the `primary` templates the first control is the big one and must be a button, `dpad` or
-`crawl`. Placement mirrors for players who choose left-handed on their phone. In `rows` and
+In the `primary` templates the first control is the big one and must be a button, `pad`, `dpad`
+or `crawl`. Placement mirrors for players who choose left-handed on their phone. In `rows` and
 `columns`, a size under a tenth of the biggest is raised to a tenth, so nothing shrinks away.
 
 ```json
@@ -321,17 +321,19 @@ In the `primary` templates the first control is the big one and must be a button
     { "id": "use", "type": "button" }, { "id": "map", "type": "toggle" } ] } }
 ```
 
-Every control has an `id` (1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout), a
+Every control but a `space` has an `id` (1 to 32 letters, digits, `_`, `.` or `-`, unique in the layout), a
 `type`, and optionally a `label` (up to 24 characters) and a `colour` (`#rrggbb`; the player's
 colour when omitted).
 
 | Type | Extra fields | Value |
 |---|---|---|
 | `button` | | none: presses arrive as `button` messages |
+| `pad` | | none: a big round button; presses arrive as `button` messages |
 | `toggle` | `value`: starting state | `true` or `false` |
 | `slider` | `value`: starting position, `orientation`: `horizontal` (default) or `vertical`, `spring`: where it returns when let go (0 to 1), or `null` to stay put | 0 to 1 |
 | `choice` | `options`: 2 to 4 strings (up to 16 characters each), `value`: starting index | option index |
 | `label` | `text`: up to 80 characters | the text; only apps change it |
+| `space` | no `id` needed, no `label` or `colour` | none: an empty cell |
 | `dpad` | | none: each direction is a button, `<id>.up`, `<id>.down`, `<id>.left` and `<id>.right` |
 | `crawl` | | none: each direction is a button, `<id>.forward`, `<id>.back`, `<id>.step-left`, `<id>.step-right`, `<id>.turn-left` and `<id>.turn-right` |
 

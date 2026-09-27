@@ -3,7 +3,7 @@
 
 import {
   type Control, type ControlValue, type CrawlDirection, type DpadDirection, type Layout, type PhoneToRelay,
-  DPAD_DIRECTIONS,
+  DPAD_DIRECTIONS, arrange,
 } from "@phone-wand/core";
 
 export interface ControlsHost {
@@ -88,42 +88,35 @@ export function renderLayout(
     host.send({ type: "button", button: id, down: true });
   };
 
-  layout.controls.forEach((c, i) => {
-    const slot = el("div", `cell cell-${i}`);
-    const big = i === 0 && layout.template.startsWith("primary");
-    slot.append(control(c, big));
-    root.append(slot);
-  });
-  // The row below a primary gets its own box, so up to three controls share it evenly.
-  if (layout.template === "primary-row" && layout.controls.length > 1) {
-    const row = el("div", "row");
-    for (const s of [...root.querySelectorAll(".cell:not(.cell-0)")]) row.append(s);
-    root.append(row);
-  }
-  // Rows and columns: each line gets its own box, sized by the layout's heights or widths.
-  const counts = layout.template === "rows" ? layout.rows : layout.template === "columns" ? layout.columns : undefined;
-  if (counts) {
-    const cells = [...root.querySelectorAll<HTMLElement>(".cell")];
-    let next = 0;
-    for (const n of counts) {
-      const line = el("div", "line");
-      for (const cell of cells.slice(next, next + n)) line.append(cell);
-      next += n;
-      root.append(line);
+  // Every template is drawn as rows or columns (see arrange in core): each line gets its own box,
+  // sized by the layout's heights or widths, and its controls share it evenly.
+  const shape = arrange(layout);
+  root.classList.add(shape.columns ? "t-columns" : "t-rows");
+  for (const controls of shape.lines) {
+    const line = el("div", "line");
+    for (const c of controls) {
+      const cell = el("div", "cell");
+      cell.append(control(c));
+      line.append(cell);
     }
-    const sizes = (layout.template === "rows" ? layout.heights : layout.widths) ?? counts.map(() => 1);
-    const tracks = sizes.map((x) => `minmax(0, ${x}fr)`).join(" ");
-    if (layout.template === "rows") root.style.gridTemplateRows = tracks;
-    else root.style.gridTemplateColumns = tracks;
+    root.append(line);
   }
+  const tracks = shape.sizes.map((x) => `minmax(0, ${x}fr)`).join(" ");
+  if (shape.columns) root.style.gridTemplateColumns = tracks;
+  else root.style.gridTemplateRows = tracks;
 
-  function styleColour(e: HTMLElement, c: Control) {
+  function styleColour(e: HTMLElement, c: { colour?: string }) {
     if (c.colour) e.style.setProperty("--accent", c.colour);
   }
 
-  function control(c: Control, big: boolean): HTMLElement {
+  function control(c: Control): HTMLElement {
     switch (c.type) {
-      case "button": {
+      case "space":
+        return el("div", "space");
+
+      case "button":
+      case "pad": {
+        const big = c.type === "pad";
         const b = el("button", big ? "ctl pad" : "ctl btn");
         styleColour(b, c);
         if (big) b.append(el("span", "pad-ring"));

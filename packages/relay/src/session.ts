@@ -214,9 +214,10 @@ export class Session {
             this.error(app, `set: ${p.id} has no control ${String(msg.control)} that takes ${JSON.stringify(msg.value)}`);
             continue;
           }
-          p.values[control!.id] = value;
-          p.link?.send({ type: "set", control: control!.id, value });
-          this.broadcast({ type: "control", id: p.id, control: control!.id, value });
+          const id = msg.control as string; // it matched the control's id
+          p.values[id] = value;
+          p.link?.send({ type: "set", control: id, value });
+          this.broadcast({ type: "control", id: p.id, control: id, value });
         }
         break;
       }
@@ -293,10 +294,11 @@ export class Session {
       case "control": {
         const control = p.layout.controls.find((c) => c.id === msg.control);
         if (!control || control.type === "label" || control.type === "button") return;
+        const id = msg.control; // it matched the control's id
         const value = controlValue(control, msg.value);
-        if (value === undefined || value === p.values[control.id]) return;
-        p.values[control.id] = value;
-        this.broadcast({ type: "control", id: p.id, control: control.id, value });
+        if (value === undefined || value === p.values[id]) return;
+        p.values[id] = value;
+        this.broadcast({ type: "control", id: p.id, control: id, value });
         break;
       }
       case "recentre":
