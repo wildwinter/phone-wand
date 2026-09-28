@@ -7,6 +7,12 @@ the protocol.
 
 ## [Unreleased]
 
+### Fixed
+
+- On a computer connected to both a wired network and Wi-Fi, the QR code could carry the wired
+  address, which phones on the Wi-Fi can't reach: scanning it gave a blank page that never loaded.
+  The relay now prefers the Wi-Fi address.
+
 ### Added
 
 - Silent compass drift correction. Phone gyroscopes drift slowly sideways; where a phone has a

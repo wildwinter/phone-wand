@@ -139,7 +139,10 @@ when the player switches to another app. Apps should treat paused players' curso
   each other. Some guest and event networks isolate clients; a dedicated Wi-Fi router for the rig is
   the easy fix, and gives the lowest lag.
 - If the computer has several network connections, the relay picks the most likely one and lists the
-  others. Use `--host` to choose.
+  others. It prefers Wi-Fi, since that's where phones are: a computer that is also plugged into a
+  wired network puts its Wi-Fi address in the QR code. Use `--host` to choose another. If a phone
+  shows a blank page that never loads after scanning, it usually can't reach the address in the QR
+  code: check it's on the same network, or pick the address with `--host`.
 - On Windows, allow the relay through the firewall on private networks. If the network is marked as
   public, either change it to private in Windows settings or allow the relay on public networks.
 - On macOS, the relay may ask to accept incoming connections the first time. Allow it.
