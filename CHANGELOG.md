@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-28
+
 ### Added
 
 - Silent compass drift correction. Phone gyroscopes drift slowly sideways; where a phone has a

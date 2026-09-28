@@ -1,6 +1,6 @@
 {
   "name": "se.storytools.phonewand",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "displayName": "Phone Wand",
   "description": "Use phones as pointers for a shared screen. Connects to a Phone Wand relay and gives you every player's orientation, pointing direction, screen position and button presses, with events on the main thread.",
   "unity": "6000.4",

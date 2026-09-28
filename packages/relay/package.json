@@ -1,7 +1,7 @@
 {
   "name": "@phone-wand/relay",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "bin": { "phone-wand": "src/main.ts" },
   "dependencies": {
