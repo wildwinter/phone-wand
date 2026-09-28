@@ -7,12 +7,6 @@ the protocol.
 
 ## [Unreleased]
 
-### Fixed
-
-- On a computer connected to both a wired network and Wi-Fi, the QR code could carry the wired
-  address, which phones on the Wi-Fi can't reach: scanning it gave a blank page that never loaded.
-  The relay now prefers the Wi-Fi address.
-
 ### Added
 
 - Silent compass drift correction. Phone gyroscopes drift slowly sideways; where a phone has a
@@ -21,6 +15,12 @@ the protocol.
   0.3 degrees a second. Otherwise it's ignored: nobody is asked to wave their phone. Nothing changes
   for apps; the dashboard shows each player's compass state and correction, and `stats` messages
   carry it.
+
+### Fixed
+
+- On a computer connected to both a wired network and Wi-Fi, the QR code could carry the wired
+  address, which phones on the Wi-Fi can't reach: scanning it gave a blank page that never loaded.
+  The relay now prefers the Wi-Fi address.
 
 ## [0.8.0] - 2026-09-27
 
