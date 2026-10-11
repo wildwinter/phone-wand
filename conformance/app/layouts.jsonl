@@ -49,6 +49,11 @@
 {"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"rows","controls":[{"id":"fire","label":"Fire","type":"pad"},{"type":"space"},{"id":"use","type":"button"}],"rows":[1,2]},"controls":{}}}
 {"type":"button","id":"p1","button":"fire","down":true}
 {"type":"button","id":"p1","button":"fire","down":false}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"rows","controls":[{"type":"space"},{"id":"second","label":"Map","type":"button"},{"id":"use","label":"Use","type":"button"},{"type":"space"},{"id":"nav","type":"crawl"},{"type":"space"},{"type":"space"},{"id":"role","label":"Role","type":"button"}],"rows":[3,2,3],"heights":[2,3,1.5],"widths":[[1,1,1],[1,2],null]},"controls":{}}}
+{"type":"button","id":"p1","button":"nav.turn-right","down":true}
+{"type":"button","id":"p1","button":"nav.turn-right","down":false}
+{"type":"player","player":{"id":"p1","slot":0,"name":"Ivy","colour":"#ff4d6d","label":"","state":"active","calibration":"none","device":{"platform":"iOS","sensor":"deviceorientation","transport":"ws"},"layout":{"template":"columns","controls":[{"id":"a","type":"button"},{"id":"b","type":"button"},{"id":"c","type":"pad"}],"columns":[2,1],"heights":[[3,1],null]},"controls":{}}}
+{"type":"error","message":"layout: widths for row 1 must be 2 positive numbers, or null for equal"}
 {"type":"error","message":"layout: rows [1,2] holds 3 controls, but the layout has 1"}
 {"type":"error","message":"layout: template columns needs columns: 1 to 4 counts, each 1 to 4"}
 {"type":"error","message":"layout: heights must be 2 positive numbers, one for each of the rows"}

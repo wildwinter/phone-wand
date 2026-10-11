@@ -53,3 +53,41 @@ describe("rows, columns, pads and spaces", () => {
     expect(validateLayout({ template: "pair", controls: [B("a"), { id: "a", type: "space" }] })).toContain("space id a");
   });
 });
+
+describe("uneven shares within a line", () => {
+  // Lockstep's one-handed Navigator: a three-wide grid with the crawl pad two thirds wide.
+  const navigator = {
+    template: "rows", rows: [3, 2, 3], heights: [2, 3, 1.5], widths: [[1, 1, 1], [1, 2], null],
+    controls: [
+      { type: "space" }, B("second"), B("use"),
+      { type: "space" }, { id: "pad", type: "crawl" },
+      { type: "space" }, { type: "space" }, B("role"),
+    ],
+  };
+
+  test("rows take widths per row, null meaning equal", () => {
+    const a = arrange(valid(navigator));
+    expect(a.cells).toEqual([[1, 1, 1], [1, 2], null]);
+    expect(a.lines[1].map((c) => c.type)).toEqual(["space", "crawl"]);
+  });
+
+  test("columns take heights per column", () => {
+    const a = arrange(valid({ template: "columns", columns: [2, 1], heights: [[3, 1], null], controls: [B("a"), B("b"), B("c")] }));
+    expect(a.cells).toEqual([[3, 1], null]);
+  });
+
+  test("left out, or all null, means equal shares", () => {
+    expect(arrange(valid({ template: "rows", rows: [2], controls: [B("a"), B("b")] })).cells).toEqual([null]);
+    expect(valid({ template: "rows", rows: [2], widths: [null], controls: [B("a"), B("b")] }).widths).toBeUndefined();
+  });
+
+  test("tiny shares are raised to a tenth of the biggest in their line", () => {
+    expect(valid({ template: "rows", rows: [2], widths: [[100, 1]], controls: [B("a"), B("b")] }).widths).toEqual([[100, 10]]);
+  });
+
+  test("shares must match each line's controls", () => {
+    expect(validateLayout({ ...navigator, widths: [[1, 1], [1, 2], null] })).toContain("widths for row 1 must be 3 positive numbers");
+    expect(validateLayout({ ...navigator, widths: [[1, 1, 1]] })).toContain("one entry for each row");
+    expect(validateLayout({ ...navigator, widths: [[1, 1, 1], [1, -2], null] })).toContain("row 2");
+  });
+});

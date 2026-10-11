@@ -7,6 +7,14 @@ the protocol.
 
 ## [Unreleased]
 
+### Added
+
+- Uneven shares within a row: `rows` layouts take an optional `widths`, one entry per row, giving
+  the relative widths of that row's controls (or `null` for equal). A one-handed layout can give a
+  crawl pad two thirds of a row on the thumb's side, for example. `columns` layouts take `heights`
+  the same way, per column. Shares mirror with the controls for left-handed players, and existing
+  layouts are unchanged. Every client library can set them, and the dashboard has a sample.
+
 ## [0.9.0] - 2026-09-28
 
 ### Added

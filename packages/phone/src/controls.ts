@@ -92,15 +92,19 @@ export function renderLayout(
   // sized by the layout's heights or widths, and its controls share it evenly.
   const shape = arrange(layout);
   root.classList.add(shape.columns ? "t-columns" : "t-rows");
-  for (const controls of shape.lines) {
+  shape.lines.forEach((controls, i) => {
     const line = el("div", "line");
-    for (const c of controls) {
+    controls.forEach((c, j) => {
       const cell = el("div", "cell");
+      // Uneven shares within the line, if the layout gives them. Left-handed, the whole line
+      // (sizes and all) is mirrored by CSS.
+      const share = shape.cells[i]?.[j];
+      if (share !== undefined) cell.style.flexGrow = String(share);
       cell.append(control(c));
       line.append(cell);
-    }
+    });
     root.append(line);
-  }
+  });
   const tracks = shape.sizes.map((x) => `minmax(0, ${x}fr)`).join(" ");
   if (shape.columns) root.style.gridTemplateColumns = tracks;
   else root.style.gridTemplateRows = tracks;

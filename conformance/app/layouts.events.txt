@@ -46,3 +46,7 @@ player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
 button p1 fire down
 button p1 fire up
 player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+button p1 nav.turn-right down
+button p1 nav.turn-right up
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws
+player p1 state=active calibration=none name=Ivy colour=#ff4d6d transport=ws

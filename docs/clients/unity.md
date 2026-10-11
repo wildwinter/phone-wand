@@ -231,6 +231,24 @@ wand.SetLayout(Layout.InColumns(new[] { 1, 2 },
     .WithWidths(1, 2));
 ```
 
+Within a row, controls share its width equally unless you give `.WithRowWidths(...)` one array per
+row, one positive number per control in that row, or null to keep that row equal. Within a column,
+`.WithColumnHeights(...)` does the same for heights. They are in `layout.CellWidths` (rows) and
+`layout.CellHeights` (columns), null when unused; on the wire a rows layout's `widths` and a columns
+layout's `heights` are these nested lists. The relay raises any share under a tenth of the biggest
+in its row or column to a tenth.
+
+```csharp
+// A one-handed navigator: Map and Use in the top row, the crawl pad two thirds wide in the
+// middle, and Role at the bottom right, with spaces keeping everything under the thumb.
+wand.SetLayout(Layout.InRows(new[] { 3, 2, 3 },
+        Control.Space(), Control.Button("map", "Map"), Control.Button("use", "Use"),
+        Control.Space(), Control.Crawl("walk"),
+        Control.Space(), Control.Space(), Control.Button("role", "Role"))
+    .WithHeights(2, 3, 1.5)
+    .WithRowWidths(new double[] { 1, 1, 1 }, new double[] { 1, 2 }, null));
+```
+
 ## Gestures
 
 Players can also flick the phone towards the screen, pull it back, shake it or twist their wrist.
@@ -363,7 +381,7 @@ Static helpers:
 | `Device` | `Platform` (`iOS`, `Android`, `other`), `Sensor`, `Transport` (`ws` or `http`). |
 | `Pose` | The latest `PlayerPose`, or null before the first. |
 | `Buttons`, `IsHeld(string button)` | The ids of the buttons held down now, e.g. `IsHeld(PhoneButton.Primary)` or `IsHeld("shoot")`. Cleared when the player stops being active. |
-| `Layout` | The controls the phone shows: `Layout.Template` and `Layout.Controls` (and `Rows`, `Heights`, `Columns`, `Widths` for the rows and columns templates). The default layout until your game sends one. Replaced whole by each `PlayerChanged`. |
+| `Layout` | The controls the phone shows: `Layout.Template` and `Layout.Controls` (and `Rows`, `Heights`, `CellWidths`, `Columns`, `Widths`, `CellHeights` for the rows and columns templates). The default layout until your game sends one. Replaced whole by each `PlayerChanged`. |
 | `Controls` | `IReadOnlyDictionary<string, object>`: the current value of each toggle (`bool`), slider (`double`, 0 to 1), choice (`double`, the option index) and label (`string`), by control id. Buttons have no value. |
 | `GetToggle(id)`, `GetSlider(id)`, `GetChoice(id)`, `GetText(id)` | One control's value as a `bool`, `double`, `int` or `string`, or a fallback (the optional second argument) if there is no such value. |
 | `Stats` | The latest `PlayerStats`, or null. |
@@ -372,7 +390,7 @@ Static helpers:
 
 A `Layout` is a `Template` (a string; the constants are in `LayoutTemplate`: `Primary`,
 `PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`, `Rows`, `Columns`) and a list of `Controls`, in
-order, plus `Rows` and `Heights` or `Columns` and `Widths` for the last two. Build one with
+order, plus `Rows`, `Heights` and `CellWidths` or `Columns`, `Widths` and `CellHeights` for the last two. Build one with
 `new Layout(template, controls...)` or a helper:
 
 | Helper | Template |
@@ -382,8 +400,8 @@ order, plus `Rows` and `Heights` or `Columns` and `Widths` for the last two. Bui
 | `Layout.Pair(left, right)` | Two equal controls side by side. |
 | `Layout.PrimaryRow(button, up to three controls)` | A big button with a row of smaller controls below. |
 | `Layout.Grid(up to six controls)` | Two columns. |
-| `Layout.InRows(counts, up to eight controls)` | Rows, top to bottom, `counts[i]` controls in row `i`. Add `.WithHeights(...)` for relative heights. |
-| `Layout.InColumns(counts, up to eight controls)` | Columns, left to right, `counts[i]` controls in column `i`. Add `.WithWidths(...)` for relative widths. |
+| `Layout.InRows(counts, up to eight controls)` | Rows, top to bottom, `counts[i]` controls in row `i`. Add `.WithHeights(...)` for relative row heights and `.WithRowWidths(...)` for relative widths within each row. |
+| `Layout.InColumns(counts, up to eight controls)` | Columns, left to right, `counts[i]` controls in column `i`. Add `.WithWidths(...)` for relative column widths and `.WithColumnHeights(...)` for relative heights within each column. |
 | `Layout.Default` | The default: `primary` and `secondary` buttons. |
 
 `layout.Find(id)` finds a control, and `layout.ToJson()` gives the JSON the protocol carries.

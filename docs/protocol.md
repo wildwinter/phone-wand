@@ -315,8 +315,8 @@ A layout is a template plus its controls, in order:
 | `pair` | 1 or 2 | Preset: `rows: [2]`. |
 | `primary-row` | 1 to 4 | Preset: `rows: [1, n - 1]`, `heights: [3, 1]`, a first button drawn as a pad. |
 | `grid` | 1 to 6 | Preset: rows of two, with a space to even out the last. |
-| `rows` | 1 to 8 | `rows`: how many controls in each row, top (the pointing end) to bottom, 1 to 4 rows of 1 to 4, adding up to the number of controls. Optional `heights`: relative heights, one positive number per row. |
-| `columns` | 1 to 8 | The same with `columns` (left to right, mirrored for left hands) and `widths`. |
+| `rows` | 1 to 8 | `rows`: how many controls in each row, top (the pointing end) to bottom, 1 to 4 rows of 1 to 4, adding up to the number of controls. Optional `heights`: relative heights, one positive number per row. Optional `widths`: one entry per row, the relative widths of its controls (as many positive numbers as the row has controls) or `null` for equal. |
+| `columns` | 1 to 8 | The same with `columns` (left to right, mirrored for left hands), `widths` (one number per column) and `heights` (one entry per column, its controls' relative heights, or `null`). |
 
 In the `primary` templates the first control is the big one and must be a button, `pad`, `dpad`
 or `crawl`. Placement mirrors for players who choose left-handed on their phone. In `rows` and

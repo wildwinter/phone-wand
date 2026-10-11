@@ -196,6 +196,14 @@ const LAYOUTS: Record<string, Layout | null> = {
       { id: "map", type: "toggle", label: "Map" },
     ],
   },
+  navigator: {
+    template: "rows", rows: [3, 2, 3], heights: [2, 3, 1.5], widths: [[1, 1, 1], [1, 2], null],
+    controls: [
+      { type: "space" }, { id: "map", type: "button", label: "Map" }, { id: "use", type: "button", label: "Use" },
+      { type: "space" }, { id: "walk", type: "crawl" },
+      { type: "space" }, { type: "space" }, { id: "role", type: "button", label: "Role" },
+    ],
+  },
   columns: {
     template: "columns", columns: [1, 3], widths: [1, 2],
     controls: [

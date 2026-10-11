@@ -90,9 +90,9 @@ enum class EPhoneWandTemplate : uint8
 	PrimaryRow,
 	/** Two columns (1 to 6 controls). */
 	Grid,
-	/** Rows of 1 to 4 controls, top (the pointing end) to bottom. Counts gives each row's size, Sizes their heights. */
+	/** Rows of 1 to 4 controls, top (the pointing end) to bottom. Counts gives each row's size, Sizes their heights, CellShares the widths within each row. */
 	Rows,
-	/** Columns of 1 to 4 controls, left to right (mirrored for left hands). Counts gives each column's size, Sizes their widths. */
+	/** Columns of 1 to 4 controls, left to right (mirrored for left hands). Counts gives each column's size, Sizes their widths, CellShares the heights within each column. */
 	Columns,
 };
 
@@ -262,6 +262,21 @@ struct PHONEWAND_API FPhoneWandControl
 	FString Text;
 };
 
+/** Relative sizes of the controls in one row or column of a Rows or Columns layout. */
+USTRUCT(BlueprintType)
+struct PHONEWAND_API FPhoneWandShares
+{
+	GENERATED_BODY()
+
+	FPhoneWandShares() = default;
+	/** For C++: { 1, 2 }, or {} for equal. */
+	FPhoneWandShares(std::initializer_list<double> InShares) : Shares(InShares) {}
+
+	/** One positive number per control in the line, such as 1, 2. Empty for equal sizes. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	TArray<double> Shares;
+};
+
 /** The controls a phone shows: a template plus its controls, in order. See docs/layouts.md. */
 USTRUCT(BlueprintType)
 struct PHONEWAND_API FPhoneWandLayout
@@ -288,6 +303,14 @@ struct PHONEWAND_API FPhoneWandLayout
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
 	TArray<double> Sizes;
+
+	/**
+	 * Rows and Columns only: relative widths of the controls within each row, or heights within each
+	 * column, one entry per row or column. An entry with no shares (or a missing entry) means equal.
+	 * Empty for equal everywhere. Sent as "widths" (rows) or "heights" (columns), a list of lists.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Phone Wand")
+	TArray<FPhoneWandShares> CellShares;
 
 	/** The control with this id, or null. Never matches an empty id (spaces usually have none). */
 	const FPhoneWandControl* FindControl(const FString& ControlId) const

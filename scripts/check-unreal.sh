@@ -10,6 +10,9 @@
 #         PHONEWAND_LIVE_URL=ws://127.0.0.1:8480/app scripts/check-unreal.sh   (also test a running relay)
 #         PHONEWAND_RELAY_DIR=dist/embed scripts/check-unreal.sh               (also test starting the relay)
 #         SKIP_BUILD=1 scripts/check-unreal.sh                                  (tests only)
+#         DEVELOPER_DIR=/Applications/Xcode-26.6.0.app/Contents/Developer scripts/check-unreal.sh
+#                                                     (choose the Xcode; by default an older one is
+#                                                      picked if the default is too new for Unreal)
 #
 # Exit status: 0 when everything compiles and every test passes, 1 on a failure, 2 when no
 # Unreal installation was found.
@@ -25,6 +28,30 @@ case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) platform=Win64 ;;
   *) echo "check-unreal: unsupported OS $(uname -s)" >&2; exit 2 ;;
 esac
+
+# Unreal 5.7 builds with Xcode 26 at newest; a newer default Xcode makes it stop before compiling.
+# Use an older Xcode installed alongside, for this run only (no system setting changes). Set
+# DEVELOPER_DIR yourself to choose one.
+if [ "$platform" = Mac ] && [ -z "${DEVELOPER_DIR:-}" ]; then
+  max_xcode=26
+  current="$(xcodebuild -version 2>/dev/null | sed -n 's/^Xcode \([0-9]*\).*/\1/p')"
+  if [ -n "$current" ] && [ "$current" -gt "$max_xcode" ]; then
+    best="" best_version=0
+    for app in /Applications/Xcode*.app; do
+      [ -d "$app/Contents/Developer" ] || continue
+      version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || true)"
+      major="${version%%.*}"
+      case "$major" in ''|*[!0-9]*) continue ;; esac
+      if [ "$major" -le "$max_xcode" ] && [ "$major" -gt "$best_version" ]; then best="$app" best_version="$major"; fi
+    done
+    if [ -n "$best" ]; then
+      export DEVELOPER_DIR="$best/Contents/Developer"
+      echo "check-unreal: Xcode $current is newer than Unreal supports; using $(basename "$best")"
+    else
+      echo "check-unreal: Xcode $current is newer than Unreal supports (Xcode $max_xcode at most); install an older Xcode alongside, or set DEVELOPER_DIR" >&2
+    fi
+  fi
+fi
 
 ue="${UE_ROOT:-}"
 if [ -z "$ue" ]; then

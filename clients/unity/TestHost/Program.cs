@@ -351,6 +351,31 @@ namespace StoryTools.PhoneWand.TestHost
             var columnsBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(columns.ToJson()));
             Expect("InColumns round trip", columns.ToJson(), columnsBack.ToJson());
             Expect("InColumns no widths", true, columnsBack.Widths == null && columnsBack.Rows == null);
+            // Uneven shares within a line: "rows" nests widths per row, "columns" nests heights per column.
+            var navigator = Layout.InRows(new[] { 3, 2, 3 },
+                Control.Space(), Control.Button("map", "Map"), Control.Button("use", "Use"),
+                Control.Space(), Control.Crawl("walk"),
+                Control.Space(), Control.Space(), Control.Button("role", "Role"))
+                .WithHeights(2, 3, 1.5).WithRowWidths(new double[] { 1, 1, 1 }, new double[] { 1, 2 }, null);
+            Expect("InRows widths", "{\"template\":\"rows\",\"controls\":[" +
+                "{\"type\":\"space\"},{\"id\":\"map\",\"type\":\"button\",\"label\":\"Map\"}," +
+                "{\"id\":\"use\",\"type\":\"button\",\"label\":\"Use\"},{\"type\":\"space\"},{\"id\":\"walk\",\"type\":\"crawl\"}," +
+                "{\"type\":\"space\"},{\"type\":\"space\"},{\"id\":\"role\",\"type\":\"button\",\"label\":\"Role\"}]," +
+                "\"rows\":[3,2,3],\"heights\":[2,3,1.5],\"widths\":[[1,1,1],[1,2],null]}", navigator.ToJson());
+            var navigatorBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(navigator.ToJson()));
+            Expect("InRows widths round trip", navigator.ToJson(), navigatorBack.ToJson());
+            Expect("InRows CellWidths", "1,2", navigatorBack.CellWidths != null && navigatorBack.CellWidths.Count == 3
+                && navigatorBack.CellWidths[2] == null && navigatorBack.Widths == null ? string.Join(",", navigatorBack.CellWidths[1]) : null);
+            var tall = Layout.InColumns(new[] { 2, 1 }, Control.Button("a", "A"), Control.Button("b", "B"), Control.Pad("fire", "Fire"))
+                .WithWidths(1, 2).WithColumnHeights(new double[] { 1, 3 }, null);
+            Expect("InColumns heights", "{\"template\":\"columns\",\"controls\":[" +
+                "{\"id\":\"a\",\"type\":\"button\",\"label\":\"A\"},{\"id\":\"b\",\"type\":\"button\",\"label\":\"B\"}," +
+                "{\"id\":\"fire\",\"type\":\"pad\",\"label\":\"Fire\"}]," +
+                "\"columns\":[2,1],\"widths\":[1,2],\"heights\":[[1,3],null]}", tall.ToJson());
+            var tallBack = Layout.FromJsonValue((Dictionary<string, object>)Json.Parse(tall.ToJson()));
+            Expect("InColumns heights round trip", tall.ToJson(), tallBack.ToJson());
+            Expect("InColumns CellHeights", "1,3", tallBack.CellHeights != null && tallBack.CellHeights.Count == 2
+                && tallBack.CellHeights[1] == null && tallBack.Heights == null ? string.Join(",", tallBack.CellHeights[0]) : null);
             // Pad and space: a pad is a big button; a space has no id and writes as just its type.
             var padRows = Layout.InRows(new[] { 1, 2 }, Control.Pad("fire", "Fire").WithColour("#ff3300"), Control.Space(),
                 Control.Button("reload", "Reload"));

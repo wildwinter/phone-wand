@@ -188,6 +188,13 @@ FPhoneWandLayout UPhoneWandLibrary::MakeColumnsLayout(const TArray<int32>& Colum
 	return Layout;
 }
 
+FPhoneWandLayout UPhoneWandLibrary::WithCellShares(const FPhoneWandLayout& Layout, const TArray<FPhoneWandShares>& CellShares)
+{
+	FPhoneWandLayout Out = Layout;
+	Out.CellShares = CellShares;
+	return Out;
+}
+
 FString UPhoneWandLibrary::LayoutToJson(const FPhoneWandLayout& Layout)
 {
 	FString Out;

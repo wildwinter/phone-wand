@@ -162,7 +162,8 @@ public:
 	/**
 	 * A Rows layout: Rows gives how many controls in each row, top (the pointing end) to bottom, such
 	 * as 1, 3. 1 to 4 rows of 1 to 4, adding up to the number of controls. Heights are relative, one
-	 * per row, such as 3, 2; leave empty for equal rows. Any control type may go anywhere.
+	 * per row, such as 3, 2; leave empty for equal rows. Any control type may go anywhere. For uneven
+	 * widths within a row, pass the result to With Cell Shares.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (AutoCreateRefTerm = "Heights"))
 	static FPhoneWandLayout MakeRowsLayout(const TArray<int32>& Rows, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Heights);
@@ -170,10 +171,20 @@ public:
 	/**
 	 * A Columns layout: Columns gives how many controls in each column, left to right (mirrored for
 	 * left hands). 1 to 4 columns of 1 to 4, adding up to the number of controls. Widths are relative,
-	 * one per column; leave empty for equal columns. Any control type may go anywhere.
+	 * one per column; leave empty for equal columns. Any control type may go anywhere. For uneven
+	 * heights within a column, pass the result to With Cell Shares.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts", meta = (AutoCreateRefTerm = "Widths"))
 	static FPhoneWandLayout MakeColumnsLayout(const TArray<int32>& Columns, const TArray<FPhoneWandControl>& Controls, const TArray<double>& Widths);
+
+	/**
+	 * The same Rows or Columns layout with uneven sizes within its lines: for Rows, the relative widths
+	 * of the controls in each row; for Columns, the relative heights of the controls in each column.
+	 * One entry per row or column, each with one share per control in it, such as 1, 2; leave an
+	 * entry's Shares empty for equal sizes in that line.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")
+	static FPhoneWandLayout WithCellShares(const FPhoneWandLayout& Layout, const TArray<FPhoneWandShares>& CellShares);
 
 	/** The layout phones show until an app sends one: Primary Secondary with buttons "primary" and "secondary". */
 	UFUNCTION(BlueprintPure, Category = "Phone Wand|Layouts")

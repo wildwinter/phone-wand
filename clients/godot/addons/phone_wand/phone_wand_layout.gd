@@ -45,15 +45,17 @@ static func layout(template: String, controls: Array) -> Dictionary:
 ## A "rows" layout: counts is how many controls go in each row, top (the pointing end) to bottom,
 ## such as [1, 3]. 1 to 4 rows of 1 to 4, adding up to the number of controls (at most 8). heights
 ## gives each row's relative height (equal when empty); the relay raises any under a tenth of the
-## biggest to a tenth. Any control can go anywhere.
-static func rows(counts: Array, controls: Array, heights: Array = []) -> Dictionary:
-	return _lines("rows", counts, "heights", heights, controls)
+## biggest to a tenth. widths has one entry per row: an Array of its controls' relative widths, or
+## null for equal, such as [null, [1, 2]] (equal throughout when empty). Any control can go anywhere.
+static func rows(counts: Array, controls: Array, heights: Array = [], widths: Array = []) -> Dictionary:
+	return _lines("rows", counts, "heights", heights, "widths", widths, controls)
 
 
 ## A "columns" layout: counts is how many controls go in each column, left to right (mirrored for
-## left-handed players), such as [1, 2]. widths gives each column's relative width. Otherwise as rows.
-static func columns(counts: Array, controls: Array, widths: Array = []) -> Dictionary:
-	return _lines("columns", counts, "widths", widths, controls)
+## left-handed players), such as [1, 2]. widths gives each column's relative width, and heights has
+## one entry per column: an Array of its controls' relative heights, or null. Otherwise as rows.
+static func columns(counts: Array, controls: Array, widths: Array = [], heights: Array = []) -> Dictionary:
+	return _lines("columns", counts, "widths", widths, "heights", heights, controls)
 
 
 ## What phones show until an app sends a layout: big Primary and smaller Secondary buttons.
@@ -127,7 +129,7 @@ static func space() -> Dictionary:
 	return {"type": "space"}
 
 
-static func _lines(template: String, counts: Array, size_key: String, sizes: Array, controls: Array) -> Dictionary:
+static func _lines(template: String, counts: Array, size_key: String, sizes: Array, share_key: String, shares: Array, controls: Array) -> Dictionary:
 	var l := layout(template, controls)
 	var list: Array = []
 	for n in counts:
@@ -135,6 +137,8 @@ static func _lines(template: String, counts: Array, size_key: String, sizes: Arr
 	l[template] = list
 	if not sizes.is_empty():
 		l[size_key] = sizes.duplicate()
+	if not shares.is_empty():
+		l[share_key] = shares.duplicate(true)
 	return l
 
 

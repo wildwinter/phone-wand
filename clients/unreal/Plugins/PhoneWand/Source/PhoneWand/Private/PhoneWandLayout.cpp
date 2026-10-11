@@ -206,6 +206,25 @@ namespace PhoneWand
 				}
 				O->SetArrayField(bRows ? TEXT("heights") : TEXT("widths"), Sizes);
 			}
+			if (Layout.CellShares.ContainsByPredicate([](const FPhoneWandShares& S) { return S.Shares.Num() > 0; }))
+			{
+				TArray<TSharedPtr<FJsonValue>> Lines;
+				for (const FPhoneWandShares& Line : Layout.CellShares)
+				{
+					if (Line.Shares.Num() == 0)
+					{
+						Lines.Add(MakeShared<FJsonValueNull>());
+						continue;
+					}
+					TArray<TSharedPtr<FJsonValue>> Shares;
+					for (const double Share : Line.Shares)
+					{
+						Shares.Add(MakeShared<FJsonValueNumber>(Share));
+					}
+					Lines.Add(MakeShared<FJsonValueArray>(Shares));
+				}
+				O->SetArrayField(bRows ? TEXT("widths") : TEXT("heights"), Lines);
+			}
 		}
 		return O;
 	}
@@ -242,6 +261,26 @@ namespace PhoneWand
 					if (N.IsValid() && N->TryGetNumber(Size))
 					{
 						Layout.Sizes.Add(Size);
+					}
+				}
+			}
+			const TArray<TSharedPtr<FJsonValue>>* Lines = nullptr;
+			if (Json.TryGetArrayField(bRows ? TEXT("widths") : TEXT("heights"), Lines) && Lines != nullptr)
+			{
+				for (const TSharedPtr<FJsonValue>& Line : *Lines)
+				{
+					FPhoneWandShares& Shares = Layout.CellShares.AddDefaulted_GetRef();
+					const TArray<TSharedPtr<FJsonValue>>* List = nullptr;
+					if (Line.IsValid() && Line->TryGetArray(List) && List != nullptr) // null: equal
+					{
+						for (const TSharedPtr<FJsonValue>& N : *List)
+						{
+							double Share = 0.0;
+							if (N.IsValid() && N->TryGetNumber(Share))
+							{
+								Shares.Shares.Add(Share);
+							}
+						}
 					}
 				}
 			}

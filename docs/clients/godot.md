@@ -209,8 +209,31 @@ func _ready() -> void:
     ], [3, 2]))
 ```
 
-Layouts that come back from the relay keep these fields: `player.layout["rows"]` and
-`player.layout["heights"]` (or `"columns"` and `"widths"`).
+A row's controls can also share its width unevenly: `rows(counts, controls, heights, widths)`
+takes `widths` as one entry per row, either an Array of relative widths (one per control in that
+row) or `null` for equal. `columns(counts, controls, widths, heights)` takes `heights` the same way,
+one entry per column. So `heights` is a flat list in `rows` and nested in `columns`, and `widths` the
+other way round. The relay raises any share under a tenth of the biggest in its line to a tenth.
+
+```gdscript
+func _ready() -> void:
+    # A one-handed Navigator: Map and Use top right, a crawl pad two thirds wide on the right of
+    # the middle row, and Role bottom right, leaving the left side empty.
+    PhoneWand.set_layout(PhoneWandLayout.rows([3, 2, 3], [
+        PhoneWandLayout.space(),
+        PhoneWandLayout.button("map", "Map"),
+        PhoneWandLayout.button("use", "Use"),
+        PhoneWandLayout.space(),
+        PhoneWandLayout.crawl("walk"),
+        PhoneWandLayout.space(),
+        PhoneWandLayout.space(),
+        PhoneWandLayout.button("role", "Role"),
+    ], [2, 3, 1.5], [[1, 1, 1], [1, 2], null]))
+```
+
+Layouts that come back from the relay keep these fields: `player.layout["rows"]`,
+`player.layout["heights"]` and `player.layout["widths"]` (or `"columns"`, `"widths"` and
+`"heights"`), with `null` for a line of equal shares.
 
 ## Gestures
 
@@ -390,8 +413,8 @@ Static helpers that return layout and control `Dictionary`s for `set_layout`. `c
 | Function | Result |
 |---|---|
 | `layout(template, controls: Array)` | A layout: `"primary"`, `"primary-secondary"`, `"pair"`, `"primary-row"` or `"grid"`, and its controls in order. |
-| `rows(counts: Array, controls: Array, heights: Array = [])` | A `"rows"` layout: `counts` controls in each row, top to bottom, with optional relative `heights`. See [Rows and columns](#rows-and-columns). |
-| `columns(counts: Array, controls: Array, widths: Array = [])` | A `"columns"` layout: `counts` controls in each column, left to right, with optional relative `widths`. |
+| `rows(counts: Array, controls: Array, heights: Array = [], widths: Array = [])` | A `"rows"` layout: `counts` controls in each row, top to bottom, with optional relative `heights` and, per row, its controls' relative `widths` (or `null`). See [Rows and columns](#rows-and-columns). |
+| `columns(counts: Array, controls: Array, widths: Array = [], heights: Array = [])` | A `"columns"` layout: `counts` controls in each column, left to right, with optional relative `widths` and, per column, its controls' relative `heights` (or `null`). |
 | `default_layout()` | Primary and Secondary, what phones show until an app sends a layout. |
 | `button(id, label := "", colour = null)` | A button. |
 | `pad(id, label := "", colour = null)` | A big round button, like the default Primary. Presses arrive as a button with this id. |

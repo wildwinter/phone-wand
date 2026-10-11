@@ -54,7 +54,9 @@ When the relay's behaviour changes on purpose, regenerate the files with
 `bun scripts/conformance.ts`, review the diff, and update the client libraries until they pass.
 
 CI runs everything except the Unity editor and Unreal checks, which need the engines installed; run
-those locally before a release.
+those locally before a release. On a Mac whose default Xcode is newer than Unreal supports (Unreal
+5.7 takes Xcode 26 at newest), `scripts/check-unreal.sh` uses an older Xcode installed alongside
+for that run, or the one `DEVELOPER_DIR` names.
 
 ## Testing on phones
 

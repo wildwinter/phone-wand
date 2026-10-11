@@ -259,6 +259,37 @@ Wand->SetLayout(UPhoneWandLibrary::MakeRowsLayout({ 1, 2 }, {
 // Presses of the pad arrive in OnButtonNative with Button == "fire".
 ```
 
+Controls within a line can be uneven too: for `Rows`, the widths of the controls in each row; for
+`Columns`, the heights of the controls in each column. **With Cell Shares**
+(`WithCellShares(Layout, CellShares)`) takes a rows or columns layout and an array of
+`FPhoneWandShares`, one per row or column, each with `Shares`: one relative size per control in
+that line, or empty for equal. It fills `FPhoneWandLayout::CellShares`, which the plugin sends as
+`widths` (rows) or `heights` (columns), a list of lists with `null` for an equal line, and leaves
+out when every line is equal. The relay raises any share under a tenth of the biggest in its line
+to a tenth.
+
+A navigator for one hand: Map and Use top right, a crawl pad two thirds wide in the middle, and a
+Role button bottom right, with spaces keeping the left of the phone clear:
+
+```cpp
+const FPhoneWandLayout Navigator = UPhoneWandLibrary::MakeRowsLayout({ 3, 2, 3 }, {
+    UPhoneWandLibrary::MakeSpace(),
+    UPhoneWandLibrary::MakeButton(TEXT("map"), TEXT("Map")),
+    UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+    UPhoneWandLibrary::MakeSpace(),
+    UPhoneWandLibrary::MakeCrawl(TEXT("nav")),
+    UPhoneWandLibrary::MakeSpace(),
+    UPhoneWandLibrary::MakeSpace(),
+    UPhoneWandLibrary::MakeButton(TEXT("role"), TEXT("Role")),
+}, { 2.0, 3.0, 1.5 });
+// Equal thirds on top, the crawl pad twice the space's width, the bottom row equal.
+Wand->SetLayout(UPhoneWandLibrary::WithCellShares(Navigator, { { 1.0, 1.0, 1.0 }, { 1.0, 2.0 }, {} }));
+```
+
+In Blueprint: **Make Rows Layout** as before, then **With Cell Shares**, its **Cell Shares** a
+**Make Array** of three **Make Phone Wand Shares** (Shares 1, 1, 1; then 1, 2; then left empty),
+then **Set Layout**.
+
 A player that joins later gets the layout you sent to everyone only if you send it again: the
 relay stores a layout per player, so send it from `OnPlayerJoinedNative` too if players come and
 go. Each player's current layout and values are in `FPhoneWandPlayer::Layout` and `Controls`, and
@@ -447,9 +478,10 @@ entirely.
 `FPhoneWandLayout` is a `Template` (`Primary`, `PrimarySecondary`, `Pair`, `PrimaryRow`, `Grid`,
 `Rows` or `Columns`) and `Controls`, an array of `FPhoneWandControl` in order. `FindControl(Id)`
 finds one in C++. For `Rows` and `Columns` only, `Counts` (`TArray<int32>`) holds how many controls
-are in each row or column, and `Sizes` (`TArray<double>`) their relative heights or widths, empty
-for equal (see [Rows and columns](#rows-and-columns)); players' layouts from the relay carry them
-too.
+are in each row or column, `Sizes` (`TArray<double>`) their relative heights or widths, empty
+for equal, and `CellShares` (`TArray<FPhoneWandShares>`) the relative widths within each row or
+heights within each column, an entry with empty `Shares` for equal (see
+[Rows and columns](#rows-and-columns)); players' layouts from the relay carry them too.
 
 | `FPhoneWandControl` field | Meaning |
 |---|---|
@@ -511,6 +543,7 @@ Blueprint function library, also callable from C++.
 | `MakeLayout(Template, Controls)` | A layout. |
 | `MakeRowsLayout(Rows, Controls, Heights)` | A `Rows` layout: controls per row, top to bottom, and relative heights (empty for equal). |
 | `MakeColumnsLayout(Columns, Controls, Widths)` | A `Columns` layout: controls per column, left to right, and relative widths (empty for equal). |
+| `WithCellShares(Layout, CellShares)` | The rows or columns layout with relative widths within each row, or heights within each column (an entry with empty `Shares` for equal). |
 | `DefaultLayout()` | The default layout. |
 | `LayoutToJson(Layout)` | The layout as the JSON the relay receives, for logs. |
 | `MakeControlBool` / `MakeControlNumber` / `MakeControlText` | Values for `SetControl`. |

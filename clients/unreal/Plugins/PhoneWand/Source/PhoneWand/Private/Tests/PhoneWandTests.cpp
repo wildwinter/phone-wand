@@ -662,6 +662,34 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	}, {});
 	Wand->SetLayout(Padded, TEXT("p1"));
 
+	// Uneven shares within a line: nested widths in rows, nested heights in columns, null for equal.
+	const FPhoneWandLayout Navigator = UPhoneWandLibrary::WithCellShares(UPhoneWandLibrary::MakeRowsLayout({ 3, 2, 3 }, {
+		UPhoneWandLibrary::MakeSpace(),
+		UPhoneWandLibrary::MakeButton(TEXT("second"), TEXT("Map")),
+		UPhoneWandLibrary::MakeButton(TEXT("use"), TEXT("Use")),
+		UPhoneWandLibrary::MakeSpace(),
+		UPhoneWandLibrary::MakeCrawl(TEXT("nav")),
+		UPhoneWandLibrary::MakeSpace(),
+		UPhoneWandLibrary::MakeSpace(),
+		UPhoneWandLibrary::MakeButton(TEXT("role"), TEXT("Role")),
+	}, { 2.0, 3.0, 1.5 }), { { 1.0, 1.0, 1.0 }, { 1.0, 2.0 }, {} });
+	PhoneWandTests::ExpectJson(*this, TEXT("rows with widths"), UPhoneWandLibrary::LayoutToJson(Navigator),
+		TEXT("{\"template\":\"rows\",\"controls\":[{\"type\":\"space\"},{\"id\":\"second\",\"type\":\"button\",\"label\":\"Map\"},")
+		TEXT("{\"id\":\"use\",\"type\":\"button\",\"label\":\"Use\"},{\"type\":\"space\"},{\"id\":\"nav\",\"type\":\"crawl\"},")
+		TEXT("{\"type\":\"space\"},{\"type\":\"space\"},{\"id\":\"role\",\"type\":\"button\",\"label\":\"Role\"}],")
+		TEXT("\"rows\":[3,2,3],\"heights\":[2,3,1.5],\"widths\":[[1,1,1],[1,2],null]}"));
+	const FPhoneWandLayout Stacked = UPhoneWandLibrary::WithCellShares(UPhoneWandLibrary::MakeColumnsLayout({ 2, 1 }, {
+		UPhoneWandLibrary::MakeDpad(TEXT("move")),
+		UPhoneWandLibrary::MakeButton(TEXT("jump")),
+		UPhoneWandLibrary::MakeButton(TEXT("fire")),
+	}, { 2.0, 1.0 }), { { 3.0, 1.0 }, {} });
+	PhoneWandTests::ExpectJson(*this, TEXT("columns with heights"), UPhoneWandLibrary::LayoutToJson(Stacked),
+		TEXT("{\"template\":\"columns\",\"controls\":[{\"id\":\"move\",\"type\":\"dpad\"},{\"id\":\"jump\",\"type\":\"button\"},{\"id\":\"fire\",\"type\":\"button\"}],")
+		TEXT("\"columns\":[2,1],\"widths\":[2,1],\"heights\":[[3,1],null]}"));
+	// All equal is the same as none: the field is left out.
+	PhoneWandTests::ExpectJson(*this, TEXT("all equal shares omitted"), UPhoneWandLibrary::LayoutToJson(UPhoneWandLibrary::WithCellShares(Columns, { {}, {} })),
+		UPhoneWandLibrary::LayoutToJson(Columns));
+
 	Wand->ResetLayout(TEXT("p2"));
 	Wand->ResetLayout();
 	Wand->SetControlBool(TEXT("zoom"), false, TEXT("p1"));
@@ -726,7 +754,7 @@ bool FPhoneWandLayoutJsonTest::RunTest(const FString& Parameters)
 	}
 
 	// Reading a layout back gives the same layout, and the same JSON again.
-	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, Rows, Columns, Padded, PhoneWand::DefaultLayout() })
+	for (const FPhoneWandLayout& Layout : { Shooter, Grid, Crawler, Rows, Columns, Padded, Navigator, Stacked, PhoneWand::DefaultLayout() })
 	{
 		const FString Json = UPhoneWandLibrary::LayoutToJson(Layout);
 		const TSharedPtr<FJsonValue> Parsed = PhoneWandTests::ParseValue(Json);
@@ -862,6 +890,24 @@ bool FPhoneWandLayoutClientTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("columns template"), P.Layout.Template, EPhoneWandTemplate::Columns);
 	TestEqual(TEXT("columns counts"), P.Layout.Counts, TArray<int32>({ 2 }));
 	TestEqual(TEXT("columns without widths"), P.Layout.Sizes.Num(), 0);
+	TestEqual(TEXT("columns without heights"), P.Layout.CellShares.Num(), 0);
+
+	// Uneven shares within lines come back too, a null entry as empty shares.
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"rows\",\"rows\":[3,2],\"widths\":[[1,1,1],null],\"controls\":[")
+		TEXT("{\"type\":\"space\"},{\"id\":\"a\",\"type\":\"button\"},{\"id\":\"b\",\"type\":\"button\"},{\"type\":\"space\"},{\"id\":\"nav\",\"type\":\"crawl\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	if (TestEqual(TEXT("rows widths entries"), P.Layout.CellShares.Num(), 2))
+	{
+		TestEqual(TEXT("first row widths"), P.Layout.CellShares[0].Shares, TArray<double>({ 1.0, 1.0, 1.0 }));
+		TestEqual(TEXT("null row is equal"), P.Layout.CellShares[1].Shares.Num(), 0);
+	}
+	TestEqual(TEXT("rows widths without heights"), P.Layout.Sizes.Num(), 0);
+	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"columns\",\"columns\":[2,1],\"widths\":[2,1],\"heights\":[null,[0.5]],\"controls\":[")
+		TEXT("{\"id\":\"a\",\"type\":\"button\"},{\"id\":\"b\",\"type\":\"button\"},{\"id\":\"c\",\"type\":\"button\"}]},\"controls\":{}}}"));
+	Wand->GetPlayer(TEXT("p1"), P);
+	TestTrue(TEXT("columns heights"), P.Layout.CellShares.Num() == 2 && P.Layout.CellShares[0].Shares.Num() == 0
+		&& P.Layout.CellShares[1].Shares.Num() == 1 && FMath::IsNearlyEqual(P.Layout.CellShares[1].Shares[0], 0.5));
+	TestEqual(TEXT("columns widths alongside"), P.Layout.Sizes.Num(), 2);
 
 	// A pad is kept and presses like a button; a space comes back without an id and is not dropped.
 	Wand->HandleMessage(TEXT("{\"type\":\"player\",\"player\":{\"id\":\"p1\",\"layout\":{\"template\":\"rows\",\"rows\":[1,2],\"controls\":[")

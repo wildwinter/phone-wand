@@ -40,12 +40,18 @@ export interface Layout {
   controls: Control[];
   /** "rows" only: how many controls in each row, top (the pointing end) to bottom. 1 to 4 rows of 1 to 4. */
   rows?: number[];
-  /** "rows" only: relative heights of the rows, such as [2, 1]. Equal when left out. */
-  heights?: number[];
+  /**
+   * "rows": relative heights of the rows, such as [2, 1]. "columns": for each column, its controls'
+   * relative heights, or null for equal. Equal when left out.
+   */
+  heights?: number[] | (number[] | null)[];
   /** "columns" only: how many controls in each column, left to right (mirrored for left hands). */
   columns?: number[];
-  /** "columns" only: relative widths of the columns. Equal when left out. */
-  widths?: number[];
+  /**
+   * "columns": relative widths of the columns. "rows": for each row, its controls' relative widths,
+   * or null for equal, such as [null, [1, 2]]. Equal when left out.
+   */
+  widths?: number[] | (number[] | null)[];
 }
 
 export interface PlayerInfo {

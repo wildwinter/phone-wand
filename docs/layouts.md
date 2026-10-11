@@ -37,13 +37,36 @@ wand.layout({
 | `rows: [2, 1]`, `rows: [3, 1]` | The same, the other way round. |
 | `rows: [1, 1, 3], heights: [1, 4, 2]` | A thin strip (a status label, say), a big middle control, and three below. |
 
+Within a row, controls share its width equally unless `widths` says otherwise: one entry per row,
+either the relative widths of that row's controls or `null` for equal shares. This one-handed
+layout keeps everything on the thumb's side, with a big crawl pad:
+
+```js
+wand.layout({
+  template: "rows",
+  rows: [3, 2, 3],
+  heights: [2, 3, 1.5],
+  widths: [[1, 1, 1], [1, 2], null],   // middle row: a space, then the pad at twice its width
+  controls: [
+    { type: "space" }, { id: "map", type: "button", label: "Map" }, { id: "use", type: "button", label: "Use" },
+    { type: "space" }, { id: "walk", type: "crawl" },
+    { type: "space" }, { type: "space" }, { id: "role", type: "button", label: "Role" },
+  ],
+});
+```
+
 `columns` is the same, side by side: `columns` counts the controls in each column from left to
 right, and `widths` sizes them. `columns: [1, 3], widths: [1, 2]` puts a tall, narrow control (a
-vertical slider) beside three stacked ones.
+vertical slider) beside three stacked ones. There, `heights` gives each column's controls their
+share of its height: one entry per column, or `null`.
+
+Sizes are relative, and a share under a tenth of the biggest in its row (or column) is raised to a
+tenth, so nothing shrinks away.
 
 Use a **pad** for the one control the thumb rests on, and a **space** to leave a gap: `rows: [1, 2]`
 with a pad, then a space and a button, puts the smaller button towards the palm, out of the thumb's
-way. For left-handed players the controls in each row, and the columns, swap sides, gaps included.
+way. For left-handed players the controls in each row, and the columns, swap sides, gaps and widths
+included.
 
 ## Presets
 

@@ -14,6 +14,12 @@
 //
 //   wand.SetLayout(Layout.InRows(new[] { 1, 2 },
 //       Control.Pad("fire", "Fire"), Control.Space(), Control.Button("reload", "Reload")));
+//
+//   wand.SetLayout(Layout.InRows(new[] { 3, 2, 3 },
+//       Control.Space(), Control.Button("map", "Map"), Control.Button("use", "Use"),
+//       Control.Space(), Control.Crawl("walk"),
+//       Control.Space(), Control.Space(), Control.Button("role", "Role"))
+//       .WithHeights(2, 3, 1.5).WithRowWidths(new double[] { 1, 1, 1 }, new double[] { 1, 2 }, null));
 
 using System;
 using System.Collections.Generic;
@@ -266,12 +272,22 @@ namespace StoryTools.PhoneWand
         /// </summary>
         public List<double> Heights;
         /// <summary>
+        /// "rows" only: for each row, its controls' relative widths, one positive number per control,
+        /// or null for equal, such as [null, [1, 2]]. Null for equal throughout. Written as "widths".
+        /// </summary>
+        public List<List<double>> CellWidths;
+        /// <summary>
         /// "columns" only: how many controls in each column, left to right (mirrored for left hands).
         /// 1 to 4 columns of 1 to 4, adding up to the number of controls. Null for other templates.
         /// </summary>
         public List<int> Columns;
         /// <summary>"columns" only: relative widths of the columns, as Heights. Null for equal columns.</summary>
         public List<double> Widths;
+        /// <summary>
+        /// "columns" only: for each column, its controls' relative heights, as CellWidths. Null for
+        /// equal throughout. Written as "heights".
+        /// </summary>
+        public List<List<double>> CellHeights;
 
         public Layout()
         {
@@ -310,14 +326,14 @@ namespace StoryTools.PhoneWand
 
         /// <summary>
         /// Controls of any type in rows, top (the pointing end) to bottom: rows says how many in each,
-        /// e.g. InRows(new[] { 1, 3 }, crawl, a, b, c). Set sizes with WithHeights.
+        /// e.g. InRows(new[] { 1, 3 }, crawl, a, b, c). Set sizes with WithHeights and WithRowWidths.
         /// </summary>
         public static Layout InRows(int[] rows, params Control[] controls) =>
             new Layout(LayoutTemplate.Rows, controls) { Rows = new List<int>(rows ?? new int[0]) };
 
         /// <summary>
         /// Controls of any type in columns, left to right (mirrored for left hands): columns says how
-        /// many in each. Set sizes with WithWidths.
+        /// many in each. Set sizes with WithWidths and WithColumnHeights.
         /// </summary>
         public static Layout InColumns(int[] columns, params Control[] controls) =>
             new Layout(LayoutTemplate.Columns, controls) { Columns = new List<int>(columns ?? new int[0]) };
@@ -334,6 +350,35 @@ namespace StoryTools.PhoneWand
         {
             Widths = widths != null ? new List<double>(widths) : null;
             return this;
+        }
+
+        /// <summary>
+        /// Set each row's controls' relative widths, one array per row (null for an equal row), and
+        /// return this layout, for chaining. WithRowWidths(null, new double[] { 1, 2 }) makes the
+        /// second row's second control twice as wide as its first.
+        /// </summary>
+        public Layout WithRowWidths(params double[][] perRow)
+        {
+            CellWidths = Nested(perRow);
+            return this;
+        }
+
+        /// <summary>
+        /// Set each column's controls' relative heights, one array per column (null for an equal
+        /// column), and return this layout, for chaining.
+        /// </summary>
+        public Layout WithColumnHeights(params double[][] perColumn)
+        {
+            CellHeights = Nested(perColumn);
+            return this;
+        }
+
+        static List<List<double>> Nested(double[][] lines)
+        {
+            if (lines == null) return null;
+            var nested = new List<List<double>>();
+            foreach (var line in lines) nested.Add(line != null ? new List<double>(line) : null);
+            return nested;
         }
 
         /// <summary>The control with this id, or null. Spaces without an id are never found.</summary>
@@ -354,9 +399,34 @@ namespace StoryTools.PhoneWand
             var o = new Dictionary<string, object> { { "template", Template ?? "" }, { "controls", controls } };
             if (Rows != null) o["rows"] = Rows.ConvertAll(n => (object)(double)n);
             if (Heights != null) o["heights"] = Heights.ConvertAll(n => (object)n);
+            if (CellWidths != null) o["widths"] = NestedJson(CellWidths);
             if (Columns != null) o["columns"] = Columns.ConvertAll(n => (object)(double)n);
             if (Widths != null) o["widths"] = Widths.ConvertAll(n => (object)n);
+            if (CellHeights != null) o["heights"] = NestedJson(CellHeights);
             return o;
+        }
+
+        static List<object> NestedJson(List<List<double>> lines) =>
+            lines.ConvertAll(line => line != null ? (object)line.ConvertAll(n => (object)n) : null);
+
+        // A list of per-line shares: each entry a list of numbers, or null for equal.
+        static List<List<double>> NestedNumbers(Dictionary<string, object> o, string key)
+        {
+            object v;
+            if (!o.TryGetValue(key, out v) || !(v is List<object> list)) return null;
+            var nested = new List<List<double>>();
+            foreach (var item in list)
+            {
+                if (item is List<object> line)
+                {
+                    var numbers = new List<double>();
+                    foreach (var n in line)
+                        if (n is double d) numbers.Add(d);
+                    nested.Add(numbers);
+                }
+                else nested.Add(null);
+            }
+            return nested;
         }
 
         static List<double> Numbers(Dictionary<string, object> o, string key)
@@ -388,10 +458,13 @@ namespace StoryTools.PhoneWand
             }
             var rows = Numbers(o, "rows");
             if (rows != null) layout.Rows = rows.ConvertAll(n => (int)n);
-            layout.Heights = Numbers(o, "heights");
             var columns = Numbers(o, "columns");
             if (columns != null) layout.Columns = columns.ConvertAll(n => (int)n);
-            layout.Widths = Numbers(o, "widths");
+            // "rows" has flat heights and nested widths; "columns" the other way round.
+            if (layout.Template == LayoutTemplate.Rows) layout.CellWidths = NestedNumbers(o, "widths");
+            else layout.Widths = Numbers(o, "widths");
+            if (layout.Template == LayoutTemplate.Columns) layout.CellHeights = NestedNumbers(o, "heights");
+            else layout.Heights = Numbers(o, "heights");
             return layout;
         }
 

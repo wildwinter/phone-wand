@@ -291,6 +291,28 @@ const SESSIONS: Record<string, () => Line[]> = {
     });
     s.send(1, { type: "button", button: "fire", down: true });
     s.send(1, { type: "button", button: "fire", down: false });
+    // Uneven shares within rows (a one-handed layout: the crawl pad two thirds wide) and columns.
+    s.app({
+      type: "layout", id: "p1",
+      layout: {
+        template: "rows", rows: [3, 2, 3], heights: [2, 3, 1.5], widths: [[1, 1, 1], [1, 2], null],
+        controls: [
+          { type: "space" }, { id: "second", type: "button", label: "Map" }, { id: "use", type: "button", label: "Use" },
+          { type: "space" }, { id: "nav", type: "crawl" },
+          { type: "space" }, { type: "space" }, { id: "role", type: "button", label: "Role" },
+        ],
+      },
+    });
+    s.send(1, { type: "button", button: "nav.turn-right", down: true });
+    s.send(1, { type: "button", button: "nav.turn-right", down: false });
+    s.app({
+      type: "layout", id: "p1",
+      layout: { template: "columns", columns: [2, 1], heights: [[3, 1], null], controls: [{ id: "a", type: "button" }, { id: "b", type: "button" }, { id: "c", type: "pad" }] },
+    });
+    s.app({
+      type: "layout", id: "p1",
+      layout: { template: "rows", rows: [2], widths: [[1]], controls: [{ id: "x", type: "button" }, { id: "y", type: "button" }] },
+    }); // one width for a row of two: error
     s.app({ type: "layout", id: "p1", layout: { template: "rows", rows: [1, 2], controls: [{ id: "x", type: "button" }] } }); // counts don't add up: error
     s.app({ type: "layout", id: "p1", layout: { template: "columns", controls: [{ id: "x", type: "button" }] } }); // no counts: error
     s.app({

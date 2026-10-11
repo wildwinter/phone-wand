@@ -261,6 +261,16 @@ func _check_value_types() -> void:
 		[JSON.stringify(PhoneWandLayout.layout("primary", [PhoneWandLayout.pad("fire")])), '{"controls":[{"id":"fire","type":"pad"}],"template":"primary"}'],
 		[JSON.stringify(PhoneWandLayout.rows([3], [PhoneWandLayout.space(), PhoneWandLayout.pad("fire"), PhoneWandLayout.space()])),
 			'{"controls":[{"type":"space"},{"id":"fire","type":"pad"},{"type":"space"}],"rows":[3],"template":"rows"}'],
+		[JSON.stringify(PhoneWandLayout.rows([3, 2, 3], [
+				PhoneWandLayout.space(), PhoneWandLayout.button("map", "Map"), PhoneWandLayout.button("use", "Use"),
+				PhoneWandLayout.space(), PhoneWandLayout.crawl("walk"),
+				PhoneWandLayout.space(), PhoneWandLayout.space(), PhoneWandLayout.button("role", "Role")],
+				[2, 3, 1.5], [[1, 1, 1], [1, 2], null])),
+			'{"controls":[{"type":"space"},{"id":"map","label":"Map","type":"button"},{"id":"use","label":"Use","type":"button"},{"type":"space"},{"id":"walk","type":"crawl"},{"type":"space"},{"type":"space"},{"id":"role","label":"Role","type":"button"}],"heights":[2,3,1.5],"rows":[3,2,3],"template":"rows","widths":[[1,1,1],[1,2],null]}'],
+		[JSON.stringify(PhoneWandLayout.rows([2], [PhoneWandLayout.button("a"), PhoneWandLayout.button("b")], [], [[1, 3]])),
+			'{"controls":[{"id":"a","type":"button"},{"id":"b","type":"button"}],"rows":[2],"template":"rows","widths":[[1,3]]}'],
+		[JSON.stringify(PhoneWandLayout.columns([1, 2], [PhoneWandLayout.dpad("move"), PhoneWandLayout.button("a"), PhoneWandLayout.button("b")], [2, 1], [null, [3, 1]])),
+			'{"columns":[1,2],"controls":[{"id":"move","type":"dpad"},{"id":"a","type":"button"},{"id":"b","type":"button"}],"heights":[null,[3,1]],"template":"columns","widths":[2,1]}'],
 	]
 	for i in checks.size():
 		if checks[i][0] != checks[i][1]:
@@ -277,6 +287,17 @@ func _check_value_types() -> void:
 	client.handle_message(JSON.stringify({"type": "player", "player": player}))
 	if p.template != "rows" or str(p.layout.get("rows")) != str([1.0, 3.0]) or str(p.layout.get("heights")) != str([3.0, 2.0]):
 		_fail("value types: a player message lost a rows layout's rows or heights: %s" % str(p.layout))
+	# Per-row widths and per-column heights come back too, null entries included.
+	player["layout"] = {"template": "rows", "rows": [1, 2], "heights": [2, 1], "widths": [null, [1, 2]], "controls": [
+		PhoneWandLayout.crawl("walk"), PhoneWandLayout.button("a"), PhoneWandLayout.button("b")]}
+	client.handle_message(JSON.stringify({"type": "player", "player": player}))
+	if str(p.layout.get("widths")) != str([null, [1.0, 2.0]]) or str(p.layout.get("heights")) != str([2.0, 1.0]):
+		_fail("value types: a player message lost a rows layout's per-row widths: %s" % str(p.layout))
+	player["layout"] = {"template": "columns", "columns": [2, 1], "widths": [1, 2], "heights": [[3, 1], null], "controls": [
+		PhoneWandLayout.button("a"), PhoneWandLayout.button("b"), PhoneWandLayout.dpad("move")]}
+	client.handle_message(JSON.stringify({"type": "player", "player": player}))
+	if p.template != "columns" or str(p.layout.get("heights")) != str([[3.0, 1.0], null]) or str(p.layout.get("widths")) != str([1.0, 2.0]):
+		_fail("value types: a player message lost a columns layout's per-column heights: %s" % str(p.layout))
 	# A layout with id-less spaces and a pad: values still apply and spaces match no id.
 	player["layout"] = {"template": "rows", "rows": [2, 2], "controls": [
 		PhoneWandLayout.space(), PhoneWandLayout.pad("fire"), PhoneWandLayout.choice("weapon", ["Bow", "Sling"]), PhoneWandLayout.space()]}
@@ -291,7 +312,7 @@ func _check_value_types() -> void:
 		_fail("value types: a pad press did not arrive as a button")
 	client.free()
 	var verdict := "ok" if _failures == before else "FAILED"
-	print("  control value types: %d checks, %s" % [checks.size() + 4, verdict])
+	print("  control value types: %d checks, %s" % [checks.size() + 6, verdict])
 
 
 # ---------------------------------------------------------------- gestures

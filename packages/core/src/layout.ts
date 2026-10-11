@@ -50,13 +50,30 @@ export interface Layout {
   controls: Control[];
   /** "rows" only: how many controls in each row, top (the pointing end) to bottom. */
   rows?: number[];
-  /** "rows" only: relative heights of the rows. Equal when left out. */
-  heights?: number[];
+  /**
+   * "rows": relative heights of the rows. "columns": for each column, the relative heights of its
+   * controls (or null for equal). Equal when left out.
+   */
+  heights?: number[] | CellSizes;
   /** "columns" only: how many controls in each column, left to right (mirrored for left hands). */
   columns?: number[];
-  /** "columns" only: relative widths of the columns. Equal when left out. */
-  widths?: number[];
+  /**
+   * "columns": relative widths of the columns. "rows": for each row, the relative widths of its
+   * controls (or null for equal). Equal when left out.
+   */
+  widths?: number[] | CellSizes;
 }
+
+/** For each row (or column), its controls' relative sizes, or null for equal shares. */
+export type CellSizes = (number[] | null)[];
+
+/** Relative sizes as given, rounded; none may be under a tenth of the biggest, or it shrinks to nothing. */
+function tidySizes(w: number[]): number[] {
+  const most = Math.max(...w);
+  return w.map((x) => Math.round(Math.max(x, most / 10) * 1000) / 1000);
+}
+
+const positive = (x: unknown): x is number => typeof x === "number" && x > 0 && isFinite(x);
 
 /** Limits for the "rows" and "columns" templates, so every control stays big enough for a thumb. */
 export const MAX_LINES = 4;
@@ -194,12 +211,30 @@ export function validateLayout(raw: unknown): Layout | string {
     shaped[counts] = n as number[];
     const w = (r as Record<string, unknown>)[sizes];
     if (w !== undefined && w !== null) {
-      if (!Array.isArray(w) || w.length !== n.length || !w.every((x) => typeof x === "number" && x > 0 && isFinite(x))) {
+      if (!Array.isArray(w) || w.length !== n.length || !w.every(positive)) {
         return `${sizes} must be ${n.length} positive numbers, one for each of the ${counts}`;
       }
-      // Relative sizes, as given; none may be under a tenth of the biggest, or it shrinks to nothing.
-      const most = Math.max(...(w as number[]));
-      shaped[sizes] = (w as number[]).map((x) => Math.round(Math.max(x, most / 10) * 1000) / 1000);
+      shaped[sizes] = tidySizes(w as number[]);
+    }
+    // Sizes across each line: widths within each row, or heights within each column.
+    const across = template === "rows" ? "widths" : "heights";
+    const c = (r as Record<string, unknown>)[across];
+    if (c !== undefined && c !== null) {
+      const per = template === "rows" ? "row" : "column";
+      if (!Array.isArray(c) || c.length !== n.length) return `${across} must have one entry for each ${per}: ${n.length}`;
+      const cells: CellSizes = [];
+      for (let i = 0; i < c.length; i++) {
+        const line = c[i];
+        if (line === null || line === undefined) {
+          cells.push(null);
+          continue;
+        }
+        if (!Array.isArray(line) || line.length !== (n as number[])[i] || !line.every(positive)) {
+          return `${across} for ${per} ${i + 1} must be ${(n as number[])[i]} positive numbers, or null for equal`;
+        }
+        cells.push(tidySizes(line as number[]));
+      }
+      if (cells.some((x) => x !== null)) shaped[across] = cells;
     }
   }
   if (template.startsWith("primary") && !["button", "pad", "dpad", "crawl"].includes(first)) {
@@ -253,6 +288,8 @@ export interface Arrangement {
   lines: Control[][];
   /** Relative size of each line. */
   sizes: number[];
+  /** Relative sizes of the controls within each line, or null for equal shares. */
+  cells: (number[] | null)[];
 }
 
 /**
@@ -266,14 +303,18 @@ export function arrange(layout: Layout): Arrangement {
     let next = 0;
     return counts.map((n) => controls.slice(next, (next += n)));
   };
-  const sized = (counts: number[], sizes?: number[]) => ({ lines: lines(counts), sizes: sizes ?? counts.map(() => 1) });
+  const sized = (counts: number[], sizes?: number[], cells?: CellSizes) => ({
+    lines: lines(counts),
+    sizes: sizes ?? counts.map(() => 1),
+    cells: cells ?? counts.map(() => null),
+  });
   const n = controls.length;
   if (layout.template.startsWith("primary") && controls[0]?.type === "button") controls[0] = { ...controls[0], type: "pad" };
   switch (layout.template) {
     case "rows":
-      return { columns: false, ...sized(layout.rows ?? [n], layout.heights) };
+      return { columns: false, ...sized(layout.rows ?? [n], layout.heights as number[] | undefined, layout.widths as CellSizes | undefined) };
     case "columns":
-      return { columns: true, ...sized(layout.columns ?? [n], layout.widths) };
+      return { columns: true, ...sized(layout.columns ?? [n], layout.widths as number[] | undefined, layout.heights as CellSizes | undefined) };
     case "pair":
       return { columns: false, ...sized([n]) };
     case "grid": {
