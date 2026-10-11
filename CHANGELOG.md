@@ -7,6 +7,8 @@ the protocol.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-11
+
 ### Added
 
 - Uneven shares within a row: `rows` layouts take an optional `widths`, one entry per row, giving
